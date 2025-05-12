@@ -9,7 +9,75 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      operation_logs: {
+        Row: {
+          created_at: string | null
+          details: Json | null
+          entity_type: string
+          id: string
+          operation_type: string
+          record_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          details?: Json | null
+          entity_type: string
+          id?: string
+          operation_type: string
+          record_id?: string | null
+          status: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          details?: Json | null
+          entity_type?: string
+          id?: string
+          operation_type?: string
+          record_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quickbooks_connections: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          realm_id: string
+          refresh_token: string
+          token_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          realm_id: string
+          refresh_token: string
+          token_type?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          realm_id?: string
+          refresh_token?: string
+          token_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

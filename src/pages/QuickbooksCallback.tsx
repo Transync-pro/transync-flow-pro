@@ -1,0 +1,116 @@
+
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+
+const QuickbooksCallback = () => {
+  const [isProcessing, setIsProcessing] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const handleCallback = async () => {
+      try {
+        // Get URL parameters
+        const params = new URLSearchParams(location.search);
+        const code = params.get("code");
+        const realmId = params.get("realmId");
+        const error = params.get("error");
+
+        if (error) {
+          setError(`Authorization error: ${error}`);
+          return;
+        }
+
+        if (!code || !realmId) {
+          setError("Missing required parameters");
+          return;
+        }
+
+        // Get current user
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData.session?.user;
+
+        if (!user) {
+          setError("You must be signed in to complete this process");
+          setTimeout(() => navigate("/login"), 3000);
+          return;
+        }
+
+        // Call our edge function to exchange the code for tokens
+        const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
+          body: {
+            path: "token",
+            code,
+            redirectUri: window.location.origin + "/dashboard/quickbooks-callback",
+            userId: user.id,
+          },
+        });
+
+        if (invokeError || data.error) {
+          throw new Error(invokeError?.message || data.error || "Failed to complete authentication");
+        }
+
+        toast({
+          title: "Connection Successful",
+          description: "Your QuickBooks account has been connected successfully!",
+        });
+
+        // Redirect to dashboard
+        navigate("/dashboard");
+      } catch (err) {
+        console.error("Error processing callback:", err);
+        setError("Failed to complete QuickBooks connection. Please try again.");
+        toast({
+          title: "Connection Failed",
+          description: "Unable to connect to QuickBooks. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    handleCallback();
+  }, [location, navigate]);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold text-center">QuickBooks Connection</h1>
+        
+        {isProcessing ? (
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <Loader2 className="w-12 h-12 animate-spin text-blue-500" />
+            <p className="text-gray-600 text-center">
+              Completing your QuickBooks connection...
+            </p>
+          </div>
+        ) : error ? (
+          <div className="p-4 rounded-md bg-red-50 text-red-700">
+            <p className="font-medium">Error</p>
+            <p className="text-sm">{error}</p>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Return to Dashboard
+            </button>
+          </div>
+        ) : (
+          <div className="p-4 rounded-md bg-green-50 text-green-700">
+            <p className="font-medium">Success!</p>
+            <p className="text-sm">
+              Your QuickBooks account has been connected successfully. You will be redirected to the dashboard.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default QuickbooksCallback;
