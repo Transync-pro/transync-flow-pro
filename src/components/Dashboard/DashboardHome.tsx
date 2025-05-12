@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowUp, Trash2, Clock } from "lucide-react";
+import { ArrowDown, ArrowUp, Trash2, Clock, Plus } from "lucide-react";
 
 const statsCards = [
   {

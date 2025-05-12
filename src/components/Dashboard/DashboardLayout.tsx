@@ -64,12 +64,13 @@ const DashboardHeader = () => {
 };
 
 const DashboardSidebar = () => {
-  const { collapsed } = useSidebar();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
   
   return (
-    <Sidebar className={collapsed ? "w-16" : "w-64"} collapsible>
+    <Sidebar className={isCollapsed ? "w-16" : "w-64"} collapsible="icon">
       <SidebarContent className="pt-4">
-        <SidebarGroup defaultOpen>
+        <SidebarGroup>
           <SidebarGroupLabel>Data Management</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -77,7 +78,7 @@ const DashboardSidebar = () => {
                 <SidebarMenuButton asChild>
                   <Link to="/dashboard" className="flex items-center">
                     <LayoutDashboard size={20} className="mr-2" />
-                    {!collapsed && <span>Dashboard</span>}
+                    {!isCollapsed && <span>Dashboard</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -85,7 +86,7 @@ const DashboardSidebar = () => {
                 <SidebarMenuButton asChild>
                   <Link to="/dashboard/import" className="flex items-center">
                     <ArrowDown size={20} className="mr-2" />
-                    {!collapsed && <span>Import</span>}
+                    {!isCollapsed && <span>Import</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -93,7 +94,7 @@ const DashboardSidebar = () => {
                 <SidebarMenuButton asChild>
                   <Link to="/dashboard/export" className="flex items-center">
                     <ArrowUp size={20} className="mr-2" />
-                    {!collapsed && <span>Export</span>}
+                    {!isCollapsed && <span>Export</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -101,7 +102,7 @@ const DashboardSidebar = () => {
                 <SidebarMenuButton asChild>
                   <Link to="/dashboard/delete" className="flex items-center">
                     <Trash2 size={20} className="mr-2" />
-                    {!collapsed && <span>Delete</span>}
+                    {!isCollapsed && <span>Delete</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -117,7 +118,7 @@ const DashboardSidebar = () => {
                 <SidebarMenuButton asChild>
                   <Link to="/dashboard/templates" className="flex items-center">
                     <File size={20} className="mr-2" />
-                    {!collapsed && <span>My Templates</span>}
+                    {!isCollapsed && <span>My Templates</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -125,7 +126,7 @@ const DashboardSidebar = () => {
                 <SidebarMenuButton asChild>
                   <Link to="/dashboard/schedule" className="flex items-center">
                     <Calendar size={20} className="mr-2" />
-                    {!collapsed && <span>Scheduled Jobs</span>}
+                    {!isCollapsed && <span>Scheduled Jobs</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -133,7 +134,7 @@ const DashboardSidebar = () => {
                 <SidebarMenuButton asChild>
                   <Link to="/dashboard/completed" className="flex items-center">
                     <Check size={20} className="mr-2" />
-                    {!collapsed && <span>Completed Jobs</span>}
+                    {!isCollapsed && <span>Completed Jobs</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
