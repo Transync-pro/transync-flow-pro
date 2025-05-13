@@ -9,8 +9,8 @@ const corsHeaders = {
 
 const QUICKBOOKS_AUTH_URL = "https://appcenter.intuit.com/connect/oauth2";
 const QUICKBOOKS_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
-const QUICKBOOKS_CLIENT_ID = "ABkr7vCZfrrdI6MerDspezgC2M4Fnu0jlvxo6r1BsGcR5Hj38z";
-const QUICKBOOKS_CLIENT_SECRET = "8AXZtOhs1FcivzOkfhb1kjfIeoZ0YRSRnKpwVGOF";
+const QUICKBOOKS_CLIENT_ID = Deno.env.get("QUICKBOOKS_CLIENT_ID") || "";
+const QUICKBOOKS_CLIENT_SECRET = Deno.env.get("QUICKBOOKS_CLIENT_SECRET") || "";
 const SUPABASE_URL = "https://emxstmqwnozhwbpippon.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const APP_URL = Deno.env.get("APP_URL") || "http://localhost:5173";
