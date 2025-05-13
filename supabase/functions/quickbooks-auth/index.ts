@@ -14,13 +14,6 @@ const QB_CLIENT_SECRET = Deno.env.get('QB_CLIENT_SECRET') || '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
-const oauthClient = new OAuthClient({
-  clientId: QB_CLIENT_ID,
-  clientSecret: QB_CLIENT_SECRET,
-  environment: 'sandbox', // Use 'production' for production
-  redirectUri: '', // This will be set dynamically
-});
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -48,7 +41,15 @@ serve(async (req) => {
         });
       }
 
-      oauthClient.redirectUri = redirectUri;
+      // Create a new OAuth client with the provided redirect URI
+      const oauthClient = new OAuthClient({
+        clientId: QB_CLIENT_ID,
+        clientSecret: QB_CLIENT_SECRET,
+        environment: 'sandbox', // Use 'production' for production
+        redirectUri: redirectUri,
+      });
+
+      // Generate the authorization URL
       const authUri = oauthClient.authorizeUri({
         scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.OpenId, OAuthClient.scopes.Email],
         state: userId,
@@ -71,9 +72,16 @@ serve(async (req) => {
         });
       }
 
-      oauthClient.redirectUri = redirectUri;
+      // Create a new OAuth client with the provided redirect URI
+      const oauthClient = new OAuthClient({
+        clientId: QB_CLIENT_ID,
+        clientSecret: QB_CLIENT_SECRET,
+        environment: 'sandbox', // Use 'production' for production
+        redirectUri: redirectUri,
+      });
 
       try {
+        // Exchange the authorization code for tokens
         const tokenResponse = await oauthClient.createToken(code);
         const { token } = tokenResponse.getJson();
 
@@ -86,17 +94,17 @@ serve(async (req) => {
         oauthClient.setToken(token);
         const companyInfoResponse = await oauthClient.getCompanyInfo(realmId);
         const companyInfo = companyInfoResponse.getJson();
-        const companyName = companyInfo.CompanyInfo.CompanyName;
+        const companyName = companyInfo.CompanyInfo?.CompanyName || null;
 
         // Save tokens and realmId to Supabase
-        const { data, error } = await supabase.from('quickbooks_connections').insert({
+        const { data, error } = await supabase.from('quickbooks_connections').upsert({
           user_id: userId,
           realm_id: realmId,
           access_token: token.access_token,
           refresh_token: token.refresh_token,
           expires_at: expiresAt,
           company_name: companyName,
-        });
+        }, { onConflict: 'user_id' });
 
         if (error) {
           throw error;
@@ -191,6 +199,111 @@ serve(async (req) => {
       try {
         // Call Intuit's token revocation endpoint
         const authHeader = `Basic ${btoa(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`)}`;
+        const revokeResponse = await fetch(`https://developer.api.intuit.com/v2/oauth2/tokens/revoke`, {
+          method: "POST",
+          headers: {
+            ...corsHeaders,
+            "Authorization": authHeader,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({ token })
+        });
+        
+        if (!revokeResponse.ok) {
+          const errorData = await revokeResponse.json();
+          throw new Error(`Token revocation failed: ${JSON.stringify(errorData)}`);
+        }
+        
+        return new Response(JSON.stringify({ success: true, message: "Token successfully revoked" }), {
+          status: 200,
+          headers: corsHeaders
+        });
+      } catch (error) {
+        console.error("Error revoking token:", error);
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: corsHeaders
+        });
+      }
+    }
+
+    // Handle token refresh
+    if (action === "refresh") {
+      const { refreshToken, userId } = requestData;
+      
+      if (!refreshToken || !userId) {
+        return new Response(JSON.stringify({ error: "Refresh token and User ID are required" }), {
+          status: 400,
+          headers: corsHeaders
+        });
+      }
+      
+      try {
+        // Create a new OAuth client for refresh
+        const refreshClient = new OAuthClient({
+          clientId: QB_CLIENT_ID,
+          clientSecret: QB_CLIENT_SECRET,
+          environment: 'sandbox', // Use 'production' for production
+          redirectUri: '', // Not needed for refresh
+        });
+        
+        // Set the refresh token
+        refreshClient.setToken({
+          refresh_token: refreshToken
+        });
+        
+        // Refresh the token
+        const refreshResponse = await refreshClient.refresh();
+        const { token } = refreshResponse.getJson();
+        
+        // Calculate the new expiry date
+        const now = new Date();
+        const expiresInSeconds = token.expires_in;
+        const expiresAt = new Date(now.getTime() + expiresInSeconds * 1000).toISOString();
+        
+        // Update the tokens in Supabase
+        const { data, error } = await supabase
+          .from('quickbooks_connections')
+          .update({
+            access_token: token.access_token,
+            refresh_token: token.refresh_token,
+            expires_at: expiresAt
+          })
+          .eq('user_id', userId)
+          .select();
+        
+        if (error) {
+          throw error;
+        }
+        
+        return new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: corsHeaders
+        });
+      } catch (error) {
+        console.error("Error refreshing token:", error);
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: corsHeaders
+        });
+      }
+    }
+
+    // Handle token revocation
+    if (action === "revoke") {
+      const { token } = requestData;
+      
+      if (!token) {
+        return new Response(JSON.stringify({ error: "Token is required for revocation" }), {
+          status: 400,
+          headers: corsHeaders
+        });
+      }
+      
+      try {
+        // Call Intuit's token revocation endpoint
+        const authHeader = `Basic ${btoa(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`)}`;  
         const revokeResponse = await fetch(`https://developer.api.intuit.com/v2/oauth2/tokens/revoke`, {
           method: "POST",
           headers: {

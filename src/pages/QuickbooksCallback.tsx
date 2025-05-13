@@ -41,10 +41,11 @@ const QuickbooksCallback = () => {
         // Call our edge function to exchange the code for tokens
         const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
           body: {
-            path: "token",
+            action: "callback",
             code,
+            realmId,
+            state: user.id,
             redirectUri: window.location.origin + "/dashboard/quickbooks-callback",
-            userId: user.id,
           },
         });
 
