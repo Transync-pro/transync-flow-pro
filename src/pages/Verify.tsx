@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +19,7 @@ const Verify = () => {
         const hash = location.hash;
         if (hash && hash.includes('access_token')) {
           // Handle the auth redirect (automatically sets session)
-          const { data, error } = await supabase.auth.getSessionFromUrl();
+          const { data, error } = await supabase.auth.getSession();
           
           if (error) {
             console.error("Verification error:", error);

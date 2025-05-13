@@ -172,7 +172,7 @@ const Export = () => {
       
       // Get QuickBooks data
       const accessToken = await getAccessToken();
-      const realmId = getRealmId();
+      const realmId = await getRealmId();
       
       if (!accessToken || !realmId) {
         throw new Error("Failed to get QuickBooks authentication credentials");

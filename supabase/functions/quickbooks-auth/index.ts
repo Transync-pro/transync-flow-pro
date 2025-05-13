@@ -1,7 +1,7 @@
 // supabase/functions/quickbooks-auth/index.ts
 import { serve } from 'std/server';
 import { createClient } from '@supabase/supabase-js';
-import { OAuthClient } from 'intuit-oauth';
+import { OAuthClient } from 'https://esm.sh/intuit-oauth@4.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -111,6 +111,68 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: e.message }), {
           status: 500,
           headers: corsHeaders,
+        });
+      }
+    }
+
+    // Handle token refresh
+    if (action === "refresh") {
+      const { refreshToken, userId } = requestData;
+      
+      if (!refreshToken || !userId) {
+        return new Response(JSON.stringify({ error: "Refresh token and User ID are required" }), {
+          status: 400,
+          headers: corsHeaders
+        });
+      }
+      
+      try {
+        // Create a new OAuth client for refresh
+        const refreshClient = new OAuthClient({
+          clientId: QB_CLIENT_ID,
+          clientSecret: QB_CLIENT_SECRET,
+          environment: 'sandbox', // Use 'production' for production
+          redirectUri: '', // Not needed for refresh
+        });
+        
+        // Set the refresh token
+        refreshClient.setToken({
+          refresh_token: refreshToken
+        });
+        
+        // Refresh the token
+        const refreshResponse = await refreshClient.refresh();
+        const { token } = refreshResponse.getJson();
+        
+        // Calculate the new expiry date
+        const now = new Date();
+        const expiresInSeconds = token.expires_in;
+        const expiresAt = new Date(now.getTime() + expiresInSeconds * 1000).toISOString();
+        
+        // Update the tokens in Supabase
+        const { data, error } = await supabase
+          .from('quickbooks_connections')
+          .update({
+            access_token: token.access_token,
+            refresh_token: token.refresh_token,
+            expires_at: expiresAt
+          })
+          .eq('user_id', userId)
+          .select();
+        
+        if (error) {
+          throw error;
+        }
+        
+        return new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: corsHeaders
+        });
+      } catch (error) {
+        console.error("Error refreshing token:", error);
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: corsHeaders
         });
       }
     }

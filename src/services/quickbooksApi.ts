@@ -1,9 +1,20 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
 // QuickBooks API base URL for sandbox environment
 const API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com";
+
+// Interface for QuickBooks connection
+export interface QBConnection {
+  id: string;
+  user_id: string;
+  realm_id: string;
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  company_name: string | null;
+  created_at: string;
+}
 
 // Function to log operations in Supabase
 export const logOperation = async (
@@ -30,6 +41,75 @@ export const logOperation = async (
     });
   } catch (error) {
     console.error("Error logging operation:", error);
+  }
+};
+
+// Function to get the current user's QuickBooks connection
+export const getQBConnection = async (): Promise<QBConnection | null> => {
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      throw new Error("User not authenticated");
+    }
+    
+    const { data, error } = await supabase
+      .from("quickbooks_connections")
+      .select("*")
+      .eq("user_id", user.user.id)
+      .single();
+    
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No connection found
+        return null;
+      }
+      throw error;
+    }
+    
+    // Check if token is expired and needs refresh
+    const expiresAt = new Date(data.expires_at);
+    const now = new Date();
+    
+    if (expiresAt <= now) {
+      // Token is expired, try to refresh
+      return await refreshQBToken(data);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error("Error getting QuickBooks connection:", error);
+    return null;
+  }
+};
+
+// Function to refresh an expired QuickBooks token
+const refreshQBToken = async (connection: QBConnection): Promise<QBConnection | null> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+      body: { 
+        action: 'refresh',
+        refreshToken: connection.refresh_token,
+        userId: connection.user_id
+      }
+    });
+    
+    if (error) throw error;
+    
+    if (data && data.success) {
+      // Return the updated connection
+      return await getQBConnection();
+    } else {
+      throw new Error("Failed to refresh token");
+    }
+  } catch (error) {
+    console.error("Error refreshing QuickBooks token:", error);
+    toast({
+      title: "Authentication Error",
+      description: "Your QuickBooks session has expired. Please reconnect.",
+      variant: "destructive",
+    });
+    return null;
   }
 };
 

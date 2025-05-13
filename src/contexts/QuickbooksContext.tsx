@@ -1,17 +1,18 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { getQBConnection } from "@/services/quickbooksApi";
+import { getQBConnection, QBConnection } from "@/services/quickbooksApi";
 
 interface QuickbooksContextType {
   isConnected: boolean;
   isLoading: boolean;
   realmId: string | null;
   companyName: string | null;
-  connect: () => Promise<void>;
-  disconnect: () => Promise<void>;
+  connection: QBConnection | null;
+  error: string | null;
+  connectToQuickbooks: () => Promise<void>;
+  disconnectQuickbooks: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   getRealmId: () => Promise<string | null>;
 }
@@ -35,6 +36,8 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [realmId, setRealmId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [connection, setConnection] = useState<QBConnection | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -50,10 +53,12 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     if (!user) return;
     
     setIsLoading(true);
+    setError(null);
     try {
       const connection = await getQBConnection();
       
       if (connection) {
+        setConnection(connection);
         setIsConnected(true);
         setRealmId(connection.realm_id);
         setCompanyName(connection.company_name || null);
@@ -63,6 +68,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     } catch (error) {
       console.error("Error checking QuickBooks connection:", error);
       resetConnectionState();
+      setError("Failed to check QuickBooks connection status.");
       toast({
         title: "Connection Error",
         description: "Failed to check QuickBooks connection status.",
@@ -77,10 +83,11 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     setIsConnected(false);
     setRealmId(null);
     setCompanyName(null);
+    setConnection(null);
   };
 
   // Start OAuth flow to connect to QuickBooks
-  const connect = async () => {
+  const connectToQuickbooks = async () => {
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -90,6 +97,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       return;
     }
 
+    setError(null);
     try {
       // Get the current URL for the redirect
       const redirectUrl = `${window.location.origin}/dashboard/quickbooks-callback`;
@@ -113,6 +121,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       }
     } catch (error) {
       console.error("Error connecting to QuickBooks:", error);
+      setError("Failed to initiate QuickBooks connection.");
       toast({
         title: "Connection Failed",
         description: "Failed to initiate QuickBooks connection.",
@@ -122,9 +131,10 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   };
 
   // Disconnect from QuickBooks
-  const disconnect = async () => {
+  const disconnectQuickbooks = async () => {
     if (!user) return;
 
+    setError(null);
     try {
       // Get access token for revocation
       const token = await getAccessToken();
@@ -164,6 +174,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       
     } catch (error) {
       console.error("Error disconnecting from QuickBooks:", error);
+      setError("Failed to disconnect from QuickBooks.");
       toast({
         title: "Disconnection Failed",
         description: "Failed to disconnect from QuickBooks.",
@@ -195,8 +206,10 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     isLoading,
     realmId,
     companyName,
-    connect,
-    disconnect,
+    connection,
+    error,
+    connectToQuickbooks,
+    disconnectQuickbooks,
     getAccessToken,
     getRealmId,
   };
