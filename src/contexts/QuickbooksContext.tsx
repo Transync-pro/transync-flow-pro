@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "./AuthContext";
 
 interface QuickbooksConnection {
   id: string;
@@ -35,20 +36,15 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Get current user session
-  const getCurrentUser = async () => {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.user;
-  };
+  const { user } = useAuth();
 
   // Load connection status
   const loadConnectionStatus = async () => {
     try {
       setIsLoading(true);
-      const user = await getCurrentUser();
       
       if (!user) {
+        setConnection(null);
         setIsLoading(false);
         return;
       }
@@ -67,7 +63,7 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           console.error("Error fetching QuickBooks connection:", error);
           setError("Failed to load QuickBooks connection status");
         }
-      } else {
+      } else if (data) {
         setConnection({
           id: data.id,
           realm_id: data.realm_id,
@@ -83,25 +79,14 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  // Initialize on component mount
+  // Initialize on component mount or when user changes
   useEffect(() => {
     loadConnectionStatus();
-    
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      loadConnectionStatus();
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+  }, [user]);
 
   // Connect to QuickBooks
   const connectToQuickbooks = async () => {
     try {
-      const user = await getCurrentUser();
-      
       if (!user) {
         toast({
           title: "Authentication Required",
@@ -141,12 +126,23 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Disconnect from QuickBooks
   const disconnectQuickbooks = async () => {
     try {
-      const user = await getCurrentUser();
-      
       if (!user || !connection) {
         return;
       }
       
+      // First, try to revoke the token via edge function
+      try {
+        await supabase.functions.invoke("quickbooks-auth", {
+          body: {
+            path: "revoke",
+            userId: user.id,
+          },
+        });
+      } catch (revokeError) {
+        console.warn("Error revoking token (continuing with disconnect):", revokeError);
+      }
+      
+      // Delete the connection record
       const { error } = await supabase
         .from("quickbooks_connections")
         .delete()
@@ -168,14 +164,13 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         description: "Failed to disconnect from QuickBooks. Please try again.",
         variant: "destructive",
       });
+      throw err;
     }
   };
 
   // Get access token (with automatic refresh if needed)
   const getAccessToken = async (): Promise<string | null> => {
     try {
-      const user = await getCurrentUser();
-      
       if (!user) {
         setError("User not authenticated");
         return null;

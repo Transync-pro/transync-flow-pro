@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QuickbooksProvider } from "@/contexts/QuickbooksContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import RouteGuard from "@/components/RouteGuard";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -13,6 +15,7 @@ import Import from "./pages/Import";
 import Export from "./pages/Export";
 import Delete from "./pages/Delete";
 import QuickbooksCallback from "./pages/QuickbooksCallback";
+import QuickbooksConnectPage from "./components/QuickbooksConnectPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,22 +25,56 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <QuickbooksProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/import" element={<Import />} />
-            <Route path="/dashboard/export" element={<Export />} />
-            <Route path="/dashboard/delete" element={<Delete />} />
-            <Route path="/dashboard/quickbooks-callback" element={<QuickbooksCallback />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </QuickbooksProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <QuickbooksProvider>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              
+              {/* Auth protected routes */}
+              <Route path="/connect-quickbooks" element={
+                <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+                  <QuickbooksConnectPage />
+                </RouteGuard>
+              } />
+              
+              <Route path="/dashboard/quickbooks-callback" element={
+                <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+                  <QuickbooksCallback />
+                </RouteGuard>
+              } />
+              
+              {/* Auth + QuickBooks protected routes */}
+              <Route path="/dashboard" element={
+                <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                  <Dashboard />
+                </RouteGuard>
+              } />
+              <Route path="/dashboard/import" element={
+                <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                  <Import />
+                </RouteGuard>
+              } />
+              <Route path="/dashboard/export" element={
+                <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                  <Export />
+                </RouteGuard>
+              } />
+              <Route path="/dashboard/delete" element={
+                <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                  <Delete />
+                </RouteGuard>
+              } />
+              
+              {/* Catch-all route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </QuickbooksProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

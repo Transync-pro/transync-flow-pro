@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -14,24 +14,23 @@ const Signup = () => {
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { signUp } = useAuth();
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // This would be replaced with actual signup logic
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      toast({
-        title: "Account created",
-        description: "Welcome to TransyncPro! Please check your email to verify your account.",
+    try {
+      // Pass user metadata
+      await signUp(email, password, {
+        full_name: fullName,
+        company_name: companyName
       });
-      
-      // For demo purposes, navigate to login
-      window.location.href = "/login";
-    }, 1500);
+    } catch (error) {
+      console.error("Signup error in component:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

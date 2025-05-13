@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const QUICKBOOKS_AUTH_URL = "https://appcenter.intuit.com/connect/oauth2";
 const QUICKBOOKS_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+const QUICKBOOKS_REVOKE_URL = "https://developer.api.intuit.com/v2/oauth2/tokens/revoke";
 const QUICKBOOKS_CLIENT_ID = Deno.env.get("QUICKBOOKS_CLIENT_ID") || "";
 const QUICKBOOKS_CLIENT_SECRET = Deno.env.get("QUICKBOOKS_CLIENT_SECRET") || "";
 const SUPABASE_URL = "https://emxstmqwnozhwbpippon.supabase.co";
@@ -216,6 +217,59 @@ serve(async (req) => {
           token_type: refreshData.token_type,
           realmId: connection.realm_id,
         }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Step 4: Revoke tokens
+    if (path === "revoke") {
+      const { userId } = await req.json();
+      
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: "User ID is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Get existing connection
+      const { data: connection, error: fetchError } = await supabase
+        .from("quickbooks_connections")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+      
+      if (fetchError || !connection) {
+        return new Response(
+          JSON.stringify({ error: "No QuickBooks connection found for this user" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Revoke the refresh token
+      const revokeResponse = await fetch(QUICKBOOKS_REVOKE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${btoa(`${QUICKBOOKS_CLIENT_ID}:${QUICKBOOKS_CLIENT_SECRET}`)}`,
+        },
+        body: JSON.stringify({
+          token: connection.refresh_token,
+        }),
+      });
+      
+      // Check response (note: a 200 response means success even if the body is empty)
+      if (!revokeResponse.ok) {
+        console.error("Error revoking token:", await revokeResponse.text());
+        return new Response(
+          JSON.stringify({ error: "Failed to revoke token with QuickBooks" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Return success response
+      return new Response(
+        JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

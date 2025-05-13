@@ -1,13 +1,25 @@
 
 import { useState } from "react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle, Link } from "lucide-react";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { AlertCircle, CheckCircle, Link, LogOut } from "lucide-react";
 import { format } from "date-fns";
 
 const QuickbooksConnect = () => {
@@ -22,6 +34,8 @@ const QuickbooksConnect = () => {
     disconnectQuickbooks,
     isConnected,
   } = useQuickbooks();
+
+  const { user } = useAuth();
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -73,17 +87,40 @@ const QuickbooksConnect = () => {
               <div className="mt-2 space-y-2">
                 <p>Company ID: {connection?.realm_id}</p>
                 <p>Connected until: {format(new Date(connection?.expires_at || ""), "PPP pp")}</p>
+                {user && <p>Connected as: {user.email}</p>}
               </div>
             </AlertDescription>
           </Alert>
-          <Button
-            onClick={handleDisconnect}
-            className="mt-2"
-            variant="outline"
-            disabled={isDisconnecting}
-          >
-            {isDisconnecting ? "Disconnecting..." : "Disconnect QuickBooks"}
-          </Button>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                className="mt-2 flex items-center"
+                variant="outline"
+                disabled={isDisconnecting}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                {isDisconnecting ? "Disconnecting..." : "Disconnect QuickBooks"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Disconnect from QuickBooks?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will remove your connection to QuickBooks. You'll need to re-authenticate to use QuickBooks features again.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDisconnect}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Disconnect
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       ) : (
         <div>

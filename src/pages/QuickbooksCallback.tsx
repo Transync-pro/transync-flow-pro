@@ -2,14 +2,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -30,10 +32,6 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        // Get current user
-        const { data: sessionData } = await supabase.auth.getSession();
-        const user = sessionData.session?.user;
-
         if (!user) {
           setError("You must be signed in to complete this process");
           setTimeout(() => navigate("/login"), 3000);
@@ -50,8 +48,8 @@ const QuickbooksCallback = () => {
           },
         });
 
-        if (invokeError || data.error) {
-          throw new Error(invokeError?.message || data.error || "Failed to complete authentication");
+        if (invokeError || data?.error) {
+          throw new Error(invokeError?.message || data?.error || "Failed to complete authentication");
         }
 
         toast({
@@ -74,8 +72,22 @@ const QuickbooksCallback = () => {
       }
     };
 
-    handleCallback();
-  }, [location, navigate]);
+    if (user) {
+      handleCallback();
+    } else {
+      // If no user, wait briefly then check again
+      const timer = setTimeout(() => {
+        if (user) {
+          handleCallback();
+        } else {
+          setError("Authentication required");
+          navigate("/login");
+        }
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [location, navigate, user]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100">
@@ -94,10 +106,10 @@ const QuickbooksCallback = () => {
             <p className="font-medium">Error</p>
             <p className="text-sm">{error}</p>
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/connect-quickbooks")}
               className="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              Return to Dashboard
+              Try Again
             </button>
           </div>
         ) : (
