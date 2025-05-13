@@ -101,22 +101,36 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     try {
       // Get the current URL for the redirect
       const redirectUrl = `${window.location.origin}/dashboard/quickbooks-callback`;
+      console.log("Starting QuickBooks connection with redirect URL:", redirectUrl);
+      console.log("User ID:", user.id);
+      
+      // Prepare request body
+      const requestBody = { 
+        action: 'authorize',
+        redirectUri: redirectUrl,
+        userId: user.id 
+      };
+      console.log("Sending request to quickbooks-auth edge function:", requestBody);
       
       // Call the edge function to start OAuth flow
-      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
-        body: { 
-          action: 'authorize',
-          redirectUri: redirectUrl,
-          userId: user.id 
-        }
+      const response = await supabase.functions.invoke('quickbooks-auth', {
+        body: requestBody
       });
+      
+      console.log("Edge function response:", response);
+      const { data, error } = response;
 
-      if (error) throw error;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw error;
+      }
       
       if (data && data.authUrl) {
+        console.log("Received authorization URL:", data.authUrl);
         // Redirect to QuickBooks authorization page
         window.location.href = data.authUrl;
       } else {
+        console.error("No authorization URL in response:", data);
         throw new Error('Failed to get authorization URL');
       }
     } catch (error) {
