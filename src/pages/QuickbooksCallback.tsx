@@ -20,7 +20,6 @@ const QuickbooksCallback = () => {
         const params = new URLSearchParams(location.search);
         const code = params.get("code");
         const realmId = params.get("realmId");
-        const state = params.get("state"); // User ID should be in state parameter
         const error = params.get("error");
 
         if (error) {
@@ -39,98 +38,18 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        console.log("QuickBooks callback parameters:", { code, realmId, state, userId: user.id });
-        const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
-        console.log("Using redirect URI:", redirectUri);
-        
-        // Verify the state matches the user ID for security
-        if (state !== user.id) {
-          console.warn("State parameter does not match user ID", { state, userId: user.id });
-          // Continue anyway for now, but this is a potential security issue
-        }
-        
-        // APPROACH 1: Try edge function first
-        try {
-          console.log("Attempting to use edge function for token exchange...");
-          const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
-            body: {
-              action: "callback",
-              code,
-              realmId,
-              state: user.id,
-              redirectUri: redirectUri,
-            },
-          });
-          
-          console.log("Edge function response:", { data, error: invokeError });
-  
-          if (invokeError || data?.error) {
-            console.error("Edge function error:", invokeError || data?.error);
-            throw new Error("Edge function failed"); // This will trigger the direct approach
-          }
-          
-          // If we got here, edge function worked
-          console.log("Edge function successful!");
-          
-        } catch (edgeFunctionError) {
-          // APPROACH 2: Fall back to storing tokens directly to the database
-          console.log("Edge function failed. Falling back to direct database storage");
-          
-          // Get client credentials from environment
-          const clientId = import.meta.env.VITE_QUICKBOOKS_CLIENT_ID;
-          const clientSecret = import.meta.env.VITE_QUICKBOOKS_CLIENT_SECRET;
-          
-          if (!clientId || !clientSecret) {
-            throw new Error("QuickBooks credentials not configured");
-          }
-          
-          // Exchange the code for tokens directly
-          console.log("Exchanging code for tokens directly");
-          const tokenEndpoint = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
-          
-          const tokenResponse = await fetch(tokenEndpoint, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              "Authorization": `Basic ${btoa(`${clientId}:${clientSecret}`)}`
-            },
-            body: new URLSearchParams({
-              grant_type: "authorization_code",
-              code,
-              redirect_uri: redirectUri
-            })
-          });
-          
-          if (!tokenResponse.ok) {
-            const errorText = await tokenResponse.text();
-            console.error("Token exchange failed:", errorText);
-            throw new Error(`Token exchange failed: ${tokenResponse.status} ${errorText}`);
-          }
-          
-          const tokenData = await tokenResponse.json();
-          console.log("Token exchange successful!", { tokenReceived: !!tokenData.access_token });
-          
-          // Calculate token expiration
-          const expiresAt = new Date();
-          expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expires_in);
-          
-          // Store tokens in the database
-          const { error: dbError } = await supabase.from("quickbooks_connections").upsert({
-            user_id: user.id,
-            realm_id: realmId,
-            access_token: tokenData.access_token,
-            refresh_token: tokenData.refresh_token,
-            token_type: tokenData.token_type,
-            expires_at: expiresAt.toISOString(),
-            updated_at: new Date().toISOString()
-          }, { onConflict: "user_id" });
-          
-          if (dbError) {
-            console.error("Error storing tokens in database:", dbError);
-            throw new Error("Failed to store QuickBooks connection");
-          }
-          
-          console.log("QuickBooks connection stored successfully!");
+        // Call our edge function to exchange the code for tokens
+        const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
+          body: {
+            path: "token",
+            code,
+            redirectUri: window.location.origin + "/dashboard/quickbooks-callback",
+            userId: user.id,
+          },
+        });
+
+        if (invokeError || data?.error) {
+          throw new Error(invokeError?.message || data?.error || "Failed to complete authentication");
         }
 
         toast({

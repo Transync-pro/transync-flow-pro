@@ -1,18 +1,17 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { getQBConnection, QBConnection } from "@/services/quickbooksApi";
+import { getQBConnection } from "@/services/quickbooksApi";
 
 interface QuickbooksContextType {
   isConnected: boolean;
   isLoading: boolean;
   realmId: string | null;
   companyName: string | null;
-  connection: QBConnection | null;
-  error: string | null;
-  connectToQuickbooks: () => Promise<void>;
-  disconnectQuickbooks: () => Promise<void>;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   getRealmId: () => Promise<string | null>;
 }
@@ -36,8 +35,6 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [realmId, setRealmId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
-  const [connection, setConnection] = useState<QBConnection | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -53,12 +50,10 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     if (!user) return;
     
     setIsLoading(true);
-    setError(null);
     try {
       const connection = await getQBConnection();
       
       if (connection) {
-        setConnection(connection);
         setIsConnected(true);
         setRealmId(connection.realm_id);
         setCompanyName(connection.company_name || null);
@@ -68,7 +63,6 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     } catch (error) {
       console.error("Error checking QuickBooks connection:", error);
       resetConnectionState();
-      setError("Failed to check QuickBooks connection status.");
       toast({
         title: "Connection Error",
         description: "Failed to check QuickBooks connection status.",
@@ -83,11 +77,10 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     setIsConnected(false);
     setRealmId(null);
     setCompanyName(null);
-    setConnection(null);
   };
 
   // Start OAuth flow to connect to QuickBooks
-  const connectToQuickbooks = async () => {
+  const connect = async () => {
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -97,38 +90,29 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       return;
     }
 
-    setError(null);
     try {
-      // DIRECT URL APPROACH - No Edge Function
+      // Get the current URL for the redirect
       const redirectUrl = `${window.location.origin}/dashboard/quickbooks-callback`;
-      console.log("Starting QuickBooks connection with redirect URL:", redirectUrl);
       
-      // Create a state value for user identification in the callback
-      const state = user.id;
+      // Call the edge function to start OAuth flow
+      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+        body: { 
+          action: 'authorize',
+          redirectUri: redirectUrl,
+          userId: user.id 
+        }
+      });
+
+      if (error) throw error;
       
-      // Get client ID from environment
-      const clientId = import.meta.env.VITE_QUICKBOOKS_CLIENT_ID;
-      console.log("Using QuickBooks Client ID:", clientId ? "[ID Present]" : "[MISSING]");
-      
-      if (!clientId) {
-        throw new Error('QuickBooks Client ID not configured');
+      if (data && data.authUrl) {
+        // Redirect to QuickBooks authorization page
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error('Failed to get authorization URL');
       }
-      
-      // Construct auth URL directly
-      const authUrl = `https://appcenter.intuit.com/connect/oauth2` +
-        `?client_id=${clientId}` +
-        `&response_type=code` +
-        `&scope=com.intuit.quickbooks.accounting openid` +
-        `&redirect_uri=${encodeURIComponent(redirectUrl)}` +
-        `&state=${encodeURIComponent(state)}`;
-      
-      console.log("Generated QuickBooks auth URL:", authUrl);
-      
-      // Redirect to QuickBooks
-      window.location.href = authUrl;
     } catch (error) {
       console.error("Error connecting to QuickBooks:", error);
-      setError("Failed to initiate QuickBooks connection.");
       toast({
         title: "Connection Failed",
         description: "Failed to initiate QuickBooks connection.",
@@ -138,10 +122,9 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   };
 
   // Disconnect from QuickBooks
-  const disconnectQuickbooks = async () => {
+  const disconnect = async () => {
     if (!user) return;
 
-    setError(null);
     try {
       // Get access token for revocation
       const token = await getAccessToken();
@@ -181,7 +164,6 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       
     } catch (error) {
       console.error("Error disconnecting from QuickBooks:", error);
-      setError("Failed to disconnect from QuickBooks.");
       toast({
         title: "Disconnection Failed",
         description: "Failed to disconnect from QuickBooks.",
@@ -213,10 +195,8 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     isLoading,
     realmId,
     companyName,
-    connection,
-    error,
-    connectToQuickbooks,
-    disconnectQuickbooks,
+    connect,
+    disconnect,
     getAccessToken,
     getRealmId,
   };

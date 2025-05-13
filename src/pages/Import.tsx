@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import EntitySelection, { Entity } from "@/components/EntitySelection/EntitySelection";
@@ -192,10 +193,10 @@ const Import = () => {
     
     try {
       const accessToken = await getAccessToken();
-      const realmId = await getRealmId();
+      const realmId = getRealmId();
       
       if (!accessToken || !realmId) {
-        throw new Error("Failed to get QuickBooks authentication credentials");
+        throw new Error("QuickBooks authentication failed");
       }
       
       const entityName = selectedEntities[0]?.name.replace(/\s+&\s+/g, '') || '';

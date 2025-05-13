@@ -1,376 +1,174 @@
 // supabase/functions/quickbooks-auth/index.ts
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { OAuthClient } from "https://esm.sh/intuit-oauth@4.0.0";
+import { serve } from 'std/server';
+import { createClient } from '@supabase/supabase-js';
+import { OAuthClient } from 'intuit-oauth';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
-// Standard OAuth2 endpoints for QuickBooks
-const QUICKBOOKS_CLIENT_ID = Deno.env.get("QUICKBOOKS_CLIENT_ID") || "";
-const QUICKBOOKS_CLIENT_SECRET = Deno.env.get("QUICKBOOKS_CLIENT_SECRET") || "";
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const APP_URL = Deno.env.get("APP_URL") || "https://preview--transync-flow-pro.lovable.app";
-const QUICKBOOKS_ENVIRONMENT = Deno.env.get("QUICKBOOKS_ENVIRONMENT") || "sandbox"; // 'sandbox' or 'production'
+const QB_CLIENT_ID = Deno.env.get('QB_CLIENT_ID') || '';
+const QB_CLIENT_SECRET = Deno.env.get('QB_CLIENT_SECRET') || '';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
-// Create Supabase client with service role key
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-console.log("Edge function loaded with environment:", {
-  CLIENT_ID_EXISTS: !!QUICKBOOKS_CLIENT_ID,
-  CLIENT_SECRET_EXISTS: !!QUICKBOOKS_CLIENT_SECRET,
-  SUPABASE_URL_EXISTS: !!SUPABASE_URL,
-  SERVICE_ROLE_KEY_EXISTS: !!SUPABASE_SERVICE_ROLE_KEY,
-  APP_URL,
-  QUICKBOOKS_ENVIRONMENT
+const oauthClient = new OAuthClient({
+  clientId: QB_CLIENT_ID,
+  clientSecret: QB_CLIENT_SECRET,
+  environment: 'sandbox', // Use 'production' for production
+  redirectUri: '', // This will be set dynamically
 });
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  console.log(`QuickBooks auth function called: ${req.method} ${new URL(req.url).pathname}`);
-  
   try {
-    // Parse request body
-    let body = {};
-    if (req.method !== "GET") {
-      try {
-        body = await req.json();
-        console.log("Request body:", JSON.stringify(body));
-      } catch (e) {
-        console.error("Error parsing request body:", e);
-      }
-    }
-    
-    const { action } = body as any;
-    
-    // === STEP 1: AUTHORIZE - Generate QuickBooks authorization URL ===
-    if (action === "authorize") {
-      console.log("Processing authorize action");
-      
-      const redirectUri = (body as any).redirectUri || `${APP_URL}/dashboard/quickbooks-callback`;
-      
-      // Validate environment
-      if (!QUICKBOOKS_CLIENT_ID || !QUICKBOOKS_CLIENT_SECRET) {
-        console.error("Missing QuickBooks credentials:", {
-          clientIdExists: !!QUICKBOOKS_CLIENT_ID,
-          clientSecretExists: !!QUICKBOOKS_CLIENT_SECRET
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: { Authorization: req.headers.get('Authorization')! },
+      },
+    });
+
+    const requestData = await req.json();
+    const { action } = requestData;
+
+    // Handle authorization request
+    if (action === 'authorize') {
+      const { redirectUri, userId } = requestData;
+
+      if (!redirectUri || !userId) {
+        return new Response(JSON.stringify({ error: 'Redirect URI and User ID are required' }), {
+          status: 400,
+          headers: corsHeaders,
         });
-        return new Response(
-          JSON.stringify({ 
-            error: "Missing QuickBooks API credentials. Check server environment variables." 
-          }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
       }
-      
-      // Create OAuth client
-      const oauthClient = new OAuthClient({
-        clientId: QUICKBOOKS_CLIENT_ID,
-        clientSecret: QUICKBOOKS_CLIENT_SECRET,
-        environment: QUICKBOOKS_ENVIRONMENT,
-        redirectUri: redirectUri,
-      });
-      
-      // Generate authorization URL with mandatory scopes
-      const state = crypto.randomUUID();
+
+      oauthClient.redirectUri = redirectUri;
       const authUri = oauthClient.authorizeUri({
-        scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.OpenId],
-        state: state
+        scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.OpenId, OAuthClient.scopes.Email],
+        state: userId,
       });
-      
-      console.log("Generated authorization URL:", authUri);
-      
-      return new Response(
-        JSON.stringify({ authUrl: authUri, state }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+
+      return new Response(JSON.stringify({ authUrl: authUri }), {
+        status: 200,
+        headers: corsHeaders,
+      });
     }
-    
-    // === STEP 2: CALLBACK - Exchange code for tokens ===
-    if (action === "callback") {
-      console.log("Processing callback action");
-      
-      const { code, realmId, state: userId, redirectUri } = body as any;
-      
-      console.log("Callback parameters:", { 
-        codeExists: !!code, 
-        realmId, 
-        userId, 
-        redirectUri 
-      });
-      
-      if (!code || !realmId || !userId) {
-        console.error("Missing required callback parameters");
-        return new Response(
-          JSON.stringify({ error: "Missing required parameters (code, realmId, state)" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+
+    // Handle callback from QuickBooks
+    if (action === 'callback') {
+      const { code, realmId, state: userId, redirectUri } = requestData;
+
+      if (!code || !realmId || !userId || !redirectUri) {
+        return new Response(JSON.stringify({ error: 'Code, Realm ID, User ID, and Redirect URI are required' }), {
+          status: 400,
+          headers: corsHeaders,
+        });
       }
-      
-      // Create OAuth client
-      const oauthClient = new OAuthClient({
-        clientId: QUICKBOOKS_CLIENT_ID,
-        clientSecret: QUICKBOOKS_CLIENT_SECRET,
-        environment: QUICKBOOKS_ENVIRONMENT,
-        redirectUri: redirectUri || `${APP_URL}/dashboard/quickbooks-callback`,
-      });
-      
+
+      oauthClient.redirectUri = redirectUri;
+
       try {
-        // Exchange authorization code for tokens
-        console.log("Exchanging code for tokens...");
         const tokenResponse = await oauthClient.createToken(code);
-        console.log("Token response received:", !!tokenResponse);
-        
-        const tokenData = tokenResponse.getJson();
-        const token = tokenData.token;
-        
-        if (!token || !token.access_token) {
-          throw new Error("Invalid token response from QuickBooks");
-        }
-        
-        console.log("Token acquired:", {
-          accessTokenExists: !!token.access_token,
-          refreshTokenExists: !!token.refresh_token,
-          expiresIn: token.expires_in
+        const { token } = tokenResponse.getJson();
+
+        // Calculate the expiry date
+        const now = new Date();
+        const expiresInSeconds = token.expires_in;
+        const expiresAt = new Date(now.getTime() + expiresInSeconds * 1000).toISOString();
+
+        // Fetch company info
+        oauthClient.setToken(token);
+        const companyInfoResponse = await oauthClient.getCompanyInfo(realmId);
+        const companyInfo = companyInfoResponse.getJson();
+        const companyName = companyInfo.CompanyInfo.CompanyName;
+
+        // Save tokens and realmId to Supabase
+        const { data, error } = await supabase.from('quickbooks_connections').insert({
+          user_id: userId,
+          realm_id: realmId,
+          access_token: token.access_token,
+          refresh_token: token.refresh_token,
+          expires_at: expiresAt,
+          company_name: companyName,
         });
-        
-        // Calculate expiry date
-        const expiresAt = new Date();
-        expiresAt.setSeconds(expiresAt.getSeconds() + token.expires_in);
-        
-        // Fetch company info when possible
-        let companyName = null;
-        try {
-          oauthClient.setToken(token);
-          const companyInfoResponse = await oauthClient.getCompanyInfo(realmId);
-          const companyInfo = companyInfoResponse.getJson();
-          companyName = companyInfo.CompanyInfo?.CompanyName || null;
-          console.log("Company name retrieved:", companyName);
-        } catch (companyError) {
-          console.warn("Failed to fetch company info:", companyError);
-          // Continue despite this error
-        }
-        
-        // Store connection in database
-        const { data, error } = await supabase
-          .from("quickbooks_connections")
-          .upsert({
-            user_id: userId,
-            realm_id: realmId,
-            access_token: token.access_token,
-            refresh_token: token.refresh_token,
-            expires_at: expiresAt.toISOString(),
-            company_name: companyName,
-            updated_at: new Date().toISOString()
-          }, { onConflict: "user_id" })
-          .select();
-        
+
         if (error) {
-          console.error("Database error storing connection:", error);
-          throw new Error(`Failed to store QuickBooks connection: ${error.message}`);
+          throw error;
         }
-        
-        console.log("Connection stored successfully");
-        
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            realmId,
-            companyName
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      } catch (error) {
-        console.error("Token exchange error:", error);
-        return new Response(
-          JSON.stringify({ 
-            error: "Failed to exchange authorization code for tokens", 
-            details: error.message 
-          }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+
+        return new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: corsHeaders,
+        });
+      } catch (e) {
+        console.error('Error during token creation or saving:', e);
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500,
+          headers: corsHeaders,
+        });
       }
     }
-    
-    // === STEP 3: REFRESH - Refresh access token ===
-    if (action === "refresh") {
-      console.log("Processing refresh action");
-      
-      const { userId } = body as any;
-      
-      if (!userId) {
-        return new Response(
-          JSON.stringify({ error: "User ID is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Get existing connection
-      const { data: connection, error: fetchError } = await supabase
-        .from("quickbooks_connections")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
-      
-      if (fetchError || !connection) {
-        console.error("No QuickBooks connection found:", fetchError);
-        return new Response(
-          JSON.stringify({ error: "No QuickBooks connection found for this user" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      try {
-        // Create OAuth client for refresh
-        const refreshClient = new OAuthClient({
-          clientId: QUICKBOOKS_CLIENT_ID,
-          clientSecret: QUICKBOOKS_CLIENT_SECRET,
-          environment: QUICKBOOKS_ENVIRONMENT,
-          redirectUri: `${APP_URL}/dashboard/quickbooks-callback`,
-        });
-        
-        // Set token for refresh
-        refreshClient.setToken({
-          refresh_token: connection.refresh_token,
-          access_token: connection.access_token
-        });
-        
-        // Refresh token
-        console.log("Refreshing token...");
-        const refreshResponse = await refreshClient.refresh();
-        const tokenData = refreshResponse.getJson();
-        const token = tokenData.token;
-        
-        if (!token || !token.access_token) {
-          throw new Error("Invalid refresh response from QuickBooks");
-        }
-        
-        console.log("Token refreshed successfully");
-        
-        // Calculate new expiry
-        const expiresAt = new Date();
-        expiresAt.setSeconds(expiresAt.getSeconds() + token.expires_in);
-        
-        // Update tokens in database
-        const { error: updateError } = await supabase
-          .from("quickbooks_connections")
-          .update({
-            access_token: token.access_token,
-            refresh_token: token.refresh_token,
-            expires_at: expiresAt.toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq("user_id", userId);
-        
-        if (updateError) {
-          console.error("Error updating tokens:", updateError);
-          throw new Error(`Failed to update tokens: ${updateError.message}`);
-        }
-        
-        return new Response(
-          JSON.stringify({
-            success: true,
-            access_token: token.access_token,
-            expires_at: expiresAt.toISOString()
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      } catch (error) {
-        console.error("Error refreshing token:", error);
-        return new Response(
-          JSON.stringify({ error: "Failed to refresh token", details: error.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-    
-    // === STEP 4: REVOKE - Revoke access ===
+
+    // Handle token revocation
     if (action === "revoke") {
-      console.log("Processing revoke action");
+      const { token } = requestData;
       
-      const { userId } = body as any;
-      
-      if (!userId) {
-        return new Response(
-          JSON.stringify({ error: "User ID is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Get existing connection
-      const { data: connection, error: fetchError } = await supabase
-        .from("quickbooks_connections")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
-      
-      if (fetchError || !connection) {
-        console.error("No QuickBooks connection found:", fetchError);
-        return new Response(
-          JSON.stringify({ error: "No QuickBooks connection found for this user" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (!token) {
+        return new Response(JSON.stringify({ error: "Token is required for revocation" }), {
+          status: 400,
+          headers: corsHeaders
+        });
       }
       
       try {
-        // Create OAuth client for revocation
-        const oauthClient = new OAuthClient({
-          clientId: QUICKBOOKS_CLIENT_ID,
-          clientSecret: QUICKBOOKS_CLIENT_SECRET,
-          environment: QUICKBOOKS_ENVIRONMENT,
-          redirectUri: `${APP_URL}/dashboard/quickbooks-callback`,
+        // Call Intuit's token revocation endpoint
+        const authHeader = `Basic ${btoa(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`)}`;
+        const revokeResponse = await fetch(`https://developer.api.intuit.com/v2/oauth2/tokens/revoke`, {
+          method: "POST",
+          headers: {
+            ...corsHeaders,
+            "Authorization": authHeader,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({ token })
         });
         
-        // Revoke tokens
-        console.log("Revoking token...");
-        await oauthClient.revoke(connection.access_token);
-        console.log("Token revoked successfully");
-        
-        // Delete connection from database
-        const { error: deleteError } = await supabase
-          .from("quickbooks_connections")
-          .delete()
-          .eq("user_id", userId);
-        
-        if (deleteError) {
-          console.error("Error deleting connection:", deleteError);
+        if (!revokeResponse.ok) {
+          const errorData = await revokeResponse.json();
+          throw new Error(`Token revocation failed: ${JSON.stringify(errorData)}`);
         }
         
-        return new Response(
-          JSON.stringify({ success: true }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ success: true, message: "Token successfully revoked" }), {
+          status: 200,
+          headers: corsHeaders
+        });
       } catch (error) {
         console.error("Error revoking token:", error);
-        return new Response(
-          JSON.stringify({ error: "Failed to revoke token", details: error.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: corsHeaders
+        });
       }
     }
-    
-    // Unhandled action
-    return new Response(
-      JSON.stringify({ error: "Invalid action", validActions: ["authorize", "callback", "refresh", "revoke"] }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-    
+
+    // If no action is matched
+    return new Response(JSON.stringify({ error: 'Invalid action' }), {
+      status: 400,
+      headers: corsHeaders,
+    });
+
   } catch (error) {
-    console.error("Server error:", error);
-    return new Response(
-      JSON.stringify({ 
-        error: "Internal server error", 
-        details: error.message || String(error)
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error('Function error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 });

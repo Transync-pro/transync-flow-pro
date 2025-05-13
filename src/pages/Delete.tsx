@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import EntitySelection, { Entity } from "@/components/EntitySelection/EntitySelection";
@@ -99,7 +100,7 @@ const Delete = () => {
   const fetchRecordsInDateRange = async () => {
     try {
       const accessToken = await getAccessToken();
-      const realmId = await getRealmId();
+      const realmId = getRealmId();
       
       if (!accessToken || !realmId) {
         throw new Error("QuickBooks authentication failed");
@@ -215,7 +216,7 @@ const Delete = () => {
     
     try {
       const accessToken = await getAccessToken();
-      const realmId = await getRealmId();
+      const realmId = getRealmId();
       
       if (!accessToken || !realmId) {
         throw new Error("QuickBooks authentication failed");
