@@ -43,6 +43,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Don't navigate here - that's handled by the sign-in function
         } else if (event === 'SIGNED_OUT') {
           navigate('/login');
+        } else if (event === 'USER_UPDATED') {
+          // Check if email was just verified
+          const emailVerified = currentSession?.user?.email_confirmed_at;
+          if (emailVerified) {
+            toast({
+              title: "Email Verified",
+              description: "Your email has been successfully verified."
+            });
+          }
         }
       }
     );
@@ -90,11 +99,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUp = async (email: string, password: string, metadata?: object) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      // Get the verification redirect URL based on current environment
+      const redirectTo = `${window.location.origin}/verify`;
+
+      const { error, data } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: metadata,
+          emailRedirectTo: redirectTo
         },
       });
 
@@ -102,14 +115,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
 
+      // Check if email verification is required
+      if (data?.user?.identities?.length === 0) {
+        toast({
+          title: "Account already exists",
+          description: "Please login instead or reset your password.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       toast({
         title: "Account created",
         description: "Please check your email to verify your account."
       });
 
-      // After signup, we'll check if email verification is required
-      // For this demo, we'll auto-navigate to dashboard
-      navigate('/dashboard');
+      // Navigate to verification page
+      navigate('/verify');
     } catch (error) {
       toast({
         title: "Sign up failed",

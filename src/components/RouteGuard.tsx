@@ -9,12 +9,14 @@ interface RouteGuardProps {
   children: ReactNode;
   requiresAuth?: boolean;
   requiresQuickbooks?: boolean;
+  isPublicOnly?: boolean;
 }
 
 const RouteGuard = ({ 
   children, 
   requiresAuth = true, 
-  requiresQuickbooks = false 
+  requiresQuickbooks = false,
+  isPublicOnly = false
 }: RouteGuardProps) => {
   const { user, isLoading: isAuthLoading } = useAuth();
   const { isConnected, isLoading: isQbLoading } = useQuickbooks();
@@ -36,13 +38,18 @@ const RouteGuard = ({
     );
   }
 
+  // Redirect authenticated users away from public-only pages (login, signup, etc.)
+  if (isPublicOnly && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Redirect unauthenticated users from protected pages to login
   if (requiresAuth && !user) {
-    // Redirect to login if authentication is required but user is not logged in
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Redirect users without QuickBooks connection to the connect page
   if (requiresQuickbooks && !isConnected) {
-    // Redirect to QuickBooks connect page if QuickBooks connection is required but not connected
     return <Navigate to="/connect-quickbooks" state={{ from: location }} replace />;
   }
 

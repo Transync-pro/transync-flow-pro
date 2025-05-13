@@ -3,3 +3,4 @@ project_id = "emxstmqwnozhwbpippon"
 
 [functions.quickbooks-auth]
 verify_jwt = true
+

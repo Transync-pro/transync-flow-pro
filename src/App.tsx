@@ -7,9 +7,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QuickbooksProvider } from "@/contexts/QuickbooksContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import RouteGuard from "@/components/RouteGuard";
+
+// Pages
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Verify from "./pages/Verify";
 import Dashboard from "./pages/Dashboard";
 import Import from "./pages/Import";
 import Export from "./pages/Export";
@@ -31,8 +34,21 @@ const App = () => (
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
+              <Route path="/login" element={
+                <RouteGuard requiresAuth={false} isPublicOnly={true}>
+                  <Login />
+                </RouteGuard>
+              } />
+              <Route path="/signup" element={
+                <RouteGuard requiresAuth={false} isPublicOnly={true}>
+                  <Signup />
+                </RouteGuard>
+              } />
+              <Route path="/verify" element={
+                <RouteGuard requiresAuth={false} isPublicOnly={false}>
+                  <Verify />
+                </RouteGuard>
+              } />
               
               {/* Auth protected routes */}
               <Route path="/connect-quickbooks" element={

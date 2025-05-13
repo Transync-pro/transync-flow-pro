@@ -1,25 +1,19 @@
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import { useAuth } from "./AuthContext";
-
-interface QuickbooksConnection {
-  id: string;
-  realm_id: string;
-  connected: boolean;
-  expires_at: string;
-}
+import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { getQBConnection } from "@/services/quickbooksApi";
 
 interface QuickbooksContextType {
-  connection: QuickbooksConnection | null;
-  isLoading: boolean;
-  error: string | null;
-  connectToQuickbooks: () => Promise<void>;
-  disconnectQuickbooks: () => Promise<void>;
-  getAccessToken: () => Promise<string | null>;
-  getRealmId: () => string | null;
   isConnected: boolean;
+  isLoading: boolean;
+  realmId: string | null;
+  companyName: string | null;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  getAccessToken: () => Promise<string | null>;
+  getRealmId: () => Promise<string | null>;
 }
 
 const QuickbooksContext = createContext<QuickbooksContextType | null>(null);
@@ -32,188 +26,179 @@ export const useQuickbooks = () => {
   return context;
 };
 
-export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
+interface QuickbooksProviderProps {
+  children: ReactNode;
+}
+
+export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children }) => {
+  const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [realmId, setRealmId] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Load connection status
-  const loadConnectionStatus = async () => {
+  useEffect(() => {
+    if (user) {
+      checkConnectionStatus();
+    } else {
+      resetConnectionState();
+      setIsLoading(false);
+    }
+  }, [user]);
+  
+  const checkConnectionStatus = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
     try {
-      setIsLoading(true);
+      const connection = await getQBConnection();
       
-      if (!user) {
-        setConnection(null);
-        setIsLoading(false);
-        return;
+      if (connection) {
+        setIsConnected(true);
+        setRealmId(connection.realm_id);
+        setCompanyName(connection.company_name || null);
+      } else {
+        resetConnectionState();
       }
-
-      const { data, error } = await supabase
-        .from("quickbooks_connections")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (error) {
-        if (error.code === "PGRST116") {
-          // No connection found, this is normal for new users
-          setConnection(null);
-        } else {
-          console.error("Error fetching QuickBooks connection:", error);
-          setError("Failed to load QuickBooks connection status");
-        }
-      } else if (data) {
-        setConnection({
-          id: data.id,
-          realm_id: data.realm_id,
-          connected: true,
-          expires_at: data.expires_at,
-        });
-      }
-    } catch (err) {
-      console.error("Unexpected error:", err);
-      setError("An unexpected error occurred");
+    } catch (error) {
+      console.error("Error checking QuickBooks connection:", error);
+      resetConnectionState();
+      toast({
+        title: "Connection Error",
+        description: "Failed to check QuickBooks connection status.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Initialize on component mount or when user changes
-  useEffect(() => {
-    loadConnectionStatus();
-  }, [user]);
+  const resetConnectionState = () => {
+    setIsConnected(false);
+    setRealmId(null);
+    setCompanyName(null);
+  };
 
-  // Connect to QuickBooks
-  const connectToQuickbooks = async () => {
-    try {
-      if (!user) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to connect to QuickBooks",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Get the authorization URL from our edge function
-      const response = await supabase.functions.invoke("quickbooks-auth", {
-        body: {
-          path: "authorize",
-          searchParams: {
-            user_id: user.id,
-          },
-        },
+  // Start OAuth flow to connect to QuickBooks
+  const connect = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in before connecting to QuickBooks.",
+        variant: "destructive",
       });
+      return;
+    }
+
+    try {
+      // Get the current URL for the redirect
+      const redirectUrl = `${window.location.origin}/dashboard/quickbooks-callback`;
       
-      if (response.error) {
-        throw new Error(response.error.message || "Failed to start QuickBooks authorization");
+      // Call the edge function to start OAuth flow
+      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+        body: { 
+          action: 'authorize',
+          redirectUri: redirectUrl,
+          userId: user.id 
+        }
+      });
+
+      if (error) throw error;
+      
+      if (data && data.authUrl) {
+        // Redirect to QuickBooks authorization page
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error('Failed to get authorization URL');
       }
-      
-      // Redirect to QuickBooks authorization page
-      window.location.href = response.data.url;
-    } catch (err) {
-      console.error("Error connecting to QuickBooks:", err);
-      setError("Failed to connect to QuickBooks");
+    } catch (error) {
+      console.error("Error connecting to QuickBooks:", error);
       toast({
         title: "Connection Failed",
-        description: "Unable to connect to QuickBooks. Please try again.",
+        description: "Failed to initiate QuickBooks connection.",
         variant: "destructive",
       });
     }
   };
 
   // Disconnect from QuickBooks
-  const disconnectQuickbooks = async () => {
+  const disconnect = async () => {
+    if (!user) return;
+
     try {
-      if (!user || !connection) {
-        return;
+      // Get access token for revocation
+      const token = await getAccessToken();
+      
+      if (!token) {
+        throw new Error("No access token available");
       }
       
-      // First, try to revoke the token via edge function
-      try {
-        await supabase.functions.invoke("quickbooks-auth", {
-          body: {
-            path: "revoke",
-            userId: user.id,
-          },
-        });
-      } catch (revokeError) {
-        console.warn("Error revoking token (continuing with disconnect):", revokeError);
+      // Call our edge function to revoke the token with Intuit
+      const { error: revokeError } = await supabase.functions.invoke('quickbooks-auth', {
+        body: { 
+          action: 'revoke',
+          token 
+        }
+      });
+      
+      if (revokeError) {
+        console.warn("Error revoking token:", revokeError);
+        // Continue with disconnection even if revocation fails
       }
       
-      // Delete the connection record
-      const { error } = await supabase
-        .from("quickbooks_connections")
+      // Delete the connection from our database
+      const { error: deleteError } = await supabase
+        .from('quickbooks_connections')
         .delete()
-        .eq("user_id", user.id);
+        .eq('user_id', user.id);
       
-      if (error) {
-        throw error;
-      }
+      if (deleteError) throw deleteError;
       
-      setConnection(null);
+      // Reset local state
+      resetConnectionState();
+      
       toast({
         title: "Disconnected",
-        description: "Your QuickBooks connection has been removed.",
+        description: "QuickBooks account has been disconnected successfully.",
       });
-    } catch (err) {
-      console.error("Error disconnecting from QuickBooks:", err);
+      
+    } catch (error) {
+      console.error("Error disconnecting from QuickBooks:", error);
       toast({
-        title: "Error",
-        description: "Failed to disconnect from QuickBooks. Please try again.",
+        title: "Disconnection Failed",
+        description: "Failed to disconnect from QuickBooks.",
         variant: "destructive",
       });
-      throw err;
     }
   };
 
-  // Get access token (with automatic refresh if needed)
+  // Get access token for API calls
   const getAccessToken = async (): Promise<string | null> => {
+    if (!user) return null;
+
     try {
-      if (!user) {
-        setError("User not authenticated");
-        return null;
-      }
-      
-      // Call our edge function to handle token refresh if needed
-      const response = await supabase.functions.invoke("quickbooks-auth", {
-        body: {
-          path: "refresh",
-          userId: user.id,
-        },
-      });
-      
-      if (response.error) {
-        throw new Error(response.error.message || "Failed to get access token");
-      }
-      
-      return response.data.access_token;
-    } catch (err) {
-      console.error("Error getting access token:", err);
-      setError("Failed to get access token");
+      const connection = await getQBConnection();
+      return connection?.access_token || null;
+    } catch (error) {
+      console.error("Error getting access token:", error);
       return null;
     }
   };
 
-  // Get realm ID
-  const getRealmId = (): string | null => {
-    if (!connection) {
-      return null;
-    }
-    return connection.realm_id;
+  // Get realm ID for API calls
+  const getRealmId = async (): Promise<string | null> => {
+    return realmId;
   };
 
-  // Value to be provided to consumers
-  const value = {
-    connection,
+  const value: QuickbooksContextType = {
+    isConnected,
     isLoading,
-    error,
-    connectToQuickbooks,
-    disconnectQuickbooks,
+    realmId,
+    companyName,
+    connect,
+    disconnect,
     getAccessToken,
     getRealmId,
-    isConnected: !!connection?.connected,
   };
 
   return (

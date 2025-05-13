@@ -1,288 +1,174 @@
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// supabase/functions/quickbooks-auth/index.ts
+import { serve } from 'std/server';
+import { createClient } from '@supabase/supabase-js';
+import { OAuthClient } from 'intuit-oauth';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
-const QUICKBOOKS_AUTH_URL = "https://appcenter.intuit.com/connect/oauth2";
-const QUICKBOOKS_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
-const QUICKBOOKS_REVOKE_URL = "https://developer.api.intuit.com/v2/oauth2/tokens/revoke";
-const QUICKBOOKS_CLIENT_ID = Deno.env.get("QUICKBOOKS_CLIENT_ID") || "";
-const QUICKBOOKS_CLIENT_SECRET = Deno.env.get("QUICKBOOKS_CLIENT_SECRET") || "";
-const SUPABASE_URL = "https://emxstmqwnozhwbpippon.supabase.co";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const APP_URL = Deno.env.get("APP_URL") || "http://localhost:5173";
+const QB_CLIENT_ID = Deno.env.get('QB_CLIENT_ID') || '';
+const QB_CLIENT_SECRET = Deno.env.get('QB_CLIENT_SECRET') || '';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
-// Create a Supabase client with the service role key for admin access
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const oauthClient = new OAuthClient({
+  clientId: QB_CLIENT_ID,
+  clientSecret: QB_CLIENT_SECRET,
+  environment: 'sandbox', // Use 'production' for production
+  redirectUri: '', // This will be set dynamically
+});
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const url = new URL(req.url);
-    const path = url.pathname.split("/").pop();
-
-    // Step 1: Generate authorization URL
-    if (path === "authorize") {
-      const { searchParams } = await req.json();
-      const state = crypto.randomUUID();
-      const redirectUri = `${APP_URL}/dashboard/quickbooks-callback`;
-      
-      const authorizationUrl = new URL(QUICKBOOKS_AUTH_URL);
-      authorizationUrl.searchParams.append("client_id", QUICKBOOKS_CLIENT_ID);
-      authorizationUrl.searchParams.append("response_type", "code");
-      authorizationUrl.searchParams.append("scope", "com.intuit.quickbooks.accounting");
-      authorizationUrl.searchParams.append("redirect_uri", redirectUri);
-      authorizationUrl.searchParams.append("state", state);
-      
-      // Add any additional parameters provided by the client
-      if (searchParams) {
-        for (const [key, value] of Object.entries(searchParams)) {
-          if (value) authorizationUrl.searchParams.append(key, value as string);
-        }
-      }
-      
-      return new Response(JSON.stringify({ url: authorizationUrl.toString() }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    
-    // Step 2: Handle the token exchange
-    if (path === "token") {
-      const { code, redirectUri, userId } = await req.json();
-      
-      if (!code || !userId) {
-        return new Response(
-          JSON.stringify({ error: "Authorization code and user ID are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Exchange code for tokens
-      const tokenResponse = await fetch(QUICKBOOKS_TOKEN_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${btoa(`${QUICKBOOKS_CLIENT_ID}:${QUICKBOOKS_CLIENT_SECRET}`)}`,
-        },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          code,
-          redirect_uri: redirectUri || `${APP_URL}/dashboard/quickbooks-callback`,
-        }),
-      });
-      
-      const tokenData = await tokenResponse.json();
-      
-      if (tokenData.error) {
-        return new Response(
-          JSON.stringify({ error: tokenData.error, description: tokenData.error_description }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Calculate token expiration
-      const expiresAt = new Date();
-      expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expires_in);
-      
-      // Store tokens in the database
-      const { data: connectionData, error: connectionError } = await supabase
-        .from("quickbooks_connections")
-        .upsert({
-          user_id: userId,
-          realm_id: tokenData.realmId,
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token,
-          token_type: tokenData.token_type,
-          expires_at: expiresAt.toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id" })
-        .select();
-      
-      if (connectionError) {
-        console.error("Error storing tokens:", connectionError);
-        return new Response(
-          JSON.stringify({ error: "Failed to store tokens" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          realmId: tokenData.realmId,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    // Step 3: Refresh tokens
-    if (path === "refresh") {
-      const { userId } = await req.json();
-      
-      if (!userId) {
-        return new Response(
-          JSON.stringify({ error: "User ID is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Get existing tokens
-      const { data: connection, error: fetchError } = await supabase
-        .from("quickbooks_connections")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
-      
-      if (fetchError || !connection) {
-        return new Response(
-          JSON.stringify({ error: "No QuickBooks connection found for this user" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Check if token needs refresh
-      const now = new Date();
-      const expiresAt = new Date(connection.expires_at);
-      
-      // If token is not expired yet, return the current one
-      if (expiresAt > now) {
-        return new Response(
-          JSON.stringify({
-            access_token: connection.access_token,
-            token_type: connection.token_type,
-            realmId: connection.realm_id,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Refresh the token
-      const refreshResponse = await fetch(QUICKBOOKS_TOKEN_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${btoa(`${QUICKBOOKS_CLIENT_ID}:${QUICKBOOKS_CLIENT_SECRET}`)}`,
-        },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: connection.refresh_token,
-        }),
-      });
-      
-      const refreshData = await refreshResponse.json();
-      
-      if (refreshData.error) {
-        console.error("Error refreshing token:", refreshData);
-        return new Response(
-          JSON.stringify({ error: refreshData.error, description: refreshData.error_description }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Calculate new expiration
-      const newExpiresAt = new Date();
-      newExpiresAt.setSeconds(newExpiresAt.getSeconds() + refreshData.expires_in);
-      
-      // Update tokens in database
-      const { error: updateError } = await supabase
-        .from("quickbooks_connections")
-        .update({
-          access_token: refreshData.access_token,
-          refresh_token: refreshData.refresh_token,
-          token_type: refreshData.token_type,
-          expires_at: newExpiresAt.toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
-      
-      if (updateError) {
-        console.error("Error updating tokens:", updateError);
-        return new Response(
-          JSON.stringify({ error: "Failed to update tokens" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({
-          access_token: refreshData.access_token,
-          token_type: refreshData.token_type,
-          realmId: connection.realm_id,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    // Step 4: Revoke tokens
-    if (path === "revoke") {
-      const { userId } = await req.json();
-      
-      if (!userId) {
-        return new Response(
-          JSON.stringify({ error: "User ID is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Get existing connection
-      const { data: connection, error: fetchError } = await supabase
-        .from("quickbooks_connections")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
-      
-      if (fetchError || !connection) {
-        return new Response(
-          JSON.stringify({ error: "No QuickBooks connection found for this user" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Revoke the refresh token
-      const revokeResponse = await fetch(QUICKBOOKS_REVOKE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${btoa(`${QUICKBOOKS_CLIENT_ID}:${QUICKBOOKS_CLIENT_SECRET}`)}`,
-        },
-        body: JSON.stringify({
-          token: connection.refresh_token,
-        }),
-      });
-      
-      // Check response (note: a 200 response means success even if the body is empty)
-      if (!revokeResponse.ok) {
-        console.error("Error revoking token:", await revokeResponse.text());
-        return new Response(
-          JSON.stringify({ error: "Failed to revoke token with QuickBooks" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Return success response
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    return new Response(JSON.stringify({ error: "Not found" }), { 
-      status: 404,
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: { Authorization: req.headers.get('Authorization')! },
+      },
     });
+
+    const requestData = await req.json();
+    const { action } = requestData;
+
+    // Handle authorization request
+    if (action === 'authorize') {
+      const { redirectUri, userId } = requestData;
+
+      if (!redirectUri || !userId) {
+        return new Response(JSON.stringify({ error: 'Redirect URI and User ID are required' }), {
+          status: 400,
+          headers: corsHeaders,
+        });
+      }
+
+      oauthClient.redirectUri = redirectUri;
+      const authUri = oauthClient.authorizeUri({
+        scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.OpenId, OAuthClient.scopes.Email],
+        state: userId,
+      });
+
+      return new Response(JSON.stringify({ authUrl: authUri }), {
+        status: 200,
+        headers: corsHeaders,
+      });
+    }
+
+    // Handle callback from QuickBooks
+    if (action === 'callback') {
+      const { code, realmId, state: userId, redirectUri } = requestData;
+
+      if (!code || !realmId || !userId || !redirectUri) {
+        return new Response(JSON.stringify({ error: 'Code, Realm ID, User ID, and Redirect URI are required' }), {
+          status: 400,
+          headers: corsHeaders,
+        });
+      }
+
+      oauthClient.redirectUri = redirectUri;
+
+      try {
+        const tokenResponse = await oauthClient.createToken(code);
+        const { token } = tokenResponse.getJson();
+
+        // Calculate the expiry date
+        const now = new Date();
+        const expiresInSeconds = token.expires_in;
+        const expiresAt = new Date(now.getTime() + expiresInSeconds * 1000).toISOString();
+
+        // Fetch company info
+        oauthClient.setToken(token);
+        const companyInfoResponse = await oauthClient.getCompanyInfo(realmId);
+        const companyInfo = companyInfoResponse.getJson();
+        const companyName = companyInfo.CompanyInfo.CompanyName;
+
+        // Save tokens and realmId to Supabase
+        const { data, error } = await supabase.from('quickbooks_connections').insert({
+          user_id: userId,
+          realm_id: realmId,
+          access_token: token.access_token,
+          refresh_token: token.refresh_token,
+          expires_at: expiresAt,
+          company_name: companyName,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        return new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: corsHeaders,
+        });
+      } catch (e) {
+        console.error('Error during token creation or saving:', e);
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500,
+          headers: corsHeaders,
+        });
+      }
+    }
+
+    // Handle token revocation
+    if (action === "revoke") {
+      const { token } = requestData;
+      
+      if (!token) {
+        return new Response(JSON.stringify({ error: "Token is required for revocation" }), {
+          status: 400,
+          headers: corsHeaders
+        });
+      }
+      
+      try {
+        // Call Intuit's token revocation endpoint
+        const authHeader = `Basic ${btoa(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`)}`;
+        const revokeResponse = await fetch(`https://developer.api.intuit.com/v2/oauth2/tokens/revoke`, {
+          method: "POST",
+          headers: {
+            ...corsHeaders,
+            "Authorization": authHeader,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({ token })
+        });
+        
+        if (!revokeResponse.ok) {
+          const errorData = await revokeResponse.json();
+          throw new Error(`Token revocation failed: ${JSON.stringify(errorData)}`);
+        }
+        
+        return new Response(JSON.stringify({ success: true, message: "Token successfully revoked" }), {
+          status: 200,
+          headers: corsHeaders
+        });
+      } catch (error) {
+        console.error("Error revoking token:", error);
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: corsHeaders
+        });
+      }
+    }
+
+    // If no action is matched
+    return new Response(JSON.stringify({ error: 'Invalid action' }), {
+      status: 400,
+      headers: corsHeaders,
+    });
+
   } catch (error) {
-    console.error("Server error:", error);
-    return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error('Function error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 });
