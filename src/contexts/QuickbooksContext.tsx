@@ -99,7 +99,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
 
     setError(null);
     try {
-      // DIRECT URL APPROACH (Temporarily bypass edge function for testing)
+      // DIRECT URL APPROACH - No Edge Function
       const redirectUrl = `${window.location.origin}/dashboard/quickbooks-callback`;
       console.log("Starting QuickBooks connection with redirect URL:", redirectUrl);
       
@@ -108,6 +108,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       
       // Get client ID from environment
       const clientId = import.meta.env.VITE_QUICKBOOKS_CLIENT_ID;
+      console.log("Using QuickBooks Client ID:", clientId ? "[ID Present]" : "[MISSING]");
       
       if (!clientId) {
         throw new Error('QuickBooks Client ID not configured');
@@ -125,40 +126,6 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       
       // Redirect to QuickBooks
       window.location.href = authUrl;
-      
-      /* EDGE FUNCTION APPROACH (Uncomment when edge function is fixed)
-      const requestBody = { 
-        action: 'authorize',
-        redirectUri: redirectUrl
-      };
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quickbooks-auth`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabase.auth.getSession()?.access_token}`
-          },
-          body: JSON.stringify(requestBody)
-        }
-      );
-      
-      if (!response.ok) {
-        console.error("Error response:", await response.text());
-        throw new Error(`HTTP error ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log("Response data:", data);
-      
-      if (data && data.authUrl) {
-        console.log("Received authorization URL:", data.authUrl);
-        window.location.href = data.authUrl;
-      } else {
-        throw new Error('Failed to get authorization URL');
-      }
-      */
     } catch (error) {
       console.error("Error connecting to QuickBooks:", error);
       setError("Failed to initiate QuickBooks connection.");
