@@ -1,8 +1,8 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import EntitySelection, { Entity } from "@/components/EntitySelection/EntitySelection";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
@@ -13,6 +13,12 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { AlertTriangle, Calendar as CalendarIcon, Trash, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { 
+  queryQuickbooksData, 
+  deleteQuickbooksEntity, 
+  logOperation 
+} from "@/services/quickbooksApi";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +50,7 @@ type RecordData = {
   date: string;
   amount?: string;
   status?: string;
+  [key: string]: any;  // Allow any other properties
 };
 
 const Delete = () => {
@@ -54,14 +61,28 @@ const Delete = () => {
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [recordCount, setRecordCount] = useState<number>(0);
   const [previewRecords, setPreviewRecords] = useState<RecordData[]>([]);
+  const [recordsToDelete, setRecordsToDelete] = useState<RecordData[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [deleteProgress, setDeleteProgress] = useState<number>(0);
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [deleteResults, setDeleteResults] = useState({ total: 0, success: 0, error: 0, skipped: 0 });
-
+  const [confirmationText, setConfirmationText] = useState<string>("");
+  
+  // Get QuickBooks connection from context
+  const { getAccessToken, getRealmId, isConnected } = useQuickbooks();
+  
   const recordsPerPage = 5;
 
   const handleEntitySelection = (entities: Entity[]) => {
+    if (!isConnected) {
+      toast({
+        title: "QuickBooks Connection Required",
+        description: "Please connect to QuickBooks before proceeding.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setSelectedEntities(entities);
     setShowWarningDialog(true);
   };
@@ -75,55 +96,98 @@ const Delete = () => {
     setStep("configure");
   };
 
-  const handleDateRangeChange = () => {
-    if (!dateRange.from || !dateRange.to) {
+  // Function to fetch records from QuickBooks based on date range
+  const fetchRecordsInDateRange = async () => {
+    try {
+      const accessToken = await getAccessToken();
+      const realmId = getRealmId();
+      
+      if (!accessToken || !realmId) {
+        throw new Error("QuickBooks authentication failed");
+      }
+      
+      if (!selectedEntities[0]) {
+        throw new Error("No entity selected");
+      }
+      
+      const entityName = selectedEntities[0].name.replace(/\s+&\s+/g, '');
+      
+      // Prepare date condition for the query
+      let dateCondition = "";
+      if (dateRange.from || dateRange.to) {
+        if (dateRange.from && dateRange.to) {
+          dateCondition = `MetaData.CreateTime >= '${format(dateRange.from, "yyyy-MM-dd")}' AND MetaData.CreateTime <= '${format(dateRange.to, "yyyy-MM-dd")}'`;
+        } else if (dateRange.from) {
+          dateCondition = `MetaData.CreateTime >= '${format(dateRange.from, "yyyy-MM-dd")}'`;
+        } else if (dateRange.to) {
+          dateCondition = `MetaData.CreateTime <= '${format(dateRange.to, "yyyy-MM-dd")}'`;
+        }
+      }
+      
+      // Query QuickBooks API
+      const response = await queryQuickbooksData(
+        accessToken,
+        realmId,
+        entityName,
+        ['*'],
+        dateCondition
+      );
+      
+      // Transform response into our RecordData format
+      let records: RecordData[] = [];
+      const responseKey = `${entityName}`;
+      
+      if (response && response.QueryResponse && response.QueryResponse[responseKey]) {
+        records = response.QueryResponse[responseKey].map((item: any) => {
+          const record: RecordData = {
+            id: item.Id,
+            name: item.DisplayName || item.DocNumber || item.Name || `${entityName} #${item.Id}`,
+            date: item.MetaData?.CreateTime ? format(new Date(item.MetaData.CreateTime), "PP") : 'Unknown',
+          };
+          
+          // Add entity-specific fields
+          if (entityName === "Invoice") {
+            record.amount = item.TotalAmt ? `$${item.TotalAmt}` : undefined;
+            record.status = item.Balance === 0 ? "Paid" : item.Balance === item.TotalAmt ? "Unpaid" : "Partial";
+          } else if (entityName === "Item") {
+            record.amount = item.UnitPrice ? `$${item.UnitPrice}` : undefined;
+          }
+          
+          // Store the original item for later use
+          record.original = item;
+          
+          return record;
+        });
+      }
+      
+      setRecordCount(records.length);
+      setPreviewRecords(records);
+      setRecordsToDelete(records);
+      
+      return records;
+    } catch (error) {
+      console.error("Error fetching QuickBooks records:", error);
       toast({
-        title: "Date Range Required",
-        description: "Please select a complete date range.",
+        title: "Error Fetching Records",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+      return [];
+    }
+  };
+
+  const handleDateRangeChange = async () => {
+    const records = await fetchRecordsInDateRange();
+    
+    if (records.length === 0) {
+      toast({
+        title: "No Records Found",
+        description: "No records match your criteria. Try adjusting your date range.",
         variant: "destructive",
       });
       return;
     }
-
-    // Simulate fetching record count and preview records
-    const mockCount = Math.floor(Math.random() * 100) + 20;
-    setRecordCount(mockCount);
     
-    // Generate mock preview records based on selected entities
-    const mockRecords: RecordData[] = [];
-    
-    for (let i = 0; i < 15; i++) {
-      if (selectedEntities.some(e => e.name === "Invoices")) {
-        mockRecords.push({
-          id: `INV-${1000 + i}`,
-          name: `Invoice #${1000 + i}`,
-          date: format(new Date(2024, 4, i + 1), "PP"),
-          amount: `$${(Math.random() * 1000).toFixed(2)}`,
-          status: i % 3 === 0 ? "Paid" : i % 3 === 1 ? "Unpaid" : "Overdue"
-        });
-      } else if (selectedEntities.some(e => e.name === "Customers")) {
-        mockRecords.push({
-          id: `CUST-${1000 + i}`,
-          name: `Customer ${i + 1}`,
-          date: format(new Date(2024, 3, i + 1), "PP")
-        });
-      } else if (selectedEntities.some(e => e.name === "Products & Services")) {
-        mockRecords.push({
-          id: `PROD-${1000 + i}`,
-          name: `Product ${i + 1}`,
-          date: format(new Date(2024, 2, i + 1), "PP"),
-          amount: `$${(Math.random() * 100).toFixed(2)}`
-        });
-      } else {
-        mockRecords.push({
-          id: `REC-${1000 + i}`,
-          name: `Record ${i + 1}`,
-          date: format(new Date(2024, 4, i + 1), "PP")
-        });
-      }
-    }
-    
-    setPreviewRecords(mockRecords);
     setStep("confirm");
   };
 
@@ -135,29 +199,107 @@ const Delete = () => {
 
   const totalPages = Math.ceil(previewRecords.length / recordsPerPage);
 
-  const handleStartDelete = () => {
+  const handleStartDelete = async () => {
+    // Check for confirmation text
+    if (confirmationText !== "DELETE") {
+      toast({
+        title: "Confirmation Required",
+        description: "Please type 'DELETE' to confirm this operation",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setShowConfirmationDialog(false);
     setStep("delete");
+    setDeleteProgress(0);
     
-    // Simulate delete process
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setDeleteProgress(progress);
+    try {
+      const accessToken = await getAccessToken();
+      const realmId = getRealmId();
       
-      if (progress >= 100) {
-        clearInterval(interval);
-        // Simulate results
-        const mockResults = {
-          total: recordCount,
-          success: Math.floor(recordCount * 0.9),
-          error: Math.floor(recordCount * 0.05),
-          skipped: Math.floor(recordCount * 0.05)
-        };
-        setDeleteResults(mockResults);
-        setShowResultDialog(true);
+      if (!accessToken || !realmId) {
+        throw new Error("QuickBooks authentication failed");
       }
-    }, 300);
+      
+      const entityName = selectedEntities[0].name.replace(/\s+&\s+/g, '');
+      const total = recordsToDelete.length;
+      let success = 0;
+      let error = 0;
+      let skipped = 0;
+      
+      // Process records one by one
+      for (let i = 0; i < total; i++) {
+        try {
+          const record = recordsToDelete[i];
+          
+          // Delete entity in QuickBooks
+          await deleteQuickbooksEntity(
+            accessToken,
+            realmId,
+            entityName,
+            record.id
+          );
+          
+          // Log successful operation
+          await logOperation(
+            'delete',
+            entityName,
+            record.id,
+            'success',
+            { record }
+          );
+          
+          success++;
+        } catch (err: any) {
+          console.error("Error deleting record:", err);
+          
+          // Some entities can't be deleted if they're in use
+          if (err.message && err.message.includes("in use")) {
+            skipped++;
+            
+            // Log skipped operation
+            await logOperation(
+              'delete',
+              entityName,
+              recordsToDelete[i].id,
+              'error',
+              { record: recordsToDelete[i], error: err, reason: "Entity in use" }
+            );
+          } else {
+            error++;
+            
+            // Log failed operation
+            await logOperation(
+              'delete',
+              entityName,
+              recordsToDelete[i].id,
+              'error',
+              { record: recordsToDelete[i], error: err }
+            );
+          }
+        }
+        
+        // Update progress
+        const progress = Math.round(((i + 1) / total) * 100);
+        setDeleteProgress(progress);
+      }
+      
+      // Show results
+      setDeleteResults({ total, success, error, skipped });
+      setShowResultDialog(true);
+      
+    } catch (error) {
+      console.error("Delete process error:", error);
+      toast({
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+      
+      // Return to select step on critical error
+      setStep("select");
+    }
   };
 
   const handleDeleteComplete = () => {
@@ -169,6 +311,7 @@ const Delete = () => {
     setPreviewRecords([]);
     setCurrentPage(1);
     setDeleteProgress(0);
+    setConfirmationText("");
     toast({
       title: "Deletion Completed",
       description: `Successfully deleted ${deleteResults.success} of ${deleteResults.total} records.`,
@@ -480,6 +623,8 @@ const Delete = () => {
                   type="text" 
                   className="mt-2 w-full p-2 border border-red-300 rounded"
                   placeholder="Type DELETE here"
+                  value={confirmationText}
+                  onChange={(e) => setConfirmationText(e.target.value)}
                 />
               </div>
             </div>

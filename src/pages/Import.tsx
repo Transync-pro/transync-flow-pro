@@ -1,8 +1,8 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import EntitySelection, { Entity } from "@/components/EntitySelection/EntitySelection";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Calendar as CalendarIcon, ChevronsUpDown, FileUp, Play, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { 
+  createQuickbooksEntity, 
+  getEntitySchema, 
+  logOperation 
+} from "@/services/quickbooksApi";
+import Papa from 'papaparse';
 
 // Types for the import workflow
 type ImportStep = "select" | "configure" | "map" | "review" | "import";
@@ -46,9 +53,22 @@ const Import = () => {
   const [importProgress, setImportProgress] = useState<number>(0);
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [importResults, setImportResults] = useState({ total: 0, success: 0, error: 0 });
+  const [fileData, setFileData] = useState<any[]>([]);
+  
+  // Get QuickBooks connection from context
+  const { getAccessToken, getRealmId, isConnected } = useQuickbooks();
 
   // Handle entity selection
   const handleEntitySelection = (entities: Entity[]) => {
+    if (!isConnected) {
+      toast({
+        title: "QuickBooks Connection Required",
+        description: "Please connect to QuickBooks before proceeding.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setSelectedEntities(entities);
     toast({
       title: "Entities Selected",
@@ -57,37 +77,58 @@ const Import = () => {
     setStep("configure");
   };
 
-  // Handle file upload
+  // Handle file upload and parse CSV
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
       
-      // Simulate parsing CSV/Excel headers
-      // In a real implementation, we would parse the actual file
-      const mockHeaders = ["Name", "Email", "Phone", "Address", "City", "State", "Zip", "Country"];
-      setHeaderRow(mockHeaders);
-      
-      // Generate mock field mappings
-      const mockTargetFields = ["Name", "Email", "PhoneNumber", "StreetAddress", "City", "State", "PostalCode", "Country"];
-      const mockMappings: FieldMapping[] = mockHeaders.map((header, index) => ({
-        sourceField: header,
-        targetField: mockTargetFields[index] || "",
-        isMatched: header.toLowerCase() === mockTargetFields[index]?.toLowerCase(),
-        isRequired: index < 3, // First three fields are required in this example
-      }));
-      setFieldMappings(mockMappings);
-
-      // Mock preview data
-      setPreviewData([
-        { Name: "John Doe", Email: "john@example.com", Phone: "555-1234" },
-        { Name: "Jane Smith", Email: "jane@example.com", Phone: "555-5678" },
-        { Name: "Bob Johnson", Email: "bob@example.com", Phone: "555-9012" },
-      ]);
-
-      toast({
-        title: "File Uploaded",
-        description: `File "${selectedFile.name}" has been uploaded.`,
+      // Parse CSV file
+      Papa.parse(selectedFile, {
+        header: true,
+        complete: (results) => {
+          const data = results.data as any[];
+          const headers = results.meta.fields || [];
+          
+          setHeaderRow(headers);
+          setFileData(data);
+          
+          // Generate preview data (first few rows)
+          setPreviewData(data.slice(0, 5));
+          
+          // Generate field mappings
+          const entityName = selectedEntities[0]?.name.replace(/\s+&\s+/g, '') || '';
+          const entitySchema = getEntitySchema(entityName);
+          
+          const mappings: FieldMapping[] = headers.map(header => {
+            // Try to find matching field in QuickBooks schema
+            const matchedField = entitySchema.fields.find(
+              (field: string) => field.toLowerCase() === header.toLowerCase()
+            );
+            
+            return {
+              sourceField: header,
+              targetField: matchedField || "",
+              isMatched: !!matchedField,
+              isRequired: entitySchema.required.includes(matchedField),
+            };
+          });
+          
+          setFieldMappings(mappings);
+          
+          toast({
+            title: "File Uploaded",
+            description: `File "${selectedFile.name}" has been uploaded and parsed.`,
+          });
+        },
+        error: (error) => {
+          console.error("Error parsing CSV:", error);
+          toast({
+            title: "Error Parsing File",
+            description: "Could not parse the uploaded file. Please ensure it's a valid CSV.",
+            variant: "destructive",
+          });
+        }
       });
     }
   };
@@ -98,7 +139,7 @@ const Import = () => {
     updatedMappings[index] = {
       ...updatedMappings[index],
       targetField,
-      isMatched: true,
+      isMatched: !!targetField,
     };
     setFieldMappings(updatedMappings);
   };
@@ -130,28 +171,98 @@ const Import = () => {
     setStep("review");
   };
 
-  // Start import process
-  const handleStartImport = () => {
-    setStep("import");
-    
-    // Simulate import process
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setImportProgress(progress);
+  // Transform data based on field mappings
+  const transformDataForImport = (data: any[]) => {
+    return data.map(row => {
+      const transformedRow: Record<string, any> = {};
       
-      if (progress >= 100) {
-        clearInterval(interval);
-        // Simulate results
-        const mockResults = {
-          total: 100,
-          success: 93,
-          error: 7
-        };
-        setImportResults(mockResults);
-        setShowResultDialog(true);
+      fieldMappings.forEach(mapping => {
+        if (mapping.targetField && mapping.isMatched) {
+          transformedRow[mapping.targetField] = row[mapping.sourceField];
+        }
+      });
+      
+      return transformedRow;
+    });
+  };
+
+  // Start import process
+  const handleStartImport = async () => {
+    setStep("import");
+    setImportProgress(0);
+    
+    try {
+      const accessToken = await getAccessToken();
+      const realmId = getRealmId();
+      
+      if (!accessToken || !realmId) {
+        throw new Error("QuickBooks authentication failed");
       }
-    }, 500);
+      
+      const entityName = selectedEntities[0]?.name.replace(/\s+&\s+/g, '') || '';
+      const transformedData = transformDataForImport(fileData);
+      const total = transformedData.length;
+      let success = 0;
+      let error = 0;
+      
+      // Process records one by one
+      for (let i = 0; i < total; i++) {
+        try {
+          const record = transformedData[i];
+          
+          // Create entity in QuickBooks
+          const result = await createQuickbooksEntity(
+            accessToken,
+            realmId,
+            entityName,
+            record
+          );
+          
+          // Log successful operation
+          await logOperation(
+            'import',
+            entityName,
+            result[entityName]?.Id || null,
+            'success',
+            { record, result }
+          );
+          
+          success++;
+        } catch (err) {
+          console.error("Error importing record:", err);
+          
+          // Log failed operation
+          await logOperation(
+            'import',
+            entityName,
+            null,
+            'error',
+            { record: transformedData[i], error: err }
+          );
+          
+          error++;
+        }
+        
+        // Update progress
+        const progress = Math.round(((i + 1) / total) * 100);
+        setImportProgress(progress);
+      }
+      
+      // Show results
+      setImportResults({ total, success, error });
+      setShowResultDialog(true);
+      
+    } catch (error) {
+      console.error("Import process error:", error);
+      toast({
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+      
+      // Return to select step on critical error
+      setStep("select");
+    }
   };
 
   // Handle import completion
@@ -227,7 +338,7 @@ const Import = () => {
                 <Input
                   id="file-upload"
                   type="file"
-                  accept=".csv,.xlsx,.xls"
+                  accept=".csv"
                   onChange={handleFileUpload}
                   className="flex-1"
                 />
@@ -236,7 +347,7 @@ const Import = () => {
                 </Button>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Supported formats: CSV, Excel (.xlsx, .xls)
+                Supported formats: CSV
               </p>
             </div>
             
@@ -333,14 +444,9 @@ const Import = () => {
                             onChange={(e) => handleFieldMappingChange(index, e.target.value)}
                           >
                             <option value="">-- Select Field --</option>
-                            <option value="Name">Name</option>
-                            <option value="Email">Email</option>
-                            <option value="PhoneNumber">Phone Number</option>
-                            <option value="StreetAddress">Street Address</option>
-                            <option value="City">City</option>
-                            <option value="State">State</option>
-                            <option value="PostalCode">Postal Code</option>
-                            <option value="Country">Country</option>
+                            {getEntitySchema(selectedEntities[0]?.name.replace(/\s+&\s+/g, '') || '').fields.map((field: string) => (
+                              <option key={field} value={field}>{field}</option>
+                            ))}
                           </select>
                           <ChevronsUpDown className="absolute right-3 top-2.5 h-4 w-4 opacity-50" />
                         </div>
@@ -409,7 +515,7 @@ const Import = () => {
               <ul className="mt-2 space-y-1 text-sm">
                 <li>Entities: {selectedEntities.map(e => e.name).join(", ")}</li>
                 <li>File: {file?.name}</li>
-                <li>Total Records: {previewData.length} records to import</li>
+                <li>Total Records: {fileData.length} records to import</li>
                 <li>Date Range: {dateRange.from ? format(dateRange.from, "PPP") : "All"} to {dateRange.to ? format(dateRange.to, "PPP") : "All"}</li>
               </ul>
             </div>

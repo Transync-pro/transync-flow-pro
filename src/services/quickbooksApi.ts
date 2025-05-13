@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 // QuickBooks API base URL for sandbox environment
 const API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com";
