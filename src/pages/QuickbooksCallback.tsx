@@ -38,18 +38,26 @@ const QuickbooksCallback = () => {
           return;
         }
 
+        console.log("QuickBooks callback parameters:", { code, realmId, userId: user.id });
+        const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
+        console.log("Using redirect URI:", redirectUri);
+        
         // Call our edge function to exchange the code for tokens
+        console.log("Calling quickbooks-auth edge function with action 'callback'...");
         const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
           body: {
             action: "callback",
             code,
             realmId,
             state: user.id,
-            redirectUri: window.location.origin + "/dashboard/quickbooks-callback",
+            redirectUri: redirectUri,
           },
         });
+        
+        console.log("Edge function response:", { data, error: invokeError });
 
         if (invokeError || data?.error) {
+          console.error("Authentication error:", invokeError || data?.error);
           throw new Error(invokeError?.message || data?.error || "Failed to complete authentication");
         }
 

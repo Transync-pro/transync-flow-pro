@@ -9,8 +9,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
-const QB_CLIENT_ID = Deno.env.get('QB_CLIENT_ID') || '';
-const QB_CLIENT_SECRET = Deno.env.get('QB_CLIENT_SECRET') || '';
+const QB_CLIENT_ID = Deno.env.get('QUICKBOOKS_CLIENT_ID') || '';
+const QB_CLIENT_SECRET = Deno.env.get('QUICKBOOKS_CLIENT_SECRET') || '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
@@ -20,6 +20,14 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  console.log('QuickBooks auth edge function called');
+  console.log('Environment variables available:', {
+    QB_CLIENT_ID_EXISTS: !!QB_CLIENT_ID,
+    QB_CLIENT_SECRET_EXISTS: !!QB_CLIENT_SECRET,
+    SUPABASE_URL_EXISTS: !!SUPABASE_URL,
+    SUPABASE_ANON_KEY_EXISTS: !!SUPABASE_ANON_KEY
+  });
+
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
@@ -28,6 +36,7 @@ serve(async (req) => {
     });
 
     const requestData = await req.json();
+    console.log('Request data received:', JSON.stringify(requestData, null, 2));
     const { action } = requestData;
 
     // Handle authorization request
@@ -63,9 +72,17 @@ serve(async (req) => {
 
     // Handle callback from QuickBooks
     if (action === 'callback') {
+      console.log('Processing callback action');
       const { code, realmId, state: userId, redirectUri } = requestData;
+      console.log('Callback parameters:', { code: !!code, realmId, userId, redirectUri });
 
       if (!code || !realmId || !userId || !redirectUri) {
+        console.error('Missing required parameters:', { 
+          codeExists: !!code, 
+          realmIdExists: !!realmId, 
+          userIdExists: !!userId, 
+          redirectUriExists: !!redirectUri 
+        });
         return new Response(JSON.stringify({ error: 'Code, Realm ID, User ID, and Redirect URI are required' }), {
           status: 400,
           headers: corsHeaders,
@@ -81,9 +98,18 @@ serve(async (req) => {
       });
 
       try {
+        console.log('Creating OAuth client with:', { 
+          clientIdLength: QB_CLIENT_ID.length,
+          clientSecretLength: QB_CLIENT_SECRET.length,
+          redirectUri 
+        });
+        
         // Exchange the authorization code for tokens
+        console.log('Exchanging authorization code for tokens...');
         const tokenResponse = await oauthClient.createToken(code);
+        console.log('Token response received');
         const { token } = tokenResponse.getJson();
+        console.log('Token extracted:', { accessTokenExists: !!token.access_token, refreshTokenExists: !!token.refresh_token });
 
         // Calculate the expiry date
         const now = new Date();
@@ -116,7 +142,8 @@ serve(async (req) => {
         });
       } catch (e) {
         console.error('Error during token creation or saving:', e);
-        return new Response(JSON.stringify({ error: e.message }), {
+        console.error('Error details:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
+        return new Response(JSON.stringify({ error: e.message, details: JSON.stringify(e, Object.getOwnPropertyNames(e)) }), {
           status: 500,
           headers: corsHeaders,
         });
