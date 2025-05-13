@@ -124,3 +124,7 @@ const QuickbooksConnectPage = () => {
 };
 
 export default QuickbooksConnectPage;
+
+// Add this code to your QuickbooksConnectPage.tsx handleConnect function (temporarily)
+const functionsList = await supabase.functions.listFunctions();
+console.log("Available functions:", functionsList);
