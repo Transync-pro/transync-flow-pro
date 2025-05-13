@@ -1,8 +1,9 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import EntitySelection, { Entity } from "@/components/EntitySelection/EntitySelection";
 import { toast } from "@/hooks/use-toast";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { queryQuickbooksData, convertToCSV, logOperation, flattenQuickbooksData } from "@/services/quickbooksApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import { Calendar as CalendarIcon, Check, Download, FileDown } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Download, FileDown, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -42,7 +43,20 @@ type Field = {
   required: boolean;
 };
 
+// Map UI entity names to QuickBooks API entity names
+const entityMappings: Record<string, string> = {
+  "Customers": "Customer",
+  "Invoices": "Invoice",
+  "Products & Services": "Item",
+  "Bills": "Bill",
+  "Payments": "Payment",
+  "Vendors": "Vendor",
+  "Employees": "Employee",
+  "Accounts": "Account"
+};
+
 const Export = () => {
+  const { getAccessToken, getRealmId, isConnected } = useQuickbooks();
   const [selectedEntities, setSelectedEntities] = useState<Entity[]>([]);
   const [step, setStep] = useState<ExportStep>("select");
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
@@ -53,58 +67,78 @@ const Export = () => {
   const [downloadReady, setDownloadReady] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [exportData, setExportData] = useState<any[]>([]);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleEntitySelection = (entities: Entity[]) => {
+    if (!isConnected) {
+      toast({
+        title: "QuickBooks Connection Required",
+        description: "Please connect your QuickBooks account before exporting data.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setSelectedEntities(entities);
     toast({
       title: "Entities Selected",
       description: `You've selected ${entities.length} entities for export.`,
     });
     
-    // Generate mock fields based on selected entities
-    const mockFields: Field[] = [];
+    // Generate fields based on selected entities
+    generateFieldsForEntities(entities);
+    setStep("configure");
+  };
+
+  const generateFieldsForEntities = (entities: Entity[]) => {
+    const fields: Field[] = [];
     
     // Add common fields
-    mockFields.push(
-      { id: "id", name: "ID", selected: true, required: true },
-      { id: "created_at", name: "Created Date", selected: true, required: true },
-      { id: "modified_at", name: "Last Modified Date", selected: true, required: false }
+    fields.push(
+      { id: "Id", name: "ID", selected: true, required: true },
+      { id: "MetaData.CreateTime", name: "Created Date", selected: true, required: true },
+      { id: "MetaData.LastUpdatedTime", name: "Last Modified Date", selected: true, required: false }
     );
     
     // Add entity-specific fields
     entities.forEach(entity => {
-      if (entity.name === "Customers") {
-        mockFields.push(
-          { id: "name", name: "Name", selected: true, required: true },
-          { id: "company", name: "Company", selected: true, required: false },
-          { id: "email", name: "Email", selected: true, required: false },
-          { id: "phone", name: "Phone", selected: true, required: false },
-          { id: "address", name: "Address", selected: false, required: false },
-          { id: "balance", name: "Balance", selected: true, required: false }
+      const qbEntity = entityMappings[entity.name];
+      
+      if (qbEntity === "Customer") {
+        fields.push(
+          { id: "DisplayName", name: "Name", selected: true, required: true },
+          { id: "CompanyName", name: "Company", selected: true, required: false },
+          { id: "PrimaryEmailAddr.Address", name: "Email", selected: true, required: false },
+          { id: "PrimaryPhone.FreeFormNumber", name: "Phone", selected: true, required: false },
+          { id: "BillAddr.Line1", name: "Address", selected: false, required: false },
+          { id: "Balance", name: "Balance", selected: true, required: false },
+          { id: "Active", name: "Active", selected: true, required: false }
         );
-      } else if (entity.name === "Invoices") {
-        mockFields.push(
-          { id: "invoice_number", name: "Invoice Number", selected: true, required: true },
-          { id: "customer_id", name: "Customer ID", selected: true, required: true },
-          { id: "amount", name: "Amount", selected: true, required: true },
-          { id: "due_date", name: "Due Date", selected: true, required: true },
-          { id: "status", name: "Status", selected: true, required: false },
-          { id: "items", name: "Line Items", selected: false, required: false }
+      } else if (qbEntity === "Invoice") {
+        fields.push(
+          { id: "DocNumber", name: "Invoice Number", selected: true, required: true },
+          { id: "CustomerRef.name", name: "Customer Name", selected: true, required: true },
+          { id: "TotalAmt", name: "Amount", selected: true, required: true },
+          { id: "DueDate", name: "Due Date", selected: true, required: true },
+          { id: "Balance", name: "Balance", selected: true, required: false },
+          { id: "PrivateNote", name: "Notes", selected: false, required: false }
         );
-      } else if (entity.name === "Products & Services") {
-        mockFields.push(
-          { id: "name", name: "Name", selected: true, required: true },
-          { id: "sku", name: "SKU", selected: true, required: false },
-          { id: "description", name: "Description", selected: false, required: false },
-          { id: "price", name: "Price", selected: true, required: true },
-          { id: "cost", name: "Cost", selected: true, required: false },
-          { id: "quantity", name: "Quantity on Hand", selected: true, required: false }
+      } else if (qbEntity === "Item") {
+        fields.push(
+          { id: "Name", name: "Name", selected: true, required: true },
+          { id: "Description", name: "Description", selected: false, required: false },
+          { id: "UnitPrice", name: "Price", selected: true, required: true },
+          { id: "PurchaseCost", name: "Cost", selected: true, required: false },
+          { id: "QtyOnHand", name: "Quantity on Hand", selected: true, required: false },
+          { id: "Type", name: "Type", selected: true, required: true },
+          { id: "Active", name: "Active", selected: true, required: false }
         );
       }
     });
     
-    setAvailableFields(mockFields);
-    setStep("configure");
+    setAvailableFields(fields);
   };
 
   const toggleFieldSelection = (fieldId: string) => {
@@ -117,7 +151,7 @@ const Export = () => {
     );
   };
 
-  const handleContinueToFormat = () => {
+  const handleContinueToFormat = async () => {
     if (!dateRange.from || !dateRange.to) {
       toast({
         title: "Date Range Required",
@@ -126,34 +160,165 @@ const Export = () => {
       });
       return;
     }
-    setStep("format");
+    
+    try {
+      setIsLoading(true);
+      setExportError(null);
+      
+      // Get selected fields
+      const selectedFieldIds = availableFields
+        .filter(field => field.selected)
+        .map(field => field.id);
+      
+      // Get QuickBooks data
+      const accessToken = await getAccessToken();
+      const realmId = getRealmId();
+      
+      if (!accessToken || !realmId) {
+        throw new Error("Failed to get QuickBooks authentication credentials");
+      }
+      
+      // Build date condition for query
+      const dateCondition = `MetaData.LastUpdatedTime >= '${format(dateRange.from, "yyyy-MM-dd")}' AND MetaData.LastUpdatedTime <= '${format(dateRange.to, "yyyy-MM-dd")}'`;
+      
+      // Add status filter if applicable
+      let statusCondition = "";
+      if (statusFilter !== "all") {
+        if (selectedEntities.some(e => e.name === "Invoices")) {
+          statusCondition = ` AND status = '${statusFilter}'`;
+        } else if (selectedEntities.some(e => e.name === "Customers" || e.name === "Products & Services")) {
+          statusCondition = statusFilter === "active" ? " AND Active = true" : " AND Active = false";
+        }
+      }
+      
+      // Combine conditions
+      const conditions = dateCondition + statusCondition;
+      
+      // Fetch data for each entity
+      const allData: any[] = [];
+      
+      for (const entity of selectedEntities) {
+        const qbEntity = entityMappings[entity.name];
+        const response = await queryQuickbooksData(
+          accessToken,
+          realmId,
+          qbEntity,
+          ["*"], // QuickBooks API ignores field selection in most cases, so we get all fields
+          conditions,
+          1000
+        );
+        
+        // Extract the data array
+        if (response.QueryResponse && response.QueryResponse[qbEntity]) {
+          const entityData = response.QueryResponse[qbEntity];
+          allData.push(...entityData);
+        }
+      }
+      
+      // Log the operation
+      await logOperation(
+        'export',
+        selectedEntities.map(e => e.name).join(','),
+        null,
+        'success',
+        { count: allData.length, dateRange, fields: selectedFieldIds }
+      );
+      
+      // Store the data for later use
+      setExportData(allData);
+      
+      // Move to next step
+      setStep("format");
+    } catch (error: any) {
+      console.error("Error fetching data:", error);
+      setExportError(error.message);
+      toast({
+        title: "Export Error",
+        description: error.message || "Failed to fetch data from QuickBooks",
+        variant: "destructive",
+      });
+      
+      // Log the error
+      await logOperation(
+        'export',
+        selectedEntities.map(e => e.name).join(','),
+        null,
+        'error',
+        { error: error.message, dateRange }
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleStartExport = () => {
     setStep("export");
     
-    // Simulate export process
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setExportProgress(progress);
+    // Generate the export file
+    try {
+      // Get selected fields for CSV columns
+      const selectedFieldIds = availableFields
+        .filter(field => field.selected)
+        .map(field => field.id);
       
-      if (progress >= 100) {
-        clearInterval(interval);
-        setDownloadReady(true);
-        setDownloadUrl("#"); // In a real app, this would be a URL to the exported file
-        setShowDownloadDialog(true);
+      // For CSV export
+      if (exportFormat === "csv") {
+        const csv = convertToCSV(exportData, selectedFieldIds);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        setDownloadUrl(url);
+      } 
+      // For Excel export, we'd need a library like xlsx
+      else if (exportFormat === "xlsx") {
+        // In a real implementation, use a library like xlsx
+        // For now, we'll just use CSV as a fallback
+        const csv = convertToCSV(exportData, selectedFieldIds);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        setDownloadUrl(url);
       }
-    }, 300);
+      
+      // Simulate progress
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 10;
+        setExportProgress(progress);
+        
+        if (progress >= 100) {
+          clearInterval(interval);
+          setDownloadReady(true);
+          setShowDownloadDialog(true);
+        }
+      }, 300);
+    } catch (error: any) {
+      console.error("Error creating export file:", error);
+      toast({
+        title: "Export Error",
+        description: error.message || "Failed to create export file",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownload = () => {
-    // In a real app, this would trigger the actual file download
-    toast({
-      title: "Export Downloaded",
-      description: `Your ${exportFormat.toUpperCase()} file has been downloaded.`,
-    });
+    // Trigger download
+    if (downloadUrl) {
+      const link = document.createElement('a');
+      const fileName = `${selectedEntities.map(e => e.name).join('-')}-export.${exportFormat}`;
+      
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Export Downloaded",
+        description: `Your ${exportFormat.toUpperCase()} file has been downloaded.`,
+      });
+    }
     
+    // Clean up
     setShowDownloadDialog(false);
     setStep("select");
     setSelectedEntities([]);
@@ -162,23 +327,23 @@ const Export = () => {
     setExportProgress(0);
     setDownloadReady(false);
     setDownloadUrl("");
+    setExportData([]);
   };
 
   const getStatusFilterOptions = () => {
-    // Return status filter options based on the selected entity
     if (selectedEntities.some(e => e.name === "Invoices")) {
       return [
         { value: "all", label: "All Statuses" },
-        { value: "paid", label: "Paid" },
-        { value: "unpaid", label: "Unpaid" },
-        { value: "overdue", label: "Overdue" }
+        { value: "Paid", label: "Paid" },
+        { value: "Pending", label: "Pending" },
+        { value: "Overdue", label: "Overdue" }
       ];
     } else if (selectedEntities.some(e => e.name === "Bills")) {
       return [
         { value: "all", label: "All Statuses" },
-        { value: "paid", label: "Paid" },
-        { value: "unpaid", label: "Unpaid" },
-        { value: "overdue", label: "Overdue" }
+        { value: "Paid", label: "Paid" },
+        { value: "Pending", label: "Pending" },
+        { value: "Overdue", label: "Overdue" }
       ];
     }
     
@@ -222,6 +387,16 @@ const Export = () => {
         {step === "configure" && (
           <div className="p-6 bg-white rounded-lg shadow">
             <h2 className="text-xl font-bold mb-4">Configure Export</h2>
+            
+            {exportError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 flex items-start">
+                <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Error</p>
+                  <p className="text-sm">{exportError}</p>
+                </div>
+              </div>
+            )}
             
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Selected Entities</h3>
@@ -342,8 +517,14 @@ const Export = () => {
               </Button>
               <Button 
                 onClick={handleContinueToFormat}
+                disabled={isLoading}
               >
-                Continue to Format
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
+                    Fetching Data...
+                  </>
+                ) : "Continue to Format"}
               </Button>
             </div>
           </div>
@@ -418,6 +599,7 @@ const Export = () => {
               <ul className="mt-2 space-y-1 text-sm">
                 <li>Entities: {selectedEntities.map(e => e.name).join(", ")}</li>
                 <li>Date Range: {dateRange.from ? format(dateRange.from, "PPP") : ""} to {dateRange.to ? format(dateRange.to, "PPP") : ""}</li>
+                <li>Records: {exportData.length}</li>
                 <li>Fields: {availableFields.filter(f => f.selected).length} of {availableFields.length}</li>
                 <li>Status Filter: {getStatusFilterOptions().find(o => o.value === statusFilter)?.label || "All"}</li>
                 <li>Format: {exportFormat.toUpperCase()}</li>

@@ -17,6 +17,7 @@ interface QuickbooksContextType {
   connectToQuickbooks: () => Promise<void>;
   disconnectQuickbooks: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
+  getRealmId: () => string | null;
   isConnected: boolean;
 }
 
@@ -192,12 +193,20 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         throw new Error(response.error.message || "Failed to get access token");
       }
       
-      return `${response.data.token_type} ${response.data.access_token}`;
+      return response.data.access_token;
     } catch (err) {
       console.error("Error getting access token:", err);
       setError("Failed to get access token");
       return null;
     }
+  };
+
+  // Get realm ID
+  const getRealmId = (): string | null => {
+    if (!connection) {
+      return null;
+    }
+    return connection.realm_id;
   };
 
   // Value to be provided to consumers
@@ -208,6 +217,7 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     connectToQuickbooks,
     disconnectQuickbooks,
     getAccessToken,
+    getRealmId,
     isConnected: !!connection?.connected,
   };
 
