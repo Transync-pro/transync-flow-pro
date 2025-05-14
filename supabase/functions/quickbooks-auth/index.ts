@@ -13,16 +13,13 @@ const QB_CLIENT_ID = Deno.env.get('QUICKBOOKS_CLIENT_ID') || '';
 const QB_CLIENT_SECRET = Deno.env.get('QUICKBOOKS_CLIENT_SECRET') || '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
-const QB_ENVIRONMENT = Deno.env.get('QUICKBOOKS_ENVIRONMENT') || 'sandbox';
+const QB_ENVIRONMENT = Deno.env.get('QUICKBOOKS_ENVIRONMENT') || 'production'; // Default to production
 
-// Define QuickBooks URLs based on environment
-const QB_BASE_URL = QB_ENVIRONMENT === 'production'
-  ? 'https://accounts.platform.intuit.com'
-  : 'https://accounts-sandbox.platform.intuit.com';
-
-const QB_API_URL = QB_ENVIRONMENT === 'production'
-  ? 'https://quickbooks.api.intuit.com'
-  : 'https://sandbox-quickbooks.api.intuit.com';
+// Define QuickBooks URLs for production
+const QB_AUTH_URL = "https://appcenter.intuit.com/connect/oauth2";
+const QB_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+const QB_REVOKE_URL = "https://developer.api.intuit.com/v2/oauth2/tokens/revoke";
+const QB_API_URL = "https://quickbooks.api.intuit.com";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -73,7 +70,7 @@ serve(async (req) => {
       ];
       
       // Construct the authorization URL
-      const authUrl = new URL(`${QB_BASE_URL}/connect/oauth2/authorize`);
+      const authUrl = new URL(QB_AUTH_URL);
       authUrl.searchParams.append('client_id', QB_CLIENT_ID);
       authUrl.searchParams.append('response_type', 'code');
       authUrl.searchParams.append('scope', scopes.join(' '));
@@ -104,7 +101,6 @@ serve(async (req) => {
 
       try {
         // Exchange authorization code for tokens using fetch
-        const tokenUrl = `${QB_BASE_URL}/oauth2/v1/tokens/bearer`;
         const tokenParams = new URLSearchParams();
         tokenParams.append('grant_type', 'authorization_code');
         tokenParams.append('code', code);
@@ -114,7 +110,7 @@ serve(async (req) => {
         const authString = `${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`;
         const base64Auth = btoa(authString);
         
-        const tokenResponse = await fetch(tokenUrl, {
+        const tokenResponse = await fetch(QB_TOKEN_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -176,7 +172,7 @@ serve(async (req) => {
               refresh_token: tokenData.refresh_token,
               expires_at: expiresAt,
               company_name: companyName,
-              token_type: tokenData.token_type
+              token_type: tokenData.token_type || 'Bearer'
             },
             { onConflict: 'user_id' }
           );
@@ -242,7 +238,6 @@ serve(async (req) => {
 
       try {
         // Refresh the access token
-        const refreshUrl = `${QB_BASE_URL}/oauth2/v1/tokens/bearer`;
         const refreshParams = new URLSearchParams();
         refreshParams.append('grant_type', 'refresh_token');
         refreshParams.append('refresh_token', refreshToken);
@@ -251,7 +246,7 @@ serve(async (req) => {
         const authString = `${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`;
         const base64Auth = btoa(authString);
         
-        const refreshResponse = await fetch(refreshUrl, {
+        const refreshResponse = await fetch(QB_TOKEN_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -329,10 +324,9 @@ serve(async (req) => {
           throw new Error('No active QuickBooks connection found');
         }
         
-        // Revoke the tokens (Optional: QuickBooks OAuth doesn't require explicit revocation)
+        // Revoke the tokens
         try {
           // Attempt to revoke the access token
-          const revokeUrl = `${QB_BASE_URL}/oauth2/v1/tokens/revoke`;
           const revokeParams = new URLSearchParams();
           revokeParams.append('token', connection.access_token);
           
@@ -340,7 +334,7 @@ serve(async (req) => {
           const authString = `${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`;
           const base64Auth = btoa(authString);
           
-          await fetch(revokeUrl, {
+          await fetch(QB_REVOKE_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
