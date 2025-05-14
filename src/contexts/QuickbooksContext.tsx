@@ -79,17 +79,19 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       }
       
       if (data) {
-        setConnection(data as QuickbooksConnection);
+        // Ensure we cast the data to our expected type with optional company_name
+        const connection = data as QuickbooksConnection;
+        setConnection(connection);
         setIsConnected(true);
-        setRealmId(data.realm_id);
+        setRealmId(connection.realm_id);
         // Handle potentially missing company_name safely
-        setCompanyName(data.company_name || null);
+        setCompanyName(connection.company_name || null);
         
         // Check if token needs refreshing (if expires in less than 5 minutes)
-        const expiresAt = new Date(data.expires_at);
+        const expiresAt = new Date(connection.expires_at);
         const now = new Date();
         if ((expiresAt.getTime() - now.getTime()) < 5 * 60 * 1000) {
-          await refreshToken(data.refresh_token);
+          await refreshToken(connection.refresh_token);
         }
       } else {
         resetConnectionState();
