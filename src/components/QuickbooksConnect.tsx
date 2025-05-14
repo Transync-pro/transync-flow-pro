@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +33,7 @@ const QuickbooksConnect = () => {
     connect: connectToQuickbooks,
     disconnect: disconnectQuickbooks,
     isConnected,
+    companyName,
   } = useQuickbooks();
 
   const { user } = useAuth();
@@ -40,7 +42,9 @@ const QuickbooksConnect = () => {
     setIsConnecting(true);
     try {
       await connectToQuickbooks();
-    } finally {
+      // Note: Actual navigation happens in the callback or provider
+    } catch (err) {
+      // Error handling is done in the provider
       setIsConnecting(false);
     }
   };
@@ -84,9 +88,10 @@ const QuickbooksConnect = () => {
             <AlertTitle className="text-green-700">Connected to QuickBooks</AlertTitle>
             <AlertDescription className="text-green-700">
               <div className="mt-2 space-y-2">
-                <p>Company ID: {connection?.realm_id}</p>
-                <p>Connected until: {format(new Date(connection?.expires_at || ""), "PPP pp")}</p>
-                {user && <p>Connected as: {user.email}</p>}
+                <p><strong>Company:</strong> {companyName}</p>
+                <p><strong>Company ID:</strong> {connection?.realm_id}</p>
+                <p><strong>Connected until:</strong> {format(new Date(connection?.expires_at || ""), "PPP pp")}</p>
+                {user && <p><strong>Connected as:</strong> {user.email}</p>}
               </div>
             </AlertDescription>
           </Alert>

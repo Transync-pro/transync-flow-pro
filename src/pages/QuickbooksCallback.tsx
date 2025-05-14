@@ -20,6 +20,7 @@ const QuickbooksCallback = () => {
         const params = new URLSearchParams(location.search);
         const code = params.get("code");
         const realmId = params.get("realmId");
+        const state = params.get("state"); // This should be the userId
         const error = params.get("error");
 
         if (error) {
@@ -37,6 +38,8 @@ const QuickbooksCallback = () => {
           setTimeout(() => navigate("/login"), 3000);
           return;
         }
+
+        console.log("Processing callback with code and realmId");
 
         // Call our edge function to exchange the code for tokens
         const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {

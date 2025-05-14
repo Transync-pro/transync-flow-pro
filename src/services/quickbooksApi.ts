@@ -1,39 +1,22 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/components/ui/use-toast";
 
-// Re-export from connections.ts
-export { getQBConnection, updateConnectionTokens, needsTokenRefresh } from './quickbooksApi/connections';
+// QuickBooks API base URL (for sandbox or production)
+export const API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com";
 
-// QuickBooks API base URL for sandbox environment
-const API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com";
-
-// Function to log operations in Supabase
-export const logOperation = async (options: {
-  operationType: 'import' | 'export' | 'delete';
-  entityType: string;
-  recordId: string | null;
-  status: 'success' | 'error' | 'pending' | 'partial';
-  details?: any;
-}) => {
-  try {
-    const { data: user } = await supabase.auth.getUser();
-    
-    if (!user.user) {
-      throw new Error("User not authenticated");
-    }
-    
-    await supabase.from("operation_logs").insert({
-      user_id: user.user.id,
-      operation_type: options.operationType,
-      entity_type: options.entityType,
-      record_id: options.recordId,
-      status: options.status,
-      details: options.details
-    });
-  } catch (error) {
-    console.error("Error logging operation:", error);
-  }
+// Get the current user's QuickBooks connection
+export const getQBConnection = async () => {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return null;
+  
+  const { data, error } = await supabase
+    .from('quickbooks_connections')
+    .select('*')
+    .eq('user_id', userData.user.id)
+    .single();
+  
+  if (error || !data) return null;
+  return data;
 };
 
 // Function to prepare API headers with authentication
@@ -55,7 +38,7 @@ export const queryQuickbooksData = async (
   maxResults: number = 1000
 ) => {
   try {
-    const headers = await getHeaders(accessToken);
+    const headers = getHeaders(accessToken);
     let query = `SELECT ${fields.join(', ')} FROM ${entity}`;
     
     if (conditions) {
@@ -90,7 +73,7 @@ export const createQuickbooksEntity = async (
   payload: any
 ) => {
   try {
-    const headers = await getHeaders(accessToken);
+    const headers = getHeaders(accessToken);
     
     const response = await fetch(`${API_BASE_URL}/v3/company/${realmId}/${entity.toLowerCase()}`, {
       method: 'POST',
@@ -120,7 +103,7 @@ export const updateQuickbooksEntity = async (
   payload: any
 ) => {
   try {
-    const headers = await getHeaders(accessToken);
+    const headers = getHeaders(accessToken);
     
     const response = await fetch(`${API_BASE_URL}/v3/company/${realmId}/${entity.toLowerCase()}`, {
       method: 'POST', // QuickBooks API uses POST for updates with sparse=true
@@ -145,21 +128,31 @@ export const updateQuickbooksEntity = async (
   }
 };
 
-// Function to delete (deactivate) an entity in QuickBooks
-export const deleteQuickbooksEntity = async (
-  accessToken: string,
-  realmId: string,
-  entity: string,
-  entityId: string
-) => {
+// Function to log operations in Supabase
+export const logOperation = async (options: {
+  operationType: 'import' | 'export' | 'delete';
+  entityType: string;
+  recordId: string | null;
+  status: 'success' | 'error' | 'pending' | 'partial';
+  details?: any;
+}) => {
   try {
-    // Most QuickBooks entities use Active=false to "delete" them
-    return await updateQuickbooksEntity(accessToken, realmId, entity, entityId, {
-      Active: false
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      throw new Error("User not authenticated");
+    }
+    
+    await supabase.from("operation_logs").insert({
+      user_id: user.user.id,
+      operation_type: options.operationType,
+      entity_type: options.entityType,
+      record_id: options.recordId,
+      status: options.status,
+      details: options.details
     });
   } catch (error) {
-    console.error(`Error deleting ${entity}:`, error);
-    throw error;
+    console.error("Error logging operation:", error);
   }
 };
 
@@ -178,9 +171,21 @@ export const getEntitySchema = (entity: string) => {
       required: ['Name', 'Type'],
       fields: ['Name', 'Description', 'Active', 'Type', 'UnitPrice', 'PurchaseCost', 'IncomeAccountRef', 'ExpenseAccountRef']
     },
+    Account: {
+      required: ['Name', 'AccountType'],
+      fields: ['Name', 'AccountType', 'AccountSubType', 'Description', 'Active']
+    },
+    Vendor: {
+      required: ['DisplayName'],
+      fields: ['DisplayName', 'CompanyName', 'GivenName', 'FamilyName', 'PrimaryEmailAddr', 'PrimaryPhone', 'BillAddr']
+    },
     Bill: {
       required: ['VendorRef'],
       fields: ['VendorRef', 'Line', 'TxnDate', 'DueDate', 'TotalAmt']
+    },
+    Payment: {
+      required: ['CustomerRef'],
+      fields: ['CustomerRef', 'TotalAmt', 'TxnDate', 'Line']
     }
   };
   

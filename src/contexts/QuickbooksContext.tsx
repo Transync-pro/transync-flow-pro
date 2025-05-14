@@ -3,7 +3,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { getQBConnection } from "@/services/quickbooksApi";
 
 interface QuickbooksConnection {
   id: string;
@@ -67,25 +66,36 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     setIsLoading(true);
     setError(null);
     try {
-      const qbConnection = await getQBConnection();
+      // Query the QuickBooks connections table for this user
+      const { data, error } = await supabase
+        .from('quickbooks_connections')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
       
-      if (qbConnection) {
-        setConnection(qbConnection);
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setConnection(data as QuickbooksConnection);
         setIsConnected(true);
-        setRealmId(qbConnection.realm_id);
-        setCompanyName(qbConnection.company_name || null);
+        setRealmId(data.realm_id);
+        setCompanyName(data.company_name || null);
+        
+        // Check if token needs refreshing (if expires in less than 5 minutes)
+        const expiresAt = new Date(data.expires_at);
+        const now = new Date();
+        if ((expiresAt.getTime() - now.getTime()) < 5 * 60 * 1000) {
+          await refreshToken(data.refresh_token);
+        }
       } else {
         resetConnectionState();
       }
     } catch (error) {
       console.error("Error checking QuickBooks connection:", error);
       resetConnectionState();
-      setError("Failed to check QuickBooks connection status.");
-      toast({
-        title: "Connection Error",
-        description: "Failed to check QuickBooks connection status.",
-        variant: "destructive",
-      });
+      setError("Failed to check QuickBooks connection status");
     } finally {
       setIsLoading(false);
     }
@@ -98,44 +108,71 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     setConnection(null);
   };
 
+  // Refresh the access token
+  const refreshToken = async (refreshToken: string) => {
+    if (!user) return null;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+        body: { 
+          path: 'refresh',
+          userId: user.id,
+          refreshToken
+        }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      // Update our local state with the new tokens
+      await checkConnectionStatus();
+      
+      return data.accessToken;
+    } catch (error) {
+      console.error("Error refreshing QuickBooks token:", error);
+      return null;
+    }
+  };
+
   // Start OAuth flow to connect to QuickBooks
   const connect = async () => {
     if (!user) {
       toast({
         title: "Authentication Required",
-        description: "Please sign in before connecting to QuickBooks.",
+        description: "Please sign in before connecting to QuickBooks",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      // Get the current URL for the redirect
+      // Determine the appropriate redirect URL
       const redirectUrl = `${window.location.origin}/dashboard/quickbooks-callback`;
       
-      // Call the edge function to start OAuth flow
+      // Call the edge function to get authorization URL
       const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
         body: { 
-          action: 'authorize',
+          path: 'authorize',
           redirectUri: redirectUrl,
           userId: user.id 
         }
       });
 
       if (error) throw error;
+      if (data.error) throw new Error(data.error);
       
       if (data && data.authUrl) {
-        // Redirect to QuickBooks authorization page
+        // Redirect user to QuickBooks authorization page
         window.location.href = data.authUrl;
       } else {
         throw new Error('Failed to get authorization URL');
       }
     } catch (error) {
       console.error("Error connecting to QuickBooks:", error);
-      setError(error.message || "Failed to initiate QuickBooks connection.");
+      setError(error.message || "Failed to initiate QuickBooks connection");
       toast({
         title: "Connection Failed",
-        description: "Failed to initiate QuickBooks connection.",
+        description: "Failed to initiate QuickBooks connection. Please try again.",
         variant: "destructive",
       });
     }
@@ -146,48 +183,30 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     if (!user) return;
 
     try {
-      // Get access token for revocation
-      const token = await getAccessToken();
-      
-      if (!token) {
-        throw new Error("No access token available");
-      }
-      
-      // Call our edge function to revoke the token with Intuit
-      const { error: revokeError } = await supabase.functions.invoke('quickbooks-auth', {
+      // Call the edge function to revoke the token
+      const { error } = await supabase.functions.invoke('quickbooks-auth', {
         body: { 
-          action: 'revoke',
-          token 
+          path: 'revoke',
+          userId: user.id
         }
       });
       
-      if (revokeError) {
-        console.warn("Error revoking token:", revokeError);
-        // Continue with disconnection even if revocation fails
-      }
-      
-      // Delete the connection from our database
-      const { error: deleteError } = await supabase
-        .from('quickbooks_connections')
-        .delete()
-        .eq('user_id', user.id);
-      
-      if (deleteError) throw deleteError;
+      if (error) throw error;
       
       // Reset local state
       resetConnectionState();
       
       toast({
         title: "Disconnected",
-        description: "QuickBooks account has been disconnected successfully.",
+        description: "QuickBooks account has been disconnected successfully",
       });
       
     } catch (error) {
       console.error("Error disconnecting from QuickBooks:", error);
-      setError(error.message || "Failed to disconnect from QuickBooks.");
+      setError(error.message || "Failed to disconnect from QuickBooks");
       toast({
         title: "Disconnection Failed",
-        description: "Failed to disconnect from QuickBooks.",
+        description: "Failed to disconnect from QuickBooks. Please try again.",
         variant: "destructive",
       });
     }
@@ -198,8 +217,22 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     if (!user) return null;
 
     try {
-      const qbConnection = await getQBConnection();
-      return qbConnection?.access_token || null;
+      // If we have a connection with a valid token, use it
+      if (connection) {
+        // Check if token needs refreshing
+        const expiresAt = new Date(connection.expires_at);
+        const now = new Date();
+        
+        if ((expiresAt.getTime() - now.getTime()) < 5 * 60 * 1000) {
+          // Token is expired or about to expire, refresh it
+          return await refreshToken(connection.refresh_token);
+        }
+        
+        // Token is still valid
+        return connection.access_token;
+      }
+      
+      return null;
     } catch (error) {
       console.error("Error getting access token:", error);
       return null;
