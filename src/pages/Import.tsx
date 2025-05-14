@@ -1,8 +1,5 @@
+
 import React, { useState, useEffect } from "react";
-import { useDropzone } from "react-dropzone";
-import { CSVReader } from "react-papaparse";
-import { useQuickbooks } from "@/contexts/QuickbooksContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,14 +15,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Upload } from "lucide-react";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   createQuickbooksEntity,
   getEntitySchema,
-  getAccessToken,
-  getRealmId,
   logOperation
 } from "@/services/quickbooksApi";
+import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 
 const Import = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -43,15 +41,44 @@ const Import = () => {
   
   const entityOptions = ["Customer", "Invoice", "Item", "Bill"];
 
-  const { getRootProps, getInputProps } = useDropzone({
-    accept: {
-      "text/csv": [".csv"],
-    },
-    maxFiles: 1,
-    onDrop: (acceptedFiles) => {
-      setFile(acceptedFiles[0]);
-    },
-  });
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      // Simple CSV parsing (in a real app, use a proper CSV parser)
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const text = event.target?.result as string;
+          const rows = text.split('\n');
+          const headers = rows[0].split(',').map(h => h.trim());
+          
+          // Parse data rows
+          const data = [];
+          for (let i = 1; i < rows.length; i++) {
+            if (rows[i].trim()) {
+              const rowData = rows[i].split(',').reduce((acc, val, idx) => {
+                acc[headers[idx]] = val.trim();
+                return acc;
+              }, {} as Record<string, string>);
+              data.push(rowData);
+            }
+          }
+          
+          setHeaderRow(headers);
+          setCsvData(data);
+        } catch (error) {
+          console.error("Error parsing CSV:", error);
+          toast({
+            title: "CSV Parsing Error",
+            description: "Could not parse the CSV file.",
+            variant: "destructive",
+          });
+        }
+      };
+      reader.readAsText(selectedFile);
+    }
+  };
 
   useEffect(() => {
     if (selectedEntity) {
@@ -59,14 +86,6 @@ const Import = () => {
       setMappings(headerRow.map(csvField => ({ csvField, qbField: '' })));
     }
   }, [selectedEntity, headerRow]);
-
-  const handleReadCSV = (data: any[]) => {
-    if (data && data.length > 0) {
-      const header = Object.keys(data[0]);
-      setHeaderRow(header);
-      setCsvData(data);
-    }
-  };
 
   const handleEntityChange = (entity: string) => {
     setSelectedEntity(entity);
@@ -149,7 +168,6 @@ const Import = () => {
         description: `Successfully imported ${currentSuccessCount} records with ${currentErrorCount} errors.`,
       });
       
-      // Update this line to use the token and realmId directly:
       await logOperation({
         operationType: "import",
         entityType: selectedEntity,
@@ -169,7 +187,6 @@ const Import = () => {
         variant: "destructive",
       });
       
-      // Update this line to use the token and realmId directly:
       await logOperation({
         operationType: "import",
         entityType: selectedEntity || "unknown",
@@ -186,116 +203,143 @@ const Import = () => {
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-semibold mb-4">Import Data to QuickBooks</h1>
 
-      {/* File Upload */}
-      <div {...getRootProps()} className="border-2 border-dashed rounded-md p-4 mb-4 cursor-pointer bg-white">
-        <input {...getInputProps()} />
-        {file ? (
-          <p>Selected file: {file.name}</p>
-        ) : (
-          <p>Drag 'n' drop a CSV file here, or click to select file</p>
-        )}
-      </div>
-
-      {file && (
-        <CSVReader
-          file={file}
-          header
-          skipEmptyLines
-          onData={(data) => handleReadCSV(data)}
-          onError={(error) => {
-            console.error("CSV Parsing Error:", error);
-            toast({
-              title: "CSV Parsing Error",
-              description: error.message,
-              variant: "destructive",
-            });
-          }}
-        >
-          <span>Parse CSV</span>
-        </CSVReader>
-      )}
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>Upload CSV File</CardTitle>
+          <CardDescription>Select a CSV file containing data to import</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="border-2 border-dashed rounded-md p-8 mb-4 cursor-pointer bg-white text-center">
+            <div className="flex flex-col items-center gap-2">
+              <Upload className="h-8 w-8 text-gray-400" />
+              <Label htmlFor="file-upload" className="cursor-pointer">
+                {file ? `Selected file: ${file.name}` : "Click to upload a CSV file"}
+              </Label>
+              <Input 
+                id="file-upload" 
+                type="file" 
+                onChange={handleFileChange} 
+                accept=".csv"
+                className="hidden" 
+              />
+              {file && <p className="text-sm text-gray-500">{csvData.length} records found</p>}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Entity Selection */}
       {csvData.length > 0 && (
-        <div className="mb-4">
-          <Label htmlFor="entity">Select QuickBooks Entity:</Label>
-          <Select onValueChange={handleEntityChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select Entity" />
-            </SelectTrigger>
-            <SelectContent>
-              {entityOptions.map((entity) => (
-                <SelectItem key={entity} value={entity}>
-                  {entity}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Field Mapping */}
-      {selectedEntity && headerRow.length > 0 && (
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold mb-2">Map CSV Fields to QuickBooks Fields</h2>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>CSV Field</TableHead>
-                <TableHead>QuickBooks Field</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mappings.map((mapping, index) => (
-                <TableRow key={index}>
-                  <TableCell>{mapping.csvField}</TableCell>
-                  <TableCell>
-                    <Input
-                      type="text"
-                      value={mapping.qbField}
-                      onChange={(e) => handleMappingChange(index, e.target.value)}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {/* Import Button */}
-      {selectedEntity && mappings.length > 0 && (
-        <Button onClick={handleImport} disabled={importing} className="bg-transyncpro-button hover:bg-transyncpro-button/90">
-          {importing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Importing...
-            </>
-          ) : (
-            "Import"
-          )}
-        </Button>
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle>Configure Import</CardTitle>
+            <CardDescription>Map your CSV fields to QuickBooks fields</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="entity">Select QuickBooks Entity:</Label>
+              <Select onValueChange={handleEntityChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Entity" />
+                </SelectTrigger>
+                <SelectContent>
+                  {entityOptions.map((entity) => (
+                    <SelectItem key={entity} value={entity}>
+                      {entity}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Field Mapping */}
+            {selectedEntity && headerRow.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium mb-2">Map CSV Fields to QuickBooks Fields</h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>CSV Field</TableHead>
+                      <TableHead>QuickBooks Field</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mappings.map((mapping, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{mapping.csvField}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            value={mapping.qbField}
+                            onChange={(e) => handleMappingChange(index, e.target.value)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            
+            {/* Import Button */}
+            {selectedEntity && mappings.length > 0 && (
+              <Button onClick={handleImport} disabled={importing}>
+                {importing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  "Import"
+                )}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Import Status */}
       {importStatus && (
-        <div className="mt-4">
-          <p>{importStatus}</p>
-        </div>
-      )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Import Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4">
+              <p>{importStatus}</p>
+              {importing && (
+                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                  <div 
+                    className="bg-blue-600 h-2.5 rounded-full" 
+                    style={{ width: `${(successCount / csvData.length) * 100}%` }}
+                  ></div>
+                </div>
+              )}
+            </div>
 
-      {/* Error Display */}
-      {errors.length > 0 && (
-        <div className="mt-4">
-          <h2 className="text-red-500 font-semibold">Import Errors</h2>
-          <ul>
-            {errors.map((error, index) => (
-              <li key={index} className="text-red-500">
-                Row {error.row}: {error.message}
-              </li>
-            ))}
-          </ul>
-        </div>
+            {/* Error Display */}
+            {errors.length > 0 && (
+              <div>
+                <h2 className="text-red-500 font-semibold mb-2">Import Errors</h2>
+                <ul className="space-y-1">
+                  {errors.map((error, index) => (
+                    <li key={index} className="text-red-500 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1 flex-shrink-0" />
+                      Row {error.row}: {error.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {successCount > 0 && (
+              <p className="text-green-600 flex items-center">
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Successfully imported {successCount} records
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

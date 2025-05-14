@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -38,7 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
-import { getAccessToken, getRealmId, deleteQuickbooksEntity, logOperation } from "@/services/quickbooksApi";
+import { deleteQuickbooksEntity, logOperation } from "@/services/quickbooksApi";
 
 interface DeleteProgress {
   total: number;
@@ -144,7 +145,7 @@ const Delete = () => {
       const deletionResults = {
         success: 0,
         failed: 0,
-        details: []
+        details: [] as { id: string; status: "success" | "error"; error?: string }[]
       };
       
       for (const [index, record] of recordsToDelete.entries()) {
@@ -153,7 +154,7 @@ const Delete = () => {
           
           deletionResults.success++;
           deletionResults.details.push({ id: record.id, status: "success" });
-        } catch (error) {
+        } catch (error: any) {
           deletionResults.failed++;
           deletionResults.details.push({ id: record.id, status: "error", error: error.message });
         } finally {
@@ -183,9 +184,9 @@ const Delete = () => {
       toast({
         title: "Deletion Complete",
         description: `Successfully deleted ${deletionResults.success} records. ${deletionResults.failed} failed.`,
-        variant: deletionResults.failed > 0 ? "warning" : "default"
+        variant: deletionResults.failed > 0 ? "destructive" : "default"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting records:", error);
       toast({
         title: "Deletion Failed",
@@ -214,7 +215,7 @@ const Delete = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
           <Label htmlFor="entity">Select Entity</Label>
-          <Select onValueChange={setSelectedEntity}>
+          <Select onValueChange={setSelectedEntity as (value: string) => void}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select an entity" />
             </SelectTrigger>

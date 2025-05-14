@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { queryQuickbooksData, logOperation, convertToCSV, getEntitySchema } from "@/services/quickbooksApi";
@@ -114,7 +115,7 @@ const Export = () => {
         title: "Export Successful",
         description: `${data.QueryResponse[entityQueryName].length} ${selectedEntity}(s) exported.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Export error:", error);
       toast({
         title: "Export Failed",

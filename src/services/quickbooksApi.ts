@@ -1,20 +1,21 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
 // Re-export from connections.ts
-export { getQBConnection, needsTokenRefresh, updateConnectionTokens } from './quickbooksApi/connections';
+export { getQBConnection, updateConnectionTokens, needsTokenRefresh } from './quickbooksApi/connections';
 
 // QuickBooks API base URL for sandbox environment
 const API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com";
 
 // Function to log operations in Supabase
-export const logOperation = async (
-  operationType: 'import' | 'export' | 'delete',
-  entityType: string,
-  recordId: string | null,
-  status: 'success' | 'error' | 'pending',
-  details?: any
-) => {
+export const logOperation = async (options: {
+  operationType: 'import' | 'export' | 'delete';
+  entityType: string;
+  recordId: string | null;
+  status: 'success' | 'error' | 'pending' | 'partial';
+  details?: any;
+}) => {
   try {
     const { data: user } = await supabase.auth.getUser();
     
@@ -24,11 +25,11 @@ export const logOperation = async (
     
     await supabase.from("operation_logs").insert({
       user_id: user.user.id,
-      operation_type: operationType,
-      entity_type: entityType,
-      record_id: recordId,
-      status,
-      details
+      operation_type: options.operationType,
+      entity_type: options.entityType,
+      record_id: options.recordId,
+      status: options.status,
+      details: options.details
     });
   } catch (error) {
     console.error("Error logging operation:", error);
@@ -36,7 +37,7 @@ export const logOperation = async (
 };
 
 // Function to prepare API headers with authentication
-const getHeaders = async (accessToken: string) => {
+const getHeaders = (accessToken: string) => {
   return {
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
