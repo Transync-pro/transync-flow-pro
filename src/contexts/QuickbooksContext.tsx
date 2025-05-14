@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -13,6 +12,8 @@ interface QuickbooksConnection {
   created_at: string;
   expires_at: string;
   company_name?: string;
+  token_type: string;
+  updated_at: string;
 }
 
 interface QuickbooksContextType {
@@ -81,6 +82,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
         setConnection(data as QuickbooksConnection);
         setIsConnected(true);
         setRealmId(data.realm_id);
+        // Handle potentially missing company_name safely
         setCompanyName(data.company_name || null);
         
         // Check if token needs refreshing (if expires in less than 5 minutes)
