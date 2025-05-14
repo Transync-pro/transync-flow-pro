@@ -1,6 +1,7 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import {
   Sidebar,
   SidebarContent,
@@ -66,13 +67,21 @@ const DashboardHeader = () => {
 const DashboardSidebar = () => {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
-  
+  const { isConnected, disconnect, isLoading } = useQuickbooks();
+  const navigate = useNavigate();
+
+  const handleDisconnect = async () => {
+    await disconnect();
+    navigate("/disconnected");
+  };
+
   return (
     <Sidebar className={isCollapsed ? "w-16" : "w-64"} collapsible="icon">
-      <SidebarContent className="pt-4">
-        <SidebarGroup>
-          <SidebarGroupLabel>Data Management</SidebarGroupLabel>
-          <SidebarGroupContent>
+      <SidebarContent className="pt-4 flex flex-col h-full">
+        <div className="flex-1">
+          <SidebarGroup>
+            <SidebarGroupLabel>Data Management</SidebarGroupLabel>
+            <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
@@ -141,8 +150,20 @@ const DashboardSidebar = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+      </div>
+      {/* Disconnect QuickBooks button at the bottom */}
+      {isConnected && !isLoading && (
+        <div className="p-4 border-t mt-4">
+          <button
+            onClick={handleDisconnect}
+            className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
+          >
+            Disconnect QuickBooks
+          </button>
+        </div>
+      )}
+    </SidebarContent>
+  </Sidebar>
   );
 };
 

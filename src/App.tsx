@@ -20,6 +20,7 @@ import Delete from "./pages/Delete";
 import QuickbooksCallback from "./pages/QuickbooksCallback";
 import QuickbooksConnectPage from "./components/QuickbooksConnectPage";
 import NotFound from "./pages/NotFound";
+import Disconnected from "./pages/Disconnected";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
                   <Verify />
                 </RouteGuard>
               } />
+              <Route path="/disconnected" element={<Disconnected />} />
               
               {/* Auth protected routes */}
               <Route path="/connect-quickbooks" element={
