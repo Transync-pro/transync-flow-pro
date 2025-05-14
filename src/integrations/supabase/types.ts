@@ -45,6 +45,7 @@ export type Database = {
       quickbooks_connections: {
         Row: {
           access_token: string
+          company_name: string | null
           created_at: string | null
           expires_at: string
           id: string
@@ -56,6 +57,7 @@ export type Database = {
         }
         Insert: {
           access_token: string
+          company_name?: string | null
           created_at?: string | null
           expires_at: string
           id?: string
@@ -67,6 +69,7 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          company_name?: string | null
           created_at?: string | null
           expires_at?: string
           id?: string

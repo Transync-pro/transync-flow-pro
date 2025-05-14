@@ -19,12 +19,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AlertCircle, CheckCircle, Link, LogOut } from "lucide-react";
+import { AlertCircle, CheckCircle, Link, LogOut, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 const QuickbooksConnect = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   
   const {
     connection,
@@ -40,11 +41,13 @@ const QuickbooksConnect = () => {
 
   const handleConnect = async () => {
     setIsConnecting(true);
+    setConnectionError(null);
     try {
       await connectToQuickbooks();
       // Note: Actual navigation happens in the callback or provider
-    } catch (err) {
-      // Error handling is done in the provider
+    } catch (err: any) {
+      // Capture specific error message
+      setConnectionError(err.message || "Failed to connect to QuickBooks");
       setIsConnecting(false);
     }
   };
@@ -62,7 +65,7 @@ const QuickbooksConnect = () => {
     return (
       <div className="p-6 border rounded-lg bg-white shadow-sm">
         <div className="flex items-center justify-center py-8">
-          <div className="w-6 h-6 border-2 border-t-blue-500 rounded-full animate-spin"></div>
+          <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
           <span className="ml-3 text-sm text-gray-500">Checking connection status...</span>
         </div>
       </div>
@@ -73,11 +76,11 @@ const QuickbooksConnect = () => {
     <div className="p-6 border rounded-lg bg-white shadow-sm">
       <h2 className="text-xl font-semibold mb-4">QuickBooks Integration</h2>
       
-      {error && (
+      {(error || connectionError) && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{connectionError || error}</AlertDescription>
         </Alert>
       )}
 
@@ -88,9 +91,11 @@ const QuickbooksConnect = () => {
             <AlertTitle className="text-green-700">Connected to QuickBooks</AlertTitle>
             <AlertDescription className="text-green-700">
               <div className="mt-2 space-y-2">
-                <p><strong>Company:</strong> {companyName}</p>
+                <p><strong>Company:</strong> {companyName || "Unknown Company"}</p>
                 <p><strong>Company ID:</strong> {connection?.realm_id}</p>
-                <p><strong>Connected until:</strong> {format(new Date(connection?.expires_at || ""), "PPP pp")}</p>
+                {connection?.expires_at && (
+                  <p><strong>Connected until:</strong> {format(new Date(connection.expires_at), "PPP pp")}</p>
+                )}
                 {user && <p><strong>Connected as:</strong> {user.email}</p>}
               </div>
             </AlertDescription>
@@ -103,7 +108,7 @@ const QuickbooksConnect = () => {
                 variant="outline"
                 disabled={isDisconnecting}
               >
-                <LogOut className="mr-2 h-4 w-4" />
+                {isDisconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
                 {isDisconnecting ? "Disconnecting..." : "Disconnect QuickBooks"}
               </Button>
             </AlertDialogTrigger>
@@ -136,8 +141,17 @@ const QuickbooksConnect = () => {
             className="flex items-center"
             disabled={isConnecting}
           >
-            <Link className="mr-2 h-4 w-4" />
-            {isConnecting ? "Connecting..." : "Connect to QuickBooks"}
+            {isConnecting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <Link className="mr-2 h-4 w-4" />
+                Connect to QuickBooks
+              </>
+            )}
           </Button>
         </div>
       )}

@@ -3,12 +3,15 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -29,7 +32,7 @@ const QuickbooksCallback = () => {
         }
 
         if (!code || !realmId) {
-          setError("Missing required parameters");
+          setError("Missing required parameters from QuickBooks");
           return;
         }
 
@@ -55,16 +58,19 @@ const QuickbooksCallback = () => {
           throw new Error(invokeError?.message || data?.error || "Failed to complete authentication");
         }
 
+        setSuccess(true);
         toast({
           title: "Connection Successful",
           description: "Your QuickBooks account has been connected successfully!",
         });
 
-        // Redirect to dashboard
-        navigate("/dashboard");
-      } catch (err) {
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 2000);
+      } catch (err: any) {
         console.error("Error processing callback:", err);
-        setError("Failed to complete QuickBooks connection. Please try again.");
+        setError(`Failed to complete QuickBooks connection: ${err.message || "Unknown error"}`);
         toast({
           title: "Connection Failed",
           description: "Unable to connect to QuickBooks. Please try again.",
@@ -84,9 +90,9 @@ const QuickbooksCallback = () => {
           handleCallback();
         } else {
           setError("Authentication required");
-          navigate("/login");
+          setIsProcessing(false);
         }
-      }, 1000);
+      }, 1500);
       
       return () => clearTimeout(timer);
     }
@@ -105,22 +111,30 @@ const QuickbooksCallback = () => {
             </p>
           </div>
         ) : error ? (
-          <div className="p-4 rounded-md bg-red-50 text-red-700">
-            <p className="font-medium">Error</p>
-            <p className="text-sm">{error}</p>
-            <button
-              onClick={() => navigate("/connect-quickbooks")}
-              className="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Try Again
-            </button>
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <div className="flex justify-center">
+              <Button
+                onClick={() => navigate("/connect-quickbooks")}
+                className="w-full"
+              >
+                Try Again
+              </Button>
+            </div>
           </div>
         ) : (
-          <div className="p-4 rounded-md bg-green-50 text-green-700">
-            <p className="font-medium">Success!</p>
-            <p className="text-sm">
-              Your QuickBooks account has been connected successfully. You will be redirected to the dashboard.
-            </p>
+          <div className="space-y-4">
+            <Alert variant="default" className="bg-green-50 border-green-200">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertTitle className="text-green-700">Success!</AlertTitle>
+              <AlertDescription className="text-green-700">
+                Your QuickBooks account has been connected successfully. You will be redirected to the dashboard.
+              </AlertDescription>
+            </Alert>
           </div>
         )}
       </div>
