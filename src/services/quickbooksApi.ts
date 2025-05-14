@@ -1,6 +1,8 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
+
+// Re-export from connections.ts
+export { getQBConnection, needsTokenRefresh, updateConnectionTokens } from './quickbooksApi/connections';
 
 // QuickBooks API base URL for sandbox environment
 const API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com";

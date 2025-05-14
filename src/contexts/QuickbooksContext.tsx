@@ -5,11 +5,24 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getQBConnection } from "@/services/quickbooksApi";
 
+interface QuickbooksConnection {
+  id: string;
+  user_id: string;
+  realm_id: string;
+  access_token: string;
+  refresh_token: string;
+  created_at: string;
+  expires_at: string;
+  company_name?: string;
+}
+
 interface QuickbooksContextType {
   isConnected: boolean;
   isLoading: boolean;
   realmId: string | null;
   companyName: string | null;
+  connection: QuickbooksConnection | null;
+  error: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
@@ -35,6 +48,8 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [realmId, setRealmId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -50,19 +65,22 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     if (!user) return;
     
     setIsLoading(true);
+    setError(null);
     try {
-      const connection = await getQBConnection();
+      const qbConnection = await getQBConnection();
       
-      if (connection) {
+      if (qbConnection) {
+        setConnection(qbConnection);
         setIsConnected(true);
-        setRealmId(connection.realm_id);
-        setCompanyName(connection.company_name || null);
+        setRealmId(qbConnection.realm_id);
+        setCompanyName(qbConnection.company_name || null);
       } else {
         resetConnectionState();
       }
     } catch (error) {
       console.error("Error checking QuickBooks connection:", error);
       resetConnectionState();
+      setError("Failed to check QuickBooks connection status.");
       toast({
         title: "Connection Error",
         description: "Failed to check QuickBooks connection status.",
@@ -77,6 +95,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     setIsConnected(false);
     setRealmId(null);
     setCompanyName(null);
+    setConnection(null);
   };
 
   // Start OAuth flow to connect to QuickBooks
@@ -113,6 +132,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       }
     } catch (error) {
       console.error("Error connecting to QuickBooks:", error);
+      setError(error.message || "Failed to initiate QuickBooks connection.");
       toast({
         title: "Connection Failed",
         description: "Failed to initiate QuickBooks connection.",
@@ -164,6 +184,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       
     } catch (error) {
       console.error("Error disconnecting from QuickBooks:", error);
+      setError(error.message || "Failed to disconnect from QuickBooks.");
       toast({
         title: "Disconnection Failed",
         description: "Failed to disconnect from QuickBooks.",
@@ -177,8 +198,8 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     if (!user) return null;
 
     try {
-      const connection = await getQBConnection();
-      return connection?.access_token || null;
+      const qbConnection = await getQBConnection();
+      return qbConnection?.access_token || null;
     } catch (error) {
       console.error("Error getting access token:", error);
       return null;
@@ -195,6 +216,8 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     isLoading,
     realmId,
     companyName,
+    connection,
+    error,
     connect,
     disconnect,
     getAccessToken,

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -10,7 +9,7 @@ import { toast } from "@/components/ui/use-toast";
 
 const QuickbooksConnectPage = () => {
   const [isConnecting, setIsConnecting] = useState(false);
-  const { connectToQuickbooks, isConnected, isLoading } = useQuickbooks();
+  const { connect, isConnected, isLoading } = useQuickbooks();
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -24,7 +23,7 @@ const QuickbooksConnectPage = () => {
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
-      await connectToQuickbooks();
+      await connect();
       // Note: navigation happens in the callback or on page refresh
     } catch (error) {
       setIsConnecting(false);

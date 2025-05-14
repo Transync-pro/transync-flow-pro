@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,8 +29,8 @@ const QuickbooksConnect = () => {
     connection,
     isLoading,
     error,
-    connectToQuickbooks,
-    disconnectQuickbooks,
+    connect: connectToQuickbooks,
+    disconnect: disconnectQuickbooks,
     isConnected,
   } = useQuickbooks();
 
