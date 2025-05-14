@@ -2,7 +2,6 @@
 // supabase/functions/quickbooks-auth/index.ts
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-import { OAuthClient } from 'npm:intuit-oauth';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +14,15 @@ const QB_CLIENT_SECRET = Deno.env.get('QUICKBOOKS_CLIENT_SECRET') || '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const QB_ENVIRONMENT = Deno.env.get('QUICKBOOKS_ENVIRONMENT') || 'sandbox';
+
+// Define QuickBooks URLs based on environment
+const QB_BASE_URL = QB_ENVIRONMENT === 'production'
+  ? 'https://accounts.platform.intuit.com'
+  : 'https://accounts-sandbox.platform.intuit.com';
+
+const QB_API_URL = QB_ENVIRONMENT === 'production'
+  ? 'https://quickbooks.api.intuit.com'
+  : 'https://sandbox-quickbooks.api.intuit.com';
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -42,14 +50,6 @@ serve(async (req) => {
     }
 
     console.log('Request body:', JSON.stringify(body));
-    
-    // Initialize OAuth client
-    const oauthClient = new OAuthClient({
-      clientId: QB_CLIENT_ID,
-      clientSecret: QB_CLIENT_SECRET,
-      environment: QB_ENVIRONMENT,
-      redirectUri: body.redirectUri || '',
-    });
 
     // Handle authorization request (start OAuth flow)
     if (body.path === 'authorize') {
@@ -61,24 +61,30 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      oauthClient.redirectUri = redirectUri;
       
-      // Generate the authorization URL with appropriate scopes
-      const authUri = oauthClient.authorizeUri({
-        scope: [
-          OAuthClient.scopes.Accounting,
-          OAuthClient.scopes.OpenId,
-          OAuthClient.scopes.Email,
-        ],
-        state: userId,
-      });
-
-      console.log('Generated auth URL:', authUri);
+      // Define scopes for QuickBooks
+      const scopes = [
+        'com.intuit.quickbooks.accounting',
+        'openid',
+        'profile',
+        'email',
+        'address',
+        'phone'
+      ];
+      
+      // Construct the authorization URL
+      const authUrl = new URL(`${QB_BASE_URL}/connect/oauth2/authorize`);
+      authUrl.searchParams.append('client_id', QB_CLIENT_ID);
+      authUrl.searchParams.append('response_type', 'code');
+      authUrl.searchParams.append('scope', scopes.join(' '));
+      authUrl.searchParams.append('redirect_uri', redirectUri);
+      authUrl.searchParams.append('state', userId);
+      
+      console.log('Generated auth URL:', authUrl.toString());
       
       // Return the URL for frontend redirection
       return new Response(
-        JSON.stringify({ authUrl: authUri }),
+        JSON.stringify({ authUrl: authUrl.toString() }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } 
@@ -96,44 +102,81 @@ serve(async (req) => {
 
       console.log('Processing token exchange:', { code, redirectUri, userId });
 
-      oauthClient.redirectUri = redirectUri;
-
       try {
-        // Exchange authorization code for tokens
-        const tokenResponse = await oauthClient.createToken(code);
-        const tokenJson = tokenResponse.getJson();
+        // Exchange authorization code for tokens using fetch
+        const tokenUrl = `${QB_BASE_URL}/oauth2/v1/tokens/bearer`;
+        const tokenParams = new URLSearchParams();
+        tokenParams.append('grant_type', 'authorization_code');
+        tokenParams.append('code', code);
+        tokenParams.append('redirect_uri', redirectUri);
+        
+        // Basic auth for client credentials
+        const authString = `${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`;
+        const base64Auth = btoa(authString);
+        
+        const tokenResponse = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${base64Auth}`,
+            'Accept': 'application/json'
+          },
+          body: tokenParams
+        });
 
+        if (!tokenResponse.ok) {
+          const errorData = await tokenResponse.json();
+          throw new Error(`Token exchange failed: ${errorData.error_description || errorData.error || 'Unknown error'}`);
+        }
+
+        const tokenData = await tokenResponse.json();
         console.log('Token response received');
-
+        
         // Calculate token expiry time
         const now = new Date();
-        const expiresInSeconds = tokenJson.token.expires_in;
+        const expiresInSeconds = tokenData.expires_in;
         const expiresAt = new Date(now.getTime() + expiresInSeconds * 1000).toISOString();
-
-        // Extract realm ID from token response
-        const realmId = tokenResponse.token.realmid;
-
-        // Fetch company information
-        oauthClient.setToken(tokenJson.token);
-        const companyInfoResponse = await oauthClient.getCompanyInfo(realmId);
-        const companyInfo = companyInfoResponse.getJson();
         
-        // Extract company name or use a default
-        const companyName = companyInfo?.CompanyInfo?.CompanyName || 'QuickBooks Company';
-
+        // Get the realmId from the response
+        const realmId = tokenData.realmId || '';
+        
+        // Fetch company information if we have a realmId
+        let companyName = 'QuickBooks Company';
+        
+        if (realmId) {
+          try {
+            const companyInfoUrl = `${QB_API_URL}/v3/company/${realmId}/companyinfo/${realmId}`;
+            const companyResponse = await fetch(companyInfoUrl, {
+              headers: {
+                'Authorization': `Bearer ${tokenData.access_token}`,
+                'Accept': 'application/json'
+              }
+            });
+            
+            if (companyResponse.ok) {
+              const companyInfo = await companyResponse.json();
+              companyName = companyInfo.CompanyInfo?.CompanyName || companyName;
+            }
+          } catch (companyError) {
+            console.error('Error fetching company info:', companyError);
+            // Continue with default company name
+          }
+        }
+        
         console.log('Company info received:', companyName);
-
+        
         // Save connection details to database
-        const { data, error: dbError } = await supabase
+        const { error: dbError } = await supabase
           .from('quickbooks_connections')
           .upsert(
             {
               user_id: userId,
               realm_id: realmId,
-              access_token: tokenJson.token.access_token,
-              refresh_token: tokenJson.token.refresh_token,
+              access_token: tokenData.access_token,
+              refresh_token: tokenData.refresh_token,
               expires_at: expiresAt,
               company_name: companyName,
+              token_type: tokenData.token_type
             },
             { onConflict: 'user_id' }
           );
@@ -198,26 +241,44 @@ serve(async (req) => {
       }
 
       try {
-        // Set the refresh token
-        oauthClient.token = {
-          refresh_token: refreshToken
-        };
-
         // Refresh the access token
-        const refreshResponse = await oauthClient.refresh();
-        const refreshJson = refreshResponse.getJson();
+        const refreshUrl = `${QB_BASE_URL}/oauth2/v1/tokens/bearer`;
+        const refreshParams = new URLSearchParams();
+        refreshParams.append('grant_type', 'refresh_token');
+        refreshParams.append('refresh_token', refreshToken);
+        
+        // Basic auth for client credentials
+        const authString = `${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`;
+        const base64Auth = btoa(authString);
+        
+        const refreshResponse = await fetch(refreshUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${base64Auth}`,
+            'Accept': 'application/json'
+          },
+          body: refreshParams
+        });
+
+        if (!refreshResponse.ok) {
+          const errorData = await refreshResponse.json();
+          throw new Error(`Token refresh failed: ${errorData.error_description || errorData.error || 'Unknown error'}`);
+        }
+
+        const refreshData = await refreshResponse.json();
         
         // Calculate new expiry time
         const now = new Date();
-        const expiresInSeconds = refreshJson.token.expires_in;
+        const expiresInSeconds = refreshData.expires_in;
         const expiresAt = new Date(now.getTime() + expiresInSeconds * 1000).toISOString();
 
         // Update tokens in database
         const { error: dbError } = await supabase
           .from('quickbooks_connections')
           .update({
-            access_token: refreshJson.token.access_token,
-            refresh_token: refreshJson.token.refresh_token,
+            access_token: refreshData.access_token,
+            refresh_token: refreshData.refresh_token,
             expires_at: expiresAt,
           })
           .eq('user_id', userId);
@@ -229,8 +290,8 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             success: true,
-            accessToken: refreshJson.token.access_token,
-            refreshToken: refreshJson.token.refresh_token,
+            accessToken: refreshData.access_token,
+            refreshToken: refreshData.refresh_token,
             expiresAt
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -268,14 +329,31 @@ serve(async (req) => {
           throw new Error('No active QuickBooks connection found');
         }
         
-        // Set the token to revoke
-        oauthClient.token = {
-          access_token: connection.access_token,
-          refresh_token: connection.refresh_token,
-        };
-        
-        // Revoke the token
-        await oauthClient.revoke();
+        // Revoke the tokens (Optional: QuickBooks OAuth doesn't require explicit revocation)
+        try {
+          // Attempt to revoke the access token
+          const revokeUrl = `${QB_BASE_URL}/oauth2/v1/tokens/revoke`;
+          const revokeParams = new URLSearchParams();
+          revokeParams.append('token', connection.access_token);
+          
+          // Basic auth for client credentials
+          const authString = `${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`;
+          const base64Auth = btoa(authString);
+          
+          await fetch(revokeUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Authorization': `Basic ${base64Auth}`,
+              'Accept': 'application/json'
+            },
+            body: revokeParams
+          });
+          // We don't need to check the response - even if it fails, we'll still remove the local connection
+        } catch (revokeError) {
+          // Log but continue
+          console.warn('Token revocation warning (continuing):', revokeError);
+        }
         
         // Delete the connection from the database
         const { error: deleteError } = await supabase
