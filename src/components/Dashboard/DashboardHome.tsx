@@ -28,11 +28,11 @@ const statsCards = [
     trendDirection: "down",
   },
   {
-    title: "QuickBooks Quota",
-    value: "75%",
-    description: "API quota remaining today",
-    progress: 75,
-    resetTime: "Resets in 6h 23m",
+    title: "Scheduled Jobs",
+    value: "8",
+    description: "Active scheduled jobs",
+    trend: "+2",
+    trendDirection: "up",
   },
 ];
 
@@ -150,12 +150,7 @@ const DashboardHome = () => {
                   </span>
                 )}
               </CardDescription>
-              {card.progress && (
-                <div className="mt-3">
-                  <Progress value={card.progress} className="h-2" />
-                  <div className="text-xs text-gray-500 mt-1">{card.resetTime}</div>
-                </div>
-              )}
+              {/* No progress bar needed for the updated stats cards */}
             </CardContent>
           </Card>
         ))}

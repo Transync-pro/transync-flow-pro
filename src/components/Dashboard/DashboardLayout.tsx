@@ -218,17 +218,24 @@ const DashboardSidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
       </div>
-      {/* Disconnect QuickBooks button at the bottom */}
-      {isConnected && !isLoading && (
-        <div className="p-4 border-t mt-4">
+      {/* QuickBooks connection button at the bottom */}
+      <div className="p-4 border-t mt-4">
+        {isConnected && !isLoading ? (
           <button
             onClick={handleDisconnect}
             className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
           >
             Disconnect QuickBooks
           </button>
-        </div>
-      )}
+        ) : (
+          <button
+            onClick={() => navigate("/disconnected")}
+            className="w-full bg-transyncpro-button hover:bg-transyncpro-button/90 text-white py-2 px-4 rounded transition-colors"
+          >
+            Connect to QuickBooks
+          </button>
+        )}
+      </div>
     </SidebarContent>
   </Sidebar>
   );
