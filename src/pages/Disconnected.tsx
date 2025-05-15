@@ -30,9 +30,9 @@ const Disconnected = () => {
           <Button
             variant="outline"
             className="w-full mt-2"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/")}
           >
-            Go to Dashboard
+            Go to Home
           </Button>
         </CardFooter>
       </Card>
