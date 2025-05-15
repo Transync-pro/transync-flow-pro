@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { QuickbooksConnection } from "../QuickbooksContext";
+import { QuickbooksConnection } from "./types";
 import { User } from "@supabase/supabase-js";
 
 export const useQBConnectionStatus = (user: User | null) => {
@@ -10,7 +10,6 @@ export const useQBConnectionStatus = (user: User | null) => {
   const [realmId, setRealmId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -25,7 +24,6 @@ export const useQBConnectionStatus = (user: User | null) => {
     if (!user) return;
     
     setIsLoading(true);
-    setError(null);
     try {
       // Query the QuickBooks connections table for this user
       const { data, error } = await supabase
@@ -35,7 +33,9 @@ export const useQBConnectionStatus = (user: User | null) => {
         .single();
       
       if (error) {
-        throw error;
+        console.error("Error checking QuickBooks connection:", error);
+        resetConnectionState();
+        return;
       }
       
       if (data) {
@@ -52,7 +52,6 @@ export const useQBConnectionStatus = (user: User | null) => {
     } catch (error) {
       console.error("Error checking QuickBooks connection:", error);
       resetConnectionState();
-      setError("Failed to check QuickBooks connection status");
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +74,6 @@ export const useQBConnectionStatus = (user: User | null) => {
     connection,
     realmId,
     companyName,
-    error,
     refreshConnection
   };
 };

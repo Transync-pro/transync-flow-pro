@@ -1,12 +1,12 @@
 
-import { useState } from "react";
+import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
-import { User } from "@supabase/supabase-js";
 
 export const useQBActions = (
   user: User | null,
-  refreshConnection: () => Promise<void>
+  refreshConnection: () => Promise<void>,
+  handleError: (error: string, displayToast?: boolean) => string
 ) => {
   // Start OAuth flow to connect to QuickBooks
   const connect = async () => {
@@ -41,13 +41,8 @@ export const useQBActions = (
       } else {
         throw new Error('Failed to get authorization URL');
       }
-    } catch (error) {
-      console.error("Error connecting to QuickBooks:", error);
-      toast({
-        title: "Connection Failed",
-        description: "Failed to initiate QuickBooks connection. Please try again.",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      handleError(`Failed to initiate QuickBooks connection: ${error.message || "Unknown error"}`, true);
     }
   };
 
@@ -74,13 +69,8 @@ export const useQBActions = (
         description: "QuickBooks account has been disconnected successfully",
       });
       
-    } catch (error) {
-      console.error("Error disconnecting from QuickBooks:", error);
-      toast({
-        title: "Disconnection Failed",
-        description: "Failed to disconnect from QuickBooks. Please try again.",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      handleError(`Failed to disconnect from QuickBooks: ${error.message || "Unknown error"}`, true);
     }
   };
 

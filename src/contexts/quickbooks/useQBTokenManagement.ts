@@ -1,10 +1,11 @@
 
-import { QuickbooksConnection } from "../QuickbooksContext";
+import { QuickbooksConnection } from "./types";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useQBTokenManagement = (
   connection: QuickbooksConnection | null,
-  refreshConnection: () => Promise<void>
+  refreshConnection: () => Promise<void>,
+  handleError: (error: string, displayToast?: boolean) => string
 ) => {
   // Refresh the access token
   const refreshToken = async (refreshTokenStr: string): Promise<string | null> => {
@@ -26,8 +27,8 @@ export const useQBTokenManagement = (
       await refreshConnection();
       
       return data.accessToken;
-    } catch (error) {
-      console.error("Error refreshing QuickBooks token:", error);
+    } catch (error: any) {
+      handleError(`Error refreshing QuickBooks token: ${error.message || "Unknown error"}`, true);
       return null;
     }
   };
@@ -48,8 +49,8 @@ export const useQBTokenManagement = (
       
       // Token is still valid
       return connection.access_token;
-    } catch (error) {
-      console.error("Error getting access token:", error);
+    } catch (error: any) {
+      handleError(`Error getting access token: ${error.message || "Unknown error"}`, false);
       return null;
     }
   };

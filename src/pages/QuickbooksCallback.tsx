@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,46 +23,45 @@ const QuickbooksCallback = () => {
         const params = new URLSearchParams(location.search);
         const code = params.get("code");
         const realmId = params.get("realmId");
-        const state = params.get("state"); // This should be the userId
-        const error = params.get("error");
+        const state = params.get("state"); // This contains the userId from our auth process
+        const errorParam = params.get("error");
 
-        if (error) {
-          setError(`Authorization error: ${error}`);
-          return;
+        if (errorParam) {
+          throw new Error(`Authorization error: ${errorParam}`);
         }
 
         if (!code) {
-          setError("Missing authorization code from QuickBooks");
-          return;
+          throw new Error("Missing authorization code from QuickBooks");
         }
 
         if (!realmId) {
-          setError("Missing realm ID from QuickBooks");
-          return;
+          throw new Error("Missing realm ID from QuickBooks");
         }
 
         if (!user) {
-          setError("You must be signed in to complete this process");
-          setTimeout(() => navigate("/login"), 3000);
-          return;
+          throw new Error("You must be signed in to complete this process");
         }
 
-        console.log("Processing callback with code, realmId, and state", { code, realmId, state: state || user.id });
+        const userId = state || user.id;
+        console.log("Processing callback with code, realmId, and userId", { code, realmId, userId });
 
         // Call our edge function to exchange the code for tokens
-        // We pass the realmId explicitly to ensure it's stored
         const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
           body: {
             path: "token",
             code,
-            realmId, // Explicitly pass realmId
+            realmId, // Explicitly pass realmId to ensure it's stored
             redirectUri: window.location.origin + "/dashboard/quickbooks-callback",
-            userId: user.id,
+            userId
           },
         });
 
         if (invokeError || data?.error) {
-          throw new Error(invokeError?.message || data?.error || "Failed to complete authentication");
+          throw new Error(
+            invokeError?.message || 
+            data?.error || 
+            "Failed to complete QuickBooks authentication"
+          );
         }
 
         setSuccess(true);
