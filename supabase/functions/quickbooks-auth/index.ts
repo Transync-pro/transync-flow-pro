@@ -1,25 +1,52 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
-const QUICKBOOKS_CLIENT_ID = Deno.env.get('QUICKBOOKS_CLIENT_ID') || '';
-const QUICKBOOKS_CLIENT_SECRET = Deno.env.get('QUICKBOOKS_CLIENT_SECRET') || '';
+
+// Get environment setting
 const QUICKBOOKS_ENVIRONMENT = Deno.env.get('QUICKBOOKS_ENVIRONMENT') || 'sandbox';
+const IS_SANDBOX = QUICKBOOKS_ENVIRONMENT === 'sandbox';
+
+// Get the appropriate credentials based on environment
+const CLIENT_ID = IS_SANDBOX 
+  ? (Deno.env.get('SANDBOX_ID') || '') 
+  : (Deno.env.get('QUICKBOOKS_CLIENT_ID') || '');
+
+const CLIENT_SECRET = IS_SANDBOX 
+  ? (Deno.env.get('SANDBOX_SECRET') || '') 
+  : (Deno.env.get('QUICKBOOKS_CLIENT_SECRET') || '');
+
+// Log which environment we're using
+console.log(`Using QuickBooks ${QUICKBOOKS_ENVIRONMENT} environment`);
+console.log(`Client ID: ${CLIENT_ID.substring(0, 5)}...`);
+
+// Supabase credentials
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 // Use the admin client to bypass RLS policies
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
 // CORS headers for browser requests
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
-// Get the appropriate QuickBooks API base URL
-const getQBApiBaseUrl = ()=>{
-  return QUICKBOOKS_ENVIRONMENT === 'production' ? 'https://quickbooks.api.intuit.com' : 'https://sandbox-quickbooks.api.intuit.com';
+
+// Base URLs for different environments
+const getQBApiBaseUrl = () => {
+  return QUICKBOOKS_ENVIRONMENT === 'production' 
+    ? 'https://quickbooks.api.intuit.com' 
+    : 'https://sandbox-quickbooks.api.intuit.com';
 };
-// Get the appropriate Intuit OAuth base URL
-const getOAuthBaseUrl = ()=>{
-  return QUICKBOOKS_ENVIRONMENT === 'production' ? 'https://appcenter.intuit.com/connect/oauth2' : 'https://appcenter.intuit.com/connect/oauth2';
+
+const getOAuthBaseUrl = () => {
+  return QUICKBOOKS_ENVIRONMENT === 'production' 
+    ? 'https://appcenter.intuit.com/connect/oauth2' 
+    : 'https://appcenter.intuit.com/connect/oauth2';
 };
+
+// Token URLs are the same for both environments
+const TOKEN_URL = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer';
+const REVOKE_URL = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/revoke';
+
 // Save the connection to Supabase
 const saveConnection = async (userId, realmId, tokenResponse)=>{
   console.log(`Saving connection for user ${userId} and realmId ${realmId}`);
@@ -27,33 +54,55 @@ const saveConnection = async (userId, realmId, tokenResponse)=>{
     // Calculate when the token expires
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + tokenResponse.expires_in);
+    
+    console.log('Token expires at:', expiresAt.toISOString());
+    console.log('Token response contains:', Object.keys(tokenResponse).join(', '));
+    
     // Check if a connection already exists for this user
-    const { data: existingConnection } = await supabase.from('quickbooks_connections').select('id').eq('user_id', userId).single();
+    const { data: existingConnection, error: queryError } = await supabase
+      .from('quickbooks_connections')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+      
+    if (queryError && queryError.code !== 'PGRST116') { // PGRST116 is "not found" error
+      console.error('Error checking for existing connection:', queryError);
+      throw queryError;
+    }
+    
+    let result;
     if (existingConnection) {
+      console.log('Updating existing connection');
       // Update existing connection
-      const { error } = await supabase.from('quickbooks_connections').update({
+      result = await supabase.from('quickbooks_connections').update({
         realm_id: realmId,
         access_token: tokenResponse.access_token,
         refresh_token: tokenResponse.refresh_token,
-        token_type: tokenResponse.token_type,
+        token_type: tokenResponse.token_type || 'Bearer',
         expires_at: expiresAt.toISOString(),
         company_name: tokenResponse.company_name,
         updated_at: new Date().toISOString()
       }).eq('user_id', userId);
-      if (error) throw error;
     } else {
+      console.log('Creating new connection');
       // Create new connection
-      const { error } = await supabase.from('quickbooks_connections').insert({
+      result = await supabase.from('quickbooks_connections').insert({
         user_id: userId,
         realm_id: realmId,
         access_token: tokenResponse.access_token,
         refresh_token: tokenResponse.refresh_token,
-        token_type: tokenResponse.token_type,
+        token_type: tokenResponse.token_type || 'Bearer',
         expires_at: expiresAt.toISOString(),
         company_name: tokenResponse.company_name // May be undefined
       });
-      if (error) throw error;
     }
+    
+    if (result.error) {
+      console.error('Error saving connection to database:', result.error);
+      throw result.error;
+    }
+    
+    console.log('Connection saved successfully');
     return {
       success: true
     };
@@ -113,7 +162,7 @@ serve(async (req)=>{
       // We'll use it to store the userId
       const state = userId;
       // Build authorization URL
-      const authUrl = `${getOAuthBaseUrl()}?client_id=${QUICKBOOKS_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}&state=${state}`;
+      const authUrl = `${getOAuthBaseUrl()}?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}&state=${state}`;
       return new Response(JSON.stringify({
         authUrl
       }), {
@@ -128,24 +177,36 @@ serve(async (req)=>{
         throw new Error('Missing required parameters: code, redirectUri, userId, or realmId');
       }
       console.log(`Exchanging code for tokens with realmId ${realmId}`);
+      console.log(`Using credentials: CLIENT_ID=${CLIENT_ID.substring(0, 5)}... CLIENT_SECRET=${CLIENT_SECRET.substring(0, 3)}...`);
+      console.log(`Exchanging code for tokens with URL: ${TOKEN_URL}`);
       // Exchange authorization code for tokens
-      const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+      console.log(`Exchanging code for tokens with URL: ${TOKEN_URL}`);
+      console.log(`Using redirect URI: ${redirectUri}`);
+      
+      const tokenParams = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri
+      }).toString();
+      
+      console.log(`Request params: ${tokenParams}`);
+      
+      const tokenResponse = await fetch(TOKEN_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json',
-          'Authorization': `Basic ${btoa(`${QUICKBOOKS_CLIENT_ID}:${QUICKBOOKS_CLIENT_SECRET}`)}`
+          'Authorization': `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`
         },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: redirectUri
-        }).toString()
+        body: tokenParams
       });
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.json();
+        console.error('Token exchange failed:', errorData);
         throw new Error(`Failed to exchange code for tokens: ${JSON.stringify(errorData)}`);
       }
+      
+      console.log('Token exchange successful');
       const tokenData = await tokenResponse.json();
       // Get company info using the new access token
       const companyName = await getCompanyInfo(tokenData.access_token, realmId);
@@ -154,7 +215,14 @@ serve(async (req)=>{
         tokenData.company_name = companyName;
       }
       // Save the connection to Supabase with the realm ID from the callback
-      await saveConnection(userId, realmId, tokenData);
+      try {
+        console.log('Saving connection to database...');
+        await saveConnection(userId, realmId, tokenData);
+        console.log('Connection saved successfully');
+      } catch (saveError) {
+        console.error('Error saving connection:', saveError);
+        throw new Error(`Failed to save connection: ${saveError.message}`);
+      }
       return new Response(JSON.stringify({
         success: true,
         companyName,
@@ -175,12 +243,12 @@ serve(async (req)=>{
         throw new Error('Connection not found');
       }
       // Refresh the token
-      const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+      const tokenResponse = await fetch(TOKEN_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json',
-          'Authorization': `Basic ${btoa(`${QUICKBOOKS_CLIENT_ID}:${QUICKBOOKS_CLIENT_SECRET}`)}`
+          'Authorization': `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
@@ -226,12 +294,12 @@ serve(async (req)=>{
         throw new Error('Connection not found');
       }
       // Revoke the token
-      const revokeResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/revoke', {
+      const revokeResponse = await fetch(REVOKE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json',
-          'Authorization': `Basic ${btoa(`${QUICKBOOKS_CLIENT_ID}:${QUICKBOOKS_CLIENT_SECRET}`)}`
+          'Authorization': `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`
         },
         body: new URLSearchParams({
           token: connection.access_token
