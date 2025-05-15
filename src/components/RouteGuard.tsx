@@ -48,9 +48,9 @@ const RouteGuard = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Redirect users without QuickBooks connection to the connect page
+  // Redirect users without QuickBooks connection to the disconnected page
   if (requiresQuickbooks && !isConnected) {
-    return <Navigate to="/connect-quickbooks" state={{ from: location }} replace />;
+    return <Navigate to="/disconnected" state={{ from: location }} replace />;
   }
 
   // If all requirements are met, render the children

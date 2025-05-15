@@ -95,7 +95,36 @@ const scheduledJobs = [
   },
 ];
 
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { useNavigate } from "react-router-dom";
+
 const DashboardHome = () => {
+  const { isConnected, isLoading: isQbLoading, connect } = useQuickbooks();
+  const navigate = useNavigate();
+
+  if (isQbLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent mb-4" />
+        <p className="text-gray-600">Checking QuickBooks connection...</p>
+      </div>
+    );
+  }
+
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="text-2xl font-bold mb-2">QuickBooks Not Connected</div>
+        <p className="mb-4 text-gray-600">You must connect to QuickBooks to use your dashboard.</p>
+        <button
+          className="bg-transyncpro-button hover:bg-transyncpro-button/90 text-white px-6 py-2 rounded"
+          onClick={() => connect()}
+        >
+          Connect to QuickBooks
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="space-y-8">
       <div>
