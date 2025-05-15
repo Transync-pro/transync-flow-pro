@@ -17,6 +17,7 @@ import Dashboard from "./pages/Dashboard";
 import Import from "./pages/Import";
 import Export from "./pages/Export";
 import Delete from "./pages/Delete";
+import Profile from "./pages/Profile";
 import QuickbooksCallback from "./pages/QuickbooksCallback";
 import QuickbooksConnectPage from "./components/QuickbooksConnectPage";
 import NotFound from "./pages/NotFound";
@@ -56,6 +57,12 @@ const App = () => (
               <Route path="/connect-quickbooks" element={
                 <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
                   <QuickbooksConnectPage />
+                </RouteGuard>
+              } />
+              
+              <Route path="/profile" element={
+                <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+                  <Profile />
                 </RouteGuard>
               } />
               

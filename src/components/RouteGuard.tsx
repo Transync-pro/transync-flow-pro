@@ -23,11 +23,29 @@ const RouteGuard = ({
   const [isChecking, setIsChecking] = useState(true);
   const location = useLocation();
 
+  // Check connection status on every render for routes that require QuickBooks
   useEffect(() => {
+    // Only finish checking when we have definitive auth and QB status (if required)
     if (!isAuthLoading && (!isQbLoading || !requiresQuickbooks)) {
       setIsChecking(false);
     }
   }, [isAuthLoading, isQbLoading, requiresQuickbooks]);
+  
+  // Force a re-check of QuickBooks connection every 10 seconds for protected routes
+  useEffect(() => {
+    // Only set up interval for routes requiring QuickBooks
+    if (!requiresQuickbooks) return;
+    
+    const interval = setInterval(() => {
+      // This will trigger the QuickbooksProvider to re-check connection status
+      if (!isConnected && !isQbLoading) {
+        console.log('RouteGuard: Detected disconnected QuickBooks state, redirecting...');
+        setIsChecking(false); // Force re-render which will trigger redirect
+      }
+    }, 10000); // Check every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [requiresQuickbooks, isConnected, isQbLoading]);
 
   if (isChecking) {
     return (

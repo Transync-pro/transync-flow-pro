@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -24,11 +25,57 @@ import {
   Search,
   Calendar,
   Check,
+  User,
+  LogOut,
+  Settings,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/use-toast";
+
 
 const DashboardHeader = () => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/');
+      toast({
+        title: "Signed out successfully",
+        description: "You have been signed out of your account."
+      });
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast({
+        title: "Error signing out",
+        description: "There was a problem signing you out.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user || !user.user_metadata?.full_name) return "U";
+    
+    const fullName = user.user_metadata.full_name;
+    const names = fullName.split(' ');
+    if (names.length >= 2) {
+      return `${names[0][0]}${names[names.length-1][0]}`.toUpperCase();
+    }
+    return fullName[0].toUpperCase();
+  };
+  
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-8">
       <div className="flex items-center">
@@ -54,11 +101,31 @@ const DashboardHeader = () => {
           </Button>
         </div>
         
-        <div className="flex items-center">
-          <div className="h-8 w-8 rounded-full bg-transyncpro-button text-white flex items-center justify-center">
-            JS
-          </div>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center space-x-1 focus:outline-none">
+              <div className="h-8 w-8 rounded-full bg-transyncpro-button text-white flex items-center justify-center cursor-pointer">
+                {getUserInitials()}
+              </div>
+              <ChevronDown size={14} className="text-gray-500" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-2 py-1.5 text-sm font-medium">
+              {user?.email}
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/profile')}>
+              <User size={16} className="mr-2" />
+              Profile Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut}>
+              <LogOut size={16} className="mr-2" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
