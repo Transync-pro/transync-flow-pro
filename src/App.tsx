@@ -23,6 +23,20 @@ import QuickbooksConnectPage from "./components/QuickbooksConnectPage";
 import NotFound from "./pages/NotFound";
 import Disconnected from "./pages/Disconnected";
 
+// New Pages
+import Features from "./pages/Features";
+import Subscription from "./pages/Subscription";
+import Contact from "./pages/Contact";
+import AboutUs from "./pages/AboutUs";
+import Integrations from "./pages/Integrations";
+import Demo from "./pages/Demo";
+import Blog from "./pages/Blog";
+import Documentation from "./pages/Documentation";
+import Tutorials from "./pages/Tutorials";
+import Support from "./pages/Support";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfUse from "./pages/TermsOfUse";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -93,6 +107,23 @@ const App = () => (
                   <Delete />
                 </RouteGuard>
               } />
+              
+              {/* New public pages */}
+              <Route path="/features" element={<Features />} />
+              <Route path="/subscription" element={<Subscription />} />
+              <Route path="/pricing" element={<Subscription />} /> {/* Redirect old path */}
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/about-us" element={<AboutUs />} />
+              <Route path="/integrations" element={<Integrations />} />
+              <Route path="/demo" element={<Demo />} />
+              <Route path="/blog" element={<Blog />} />
+              <Route path="/documentation" element={<Documentation />} />
+              <Route path="/tutorials" element={<Tutorials />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} /> {/* Redirect old path */}
+              <Route path="/terms-of-use" element={<TermsOfUse />} />
+              <Route path="/terms" element={<TermsOfUse />} /> {/* Redirect old path */}
               
               {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />
