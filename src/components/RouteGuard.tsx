@@ -1,9 +1,10 @@
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useState, useCallback } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -21,31 +22,71 @@ const RouteGuard = ({
   const { user, isLoading: isAuthLoading } = useAuth();
   const { isConnected, isLoading: isQbLoading } = useQuickbooks();
   const [isChecking, setIsChecking] = useState(true);
+  const [hasQbConnection, setHasQbConnection] = useState(false);
   const location = useLocation();
 
-  // Check connection status on every render for routes that require QuickBooks
-  useEffect(() => {
-    // Only finish checking when we have definitive auth and QB status (if required)
-    if (!isAuthLoading && (!isQbLoading || !requiresQuickbooks)) {
-      setIsChecking(false);
+  // Direct database check for QuickBooks connection
+  const checkQbConnectionDirectly = useCallback(async () => {
+    if (!user) {
+      setHasQbConnection(false);
+      return false;
     }
-  }, [isAuthLoading, isQbLoading, requiresQuickbooks]);
-  
-  // Force a re-check of QuickBooks connection every 10 seconds for protected routes
+
+    try {
+      // Query the database directly to check connection status
+      const { data, error } = await supabase
+        .from('quickbooks_connections')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      const hasConnection = !error && !!data;
+      setHasQbConnection(hasConnection);
+      return hasConnection;
+    } catch (error) {
+      console.error('Error checking QB connection directly:', error);
+      setHasQbConnection(false);
+      return false;
+    }
+  }, [user]);
+
+  // Initial check on mount and when dependencies change
   useEffect(() => {
-    // Only set up interval for routes requiring QuickBooks
-    if (!requiresQuickbooks) return;
+    const checkAccess = async () => {
+      // Wait for auth to load first
+      if (isAuthLoading) return;
+      
+      // If we don't need QuickBooks, we can finish checking immediately
+      if (!requiresQuickbooks) {
+        setIsChecking(false);
+        return;
+      }
+      
+      // If we need QuickBooks, do a direct DB check
+      if (user && requiresQuickbooks) {
+        await checkQbConnectionDirectly();
+      }
+      
+      // Finish checking
+      setIsChecking(false);
+    };
+    
+    checkAccess();
+  }, [isAuthLoading, requiresQuickbooks, user, checkQbConnectionDirectly]);
+  
+  // Periodic re-check for routes requiring QuickBooks
+  useEffect(() => {
+    if (!requiresQuickbooks || !user) return;
+    
+    // Immediate check
+    checkQbConnectionDirectly();
     
     const interval = setInterval(() => {
-      // This will trigger the QuickbooksProvider to re-check connection status
-      if (!isConnected && !isQbLoading) {
-        console.log('RouteGuard: Detected disconnected QuickBooks state, redirecting...');
-        setIsChecking(false); // Force re-render which will trigger redirect
-      }
-    }, 10000); // Check every 10 seconds
+      checkQbConnectionDirectly();
+    }, 5000); // Check every 5 seconds
     
     return () => clearInterval(interval);
-  }, [requiresQuickbooks, isConnected, isQbLoading]);
+  }, [requiresQuickbooks, user, checkQbConnectionDirectly]);
 
   if (isChecking) {
     return (
@@ -67,7 +108,9 @@ const RouteGuard = ({
   }
 
   // Redirect users without QuickBooks connection to the disconnected page
-  if (requiresQuickbooks && !isConnected) {
+  // Use our direct database check result instead of the context value
+  if (requiresQuickbooks && !hasQbConnection) {
+    console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
     return <Navigate to="/disconnected" state={{ from: location }} replace />;
   }
 
