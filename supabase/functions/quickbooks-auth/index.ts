@@ -81,7 +81,10 @@ serve(async (req)=>{
     }
     // 2. Exchange code for token
     if (body.path === 'token') {
-      const { code, redirectUri, userId } = body;
+      const { code, redirectUri, userId, realmId } = body;
+      
+      console.log("Token exchange request received with params:", { code: !!code, redirectUri, userId, realmId });
+      
       if (!code || !redirectUri || !userId) {
         return new Response(JSON.stringify({
           error: 'Code, redirect URI, and user ID are required'
@@ -93,6 +96,11 @@ serve(async (req)=>{
           }
         });
       }
+      
+      if (!realmId) {
+        console.warn("No realmId provided in token exchange request");
+      }
+      
       try {
         const tokenParams = new URLSearchParams();
         tokenParams.append('grant_type', 'authorization_code');
@@ -117,11 +125,21 @@ serve(async (req)=>{
         const now = new Date();
         const expiresInSeconds = tokenData.expires_in;
         const expiresAt = new Date(now.getTime() + expiresInSeconds * 1000).toISOString();
-        const realmId = tokenData.realmId || '';
+        
+        // Use realmId from the callback if provided, otherwise use from tokenData
+        const effectiveRealmId = realmId || tokenData.realmId || '';
+        
+        console.log("Using realm ID:", effectiveRealmId);
+        
+        if (!effectiveRealmId) {
+          console.error("No realm ID available after token exchange");
+          throw new Error("Failed to get a realm ID from QuickBooks");
+        }
+        
         let companyName = 'QuickBooks Company';
-        if (realmId) {
+        if (effectiveRealmId) {
           try {
-            const companyInfoUrl = `${QB_API_URL}/v3/company/${realmId}/companyinfo/${realmId}`;
+            const companyInfoUrl = `${QB_API_URL}/v3/company/${effectiveRealmId}/companyinfo/${effectiveRealmId}`;
             const companyResponse = await fetch(companyInfoUrl, {
               headers: {
                 'Authorization': `Bearer ${tokenData.access_token}`,
@@ -136,9 +154,12 @@ serve(async (req)=>{
             console.error('Error fetching company info:', companyError);
           }
         }
+        
+        console.log("Saving connection with realm ID:", effectiveRealmId);
+        
         const { error: dbError } = await supabase.from('quickbooks_connections').upsert({
           user_id: userId,
-          realm_id: realmId,
+          realm_id: effectiveRealmId,
           access_token: tokenData.access_token,
           refresh_token: tokenData.refresh_token,
           expires_at: expiresAt,
@@ -147,21 +168,27 @@ serve(async (req)=>{
         }, {
           onConflict: 'user_id'
         });
-        if (dbError) throw new Error(`Failed to save QuickBooks connection: ${dbError.message}`);
+        
+        if (dbError) {
+          console.error("Failed to save QuickBooks connection:", dbError);
+          throw new Error(`Failed to save QuickBooks connection: ${dbError.message}`);
+        }
+        
         await supabase.from('operation_logs').insert({
           user_id: userId,
           operation_type: 'connection',
           entity_type: 'quickbooks',
-          record_id: realmId,
+          record_id: effectiveRealmId,
           status: 'success',
           details: {
             company_name: companyName,
             expires_at: expiresAt
           }
         });
+        
         return new Response(JSON.stringify({
           success: true,
-          realmId,
+          realmId: effectiveRealmId,
           companyName,
           expiresAt
         }), {
@@ -172,6 +199,8 @@ serve(async (req)=>{
           }
         });
       } catch (error) {
+        console.error("Error in token exchange:", error);
+        
         await supabase.from('operation_logs').insert({
           user_id: userId,
           operation_type: 'connection',
@@ -181,6 +210,7 @@ serve(async (req)=>{
             error: error.message || 'Unknown error during token exchange'
           }
         });
+        
         return new Response(JSON.stringify({
           error: error.message || 'Token exchange failed'
         }), {
@@ -279,8 +309,7 @@ serve(async (req)=>{
           throw new Error('No active QuickBooks connection found');
         }
         const authString = `${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`;
-        const base64Auth = btoa(authString); // ✅ Deno-compatible
-        // ✅ ADD THESE LOGS
+        const base64Auth = btoa(authString);
         console.log('Revoking token:', connection.refresh_token);
         console.log('Authorization header:', `Basic ${base64Auth}`);
         const revokeParams = new URLSearchParams();

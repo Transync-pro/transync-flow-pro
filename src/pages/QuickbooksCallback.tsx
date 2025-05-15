@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,8 +30,13 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        if (!code || !realmId) {
-          setError("Missing required parameters from QuickBooks");
+        if (!code) {
+          setError("Missing authorization code from QuickBooks");
+          return;
+        }
+
+        if (!realmId) {
+          setError("Missing realm ID from QuickBooks");
           return;
         }
 
@@ -42,13 +46,15 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        console.log("Processing callback with code and realmId");
+        console.log("Processing callback with code, realmId, and state", { code, realmId, state: state || user.id });
 
         // Call our edge function to exchange the code for tokens
+        // We pass the realmId explicitly to ensure it's stored
         const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
           body: {
             path: "token",
             code,
+            realmId, // Explicitly pass realmId
             redirectUri: window.location.origin + "/dashboard/quickbooks-callback",
             userId: user.id,
           },
@@ -61,7 +67,7 @@ const QuickbooksCallback = () => {
         setSuccess(true);
         toast({
           title: "Connection Successful",
-          description: "Your QuickBooks account has been connected successfully!",
+          description: `Your QuickBooks account (${data.companyName || 'Unknown Company'}) has been connected successfully!`,
         });
 
         // Redirect to dashboard after a short delay
