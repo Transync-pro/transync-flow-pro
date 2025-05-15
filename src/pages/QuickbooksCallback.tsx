@@ -37,18 +37,12 @@ const QuickbooksCallback = () => {
         if (!realmId) {
           throw new Error("Missing realm ID from QuickBooks");
         }
-        
-        // Get current session first to ensure we have authentication
-        const { data: sessionData } = await supabase.auth.getSession();
-        const currentUser = sessionData?.session?.user || user;
-        
-        if (!currentUser) {
-          console.error("No authenticated user found");
+
+        if (!user) {
           throw new Error("You must be signed in to complete this process");
         }
 
-        // Use state parameter as userId if available, otherwise use the current user's ID
-        const userId = state || currentUser.id;
+        const userId = state || user.id;
         console.log("Processing callback with code, realmId, and userId", { code, realmId, userId });
 
         // Call our edge function to exchange the code for tokens
