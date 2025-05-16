@@ -20,7 +20,7 @@ const RouteGuard = ({
   isPublicOnly = false
 }: RouteGuardProps) => {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { isConnected, isLoading: isQbLoading } = useQuickbooks();
+  const { isConnected, isLoading: isQbLoading, refreshConnection } = useQuickbooks();
   const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const location = useLocation();
@@ -41,14 +41,22 @@ const RouteGuard = ({
         .single();
       
       const hasConnection = !error && !!data;
+      
+      // Update state based on what we found
       setHasQbConnection(hasConnection);
+      
+      // If we found a connection but isConnected is false, refresh connection in the context
+      if (hasConnection && !isConnected) {
+        await refreshConnection();
+      }
+      
       return hasConnection;
     } catch (error) {
       console.error('Error checking QB connection directly:', error);
       setHasQbConnection(false);
       return false;
     }
-  }, [user]);
+  }, [user, isConnected, refreshConnection]);
 
   // Initial check on mount and when dependencies change
   useEffect(() => {

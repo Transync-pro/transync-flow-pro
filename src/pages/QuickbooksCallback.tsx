@@ -193,10 +193,10 @@ const QuickbooksCallback = () => {
             </Alert>
             <div className="flex justify-center">
               <Button
-                onClick={() => navigate("/connect-quickbooks")}
+                onClick={() => navigate("/dashboard")}
                 className="w-full"
               >
-                Try Again
+                Return to Dashboard
               </Button>
             </div>
           </div>

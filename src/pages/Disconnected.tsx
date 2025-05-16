@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
@@ -7,6 +8,16 @@ import { useNavigate } from "react-router-dom";
 const Disconnected = () => {
   const { connect } = useQuickbooks();
   const navigate = useNavigate();
+  
+  // Handle successful connection (redirect to dashboard)
+  const handleConnect = async () => {
+    try {
+      await connect();
+      // The connect function will handle the redirection to QuickBooks auth
+    } catch (error) {
+      console.error("Error connecting to QuickBooks:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
@@ -23,16 +34,16 @@ const Disconnected = () => {
         <CardFooter className="flex flex-col gap-2">
           <Button
             className="w-full bg-transyncpro-button hover:bg-transyncpro-button/90"
-            onClick={() => connect()}
+            onClick={handleConnect}
           >
             Connect to QuickBooks
           </Button>
           <Button
             variant="outline"
             className="w-full mt-2"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/dashboard")}
           >
-            Go to Home
+            Go to Dashboard
           </Button>
         </CardFooter>
       </Card>
