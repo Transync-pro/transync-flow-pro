@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
 
@@ -41,17 +42,24 @@ const saveConnection = async (
     // Calculate when the token expires
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + tokenResponse.expires_in);
+    console.log(`Token will expire at ${expiresAt.toISOString()}`);
     
     // Check if a connection already exists for this user
-    const { data: existingConnection } = await supabase
+    const { data: existingConnection, error: queryError } = await supabase
       .from('quickbooks_connections')
       .select('id')
       .eq('user_id', userId)
       .single();
     
+    if (queryError && queryError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      console.error('Error checking for existing connection:', queryError);
+      throw queryError;
+    }
+    
     if (existingConnection) {
       // Update existing connection
-      const { error } = await supabase
+      console.log(`Updating existing connection for user ${userId}`);
+      const { data, error } = await supabase
         .from('quickbooks_connections')
         .update({
           realm_id: realmId,
@@ -62,12 +70,20 @@ const saveConnection = async (
           company_name: tokenResponse.company_name, // May be undefined
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating connection:', error);
+        throw error;
+      }
+      
+      console.log('Connection updated successfully');
+      return { success: true, data };
     } else {
       // Create new connection
-      const { error } = await supabase
+      console.log(`Creating new connection for user ${userId}`);
+      const { data, error } = await supabase
         .from('quickbooks_connections')
         .insert({
           user_id: userId,
@@ -77,12 +93,17 @@ const saveConnection = async (
           token_type: tokenResponse.token_type,
           expires_at: expiresAt.toISOString(),
           company_name: tokenResponse.company_name // May be undefined
-        });
+        })
+        .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating connection:', error);
+        throw error;
+      }
+      
+      console.log('Connection created successfully');
+      return { success: true, data };
     }
-    
-    return { success: true };
   } catch (error) {
     console.error('Error saving connection:', error);
     throw error;
@@ -91,6 +112,8 @@ const saveConnection = async (
 
 // Get the connection for a user
 const getConnection = async (userId: string) => {
+  console.log(`Getting connection for user ${userId}`);
+  
   const { data, error } = await supabase
     .from('quickbooks_connections')
     .select('*')
@@ -108,6 +131,8 @@ const getConnection = async (userId: string) => {
 // Get company info from QuickBooks
 const getCompanyInfo = async (accessToken: string, realmId: string) => {
   try {
+    console.log(`Fetching company info for realm ${realmId}`);
+    
     const response = await fetch(
       `${getQBApiBaseUrl()}/v3/company/${realmId}/companyinfo/${realmId}`,
       {
@@ -120,11 +145,15 @@ const getCompanyInfo = async (accessToken: string, realmId: string) => {
     );
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Failed to get company info: ${response.status} ${response.statusText}`, errorText);
       throw new Error(`Failed to get company info: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
-    return data.CompanyInfo?.CompanyName || null;
+    const companyName = data.CompanyInfo?.CompanyName || null;
+    console.log(`Retrieved company name: ${companyName || 'Unknown'}`);
+    return companyName;
   } catch (error) {
     console.error('Error fetching company info:', error);
     return null;
@@ -143,6 +172,7 @@ serve(async (req) => {
     console.log('Client ID configured:', QUICKBOOKS_CLIENT_ID ? 'Yes' : 'No');
     
     const { path, ...params } = await req.json();
+    console.log(`Request path: ${path}, params:`, params);
     
     if (path === 'authorize') {
       const { redirectUri, userId } = params;
@@ -176,7 +206,10 @@ serve(async (req) => {
     else if (path === 'token') {
       const { code, redirectUri, userId, realmId } = params;
       
+      console.log('Token request with params:', { code: !!code, redirectUri, userId, realmId });
+      
       if (!code || !redirectUri || !userId || !realmId) {
+        console.error('Missing required parameters:', { code: !!code, redirectUri: !!redirectUri, userId: !!userId, realmId: !!realmId });
         throw new Error('Missing required parameters: code, redirectUri, userId, or realmId');
       }
       
@@ -213,7 +246,7 @@ serve(async (req) => {
       }
       
       const tokenData = await tokenResponse.json();
-      console.log('Token exchange successful');
+      console.log('Token exchange successful, received access token and refresh token');
       
       // Get company info using the new access token
       const companyName = await getCompanyInfo(tokenData.access_token, realmId);
@@ -221,10 +254,12 @@ serve(async (req) => {
       // Add company name to token data if available
       if (companyName) {
         tokenData.company_name = companyName;
+        console.log(`Retrieved company name: ${companyName}`);
       }
       
       // Save the connection to Supabase with the realm ID from the callback
-      await saveConnection(userId, realmId, tokenData);
+      const saveResult = await saveConnection(userId, realmId, tokenData);
+      console.log('Connection saved to database:', saveResult.success);
       
       return new Response(
         JSON.stringify({ 
@@ -263,11 +298,18 @@ serve(async (req) => {
       });
       
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json();
-        throw new Error(`Failed to refresh token: ${JSON.stringify(errorData)}`);
+        const responseText = await tokenResponse.text();
+        console.error('Token refresh failed:', responseText);
+        try {
+          const errorData = JSON.parse(responseText);
+          throw new Error(`Failed to refresh token: ${JSON.stringify(errorData)}`);
+        } catch (e) {
+          throw new Error(`Failed to refresh token: ${responseText}`);
+        }
       }
       
       const tokenData = await tokenResponse.json();
+      console.log('Token refresh successful, received new tokens');
       
       // Calculate when the token expires
       const expiresAt = new Date();
@@ -285,8 +327,11 @@ serve(async (req) => {
         .eq('user_id', userId);
       
       if (error) {
+        console.error('Failed to update connection:', error);
         throw new Error(`Failed to update connection: ${error.message}`);
       }
+      
+      console.log('Connection updated with refreshed tokens');
       
       return new Response(
         JSON.stringify({ 
@@ -311,6 +356,8 @@ serve(async (req) => {
         throw new Error('Connection not found');
       }
       
+      console.log(`Revoking token for user ${userId}`);
+      
       // Revoke the token
       const revokeResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/revoke', {
         method: 'POST',
@@ -324,6 +371,13 @@ serve(async (req) => {
         }).toString()
       });
       
+      if (!revokeResponse.ok) {
+        console.warn('Token revocation returned non-OK response:', revokeResponse.status, revokeResponse.statusText);
+        // Continue anyway to delete the connection
+      } else {
+        console.log('Token revoked successfully');
+      }
+      
       // Delete the connection from Supabase
       const { error } = await supabase
         .from('quickbooks_connections')
@@ -331,8 +385,11 @@ serve(async (req) => {
         .eq('user_id', userId);
       
       if (error) {
+        console.error('Failed to delete connection:', error);
         throw new Error(`Failed to delete connection: ${error.message}`);
       }
+      
+      console.log('Connection deleted from database');
       
       return new Response(
         JSON.stringify({ success: true }),
