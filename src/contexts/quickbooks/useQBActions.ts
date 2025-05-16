@@ -23,6 +23,8 @@ export const useQBActions = (
       // Determine the appropriate redirect URL
       const redirectUrl = `${window.location.origin}/dashboard/quickbooks-callback`;
       
+      console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);
+      
       // Call the edge function to get authorization URL
       const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
         body: { 
@@ -32,16 +34,25 @@ export const useQBActions = (
         }
       });
 
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      if (error) {
+        console.error("Edge function invocation error:", error);
+        throw error;
+      }
+      
+      if (data.error) {
+        console.error("Error from edge function:", data.error);
+        throw new Error(data.error);
+      }
       
       if (data && data.authUrl) {
+        console.log("Received authorization URL, redirecting user...");
         // Redirect user to QuickBooks authorization page
         window.location.href = data.authUrl;
       } else {
         throw new Error('Failed to get authorization URL');
       }
     } catch (error: any) {
+      console.error("Error in connect flow:", error);
       handleError(`Failed to initiate QuickBooks connection: ${error.message || "Unknown error"}`, true);
     }
   };

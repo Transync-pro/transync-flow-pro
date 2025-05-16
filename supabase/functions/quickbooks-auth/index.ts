@@ -1,9 +1,8 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
 
-const QUICKBOOKS_CLIENT_ID = Deno.env.get('QUICKBOOKS_CLIENT_ID') || '';
-const QUICKBOOKS_CLIENT_SECRET = Deno.env.get('QUICKBOOKS_CLIENT_SECRET') || '';
+const QUICKBOOKS_CLIENT_ID = Deno.env.get('SANDBOX_ID') || '';
+const QUICKBOOKS_CLIENT_SECRET = Deno.env.get('SANDBOX_SECRET') || '';
 const QUICKBOOKS_ENVIRONMENT = Deno.env.get('QUICKBOOKS_ENVIRONMENT') || 'sandbox';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
@@ -27,9 +26,7 @@ const getQBApiBaseUrl = () => {
 
 // Get the appropriate Intuit OAuth base URL
 const getOAuthBaseUrl = () => {
-  return QUICKBOOKS_ENVIRONMENT === 'production'
-    ? 'https://appcenter.intuit.com/connect/oauth2'
-    : 'https://appcenter.intuit.com/connect/oauth2';
+  return 'https://appcenter.intuit.com/connect/oauth2';
 };
 
 // Save the connection to Supabase
@@ -142,6 +139,9 @@ serve(async (req) => {
   }
   
   try {
+    console.log('Edge function received request. Environment:', QUICKBOOKS_ENVIRONMENT);
+    console.log('Client ID configured:', QUICKBOOKS_CLIENT_ID ? 'Yes' : 'No');
+    
     const { path, ...params } = await req.json();
     
     if (path === 'authorize') {
@@ -149,6 +149,10 @@ serve(async (req) => {
       
       if (!redirectUri || !userId) {
         throw new Error('Missing required parameters: redirectUri or userId');
+      }
+      
+      if (!QUICKBOOKS_CLIENT_ID) {
+        throw new Error('Missing QuickBooks client ID. Check environment configuration.');
       }
       
       // Scope: define what your app can access (OpenID, Accounting)
@@ -161,6 +165,8 @@ serve(async (req) => {
       // Build authorization URL
       const authUrl = `${getOAuthBaseUrl()}?client_id=${QUICKBOOKS_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}&state=${state}`;
       
+      console.log('Generated auth URL:', authUrl);
+      
       return new Response(
         JSON.stringify({ authUrl }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -172,6 +178,10 @@ serve(async (req) => {
       
       if (!code || !redirectUri || !userId || !realmId) {
         throw new Error('Missing required parameters: code, redirectUri, userId, or realmId');
+      }
+      
+      if (!QUICKBOOKS_CLIENT_ID || !QUICKBOOKS_CLIENT_SECRET) {
+        throw new Error('Missing QuickBooks credentials. Check environment configuration.');
       }
       
       console.log(`Exchanging code for tokens with realmId ${realmId}`);
@@ -192,11 +202,18 @@ serve(async (req) => {
       });
       
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json();
-        throw new Error(`Failed to exchange code for tokens: ${JSON.stringify(errorData)}`);
+        const errorText = await tokenResponse.text();
+        console.error('Token exchange failed:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(`Failed to exchange code for tokens: ${JSON.stringify(errorData)}`);
+        } catch (e) {
+          throw new Error(`Failed to exchange code for tokens: ${errorText}`);
+        }
       }
       
       const tokenData = await tokenResponse.json();
+      console.log('Token exchange successful');
       
       // Get company info using the new access token
       const companyName = await getCompanyInfo(tokenData.access_token, realmId);

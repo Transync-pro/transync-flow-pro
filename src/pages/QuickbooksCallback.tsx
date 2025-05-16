@@ -26,6 +26,13 @@ const QuickbooksCallback = () => {
         const state = params.get("state"); // This contains the userId from our auth process
         const errorParam = params.get("error");
 
+        console.log("Processing callback with parameters:", { 
+          code: code ? "exists" : "missing", 
+          realmId, 
+          state, 
+          error: errorParam 
+        });
+
         if (errorParam) {
           throw new Error(`Authorization error: ${errorParam}`);
         }
@@ -43,7 +50,7 @@ const QuickbooksCallback = () => {
         }
 
         const userId = state || user.id;
-        console.log("Processing callback with code, realmId, and userId", { code, realmId, userId });
+        console.log("Processing callback with code, realmId, and userId", { code: "exists", realmId, userId });
 
         // Call our edge function to exchange the code for tokens
         const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
@@ -56,12 +63,14 @@ const QuickbooksCallback = () => {
           },
         });
 
-        if (invokeError || data?.error) {
-          throw new Error(
-            invokeError?.message || 
-            data?.error || 
-            "Failed to complete QuickBooks authentication"
-          );
+        if (invokeError) {
+          console.error("Edge function error:", invokeError);
+          throw new Error(invokeError?.message || "Failed to complete QuickBooks authentication");
+        }
+
+        if (data?.error) {
+          console.error("Data error from edge function:", data.error);
+          throw new Error(data.error);
         }
 
         setSuccess(true);
