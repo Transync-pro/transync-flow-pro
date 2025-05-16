@@ -72,7 +72,8 @@ const RouteGuard = ({
       
       // If we need QuickBooks, do a direct DB check
       if (user && requiresQuickbooks) {
-        await checkQbConnectionDirectly();
+        const hasConnection = await checkQbConnectionDirectly();
+        console.log('RouteGuard: QB connection check result:', hasConnection);
       }
       
       // Finish checking
@@ -81,6 +82,9 @@ const RouteGuard = ({
     
     checkAccess();
   }, [isAuthLoading, requiresQuickbooks, user, checkQbConnectionDirectly]);
+  
+  // Check if the current route is the QuickBooks callback route
+  const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
   
   // Periodic re-check for routes requiring QuickBooks
   useEffect(() => {
@@ -113,6 +117,11 @@ const RouteGuard = ({
   // Redirect unauthenticated users from protected pages to login
   if (requiresAuth && !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Don't redirect from the callback route - this is critical to let the callback complete
+  if (isQbCallbackRoute) {
+    return <>{children}</>;
   }
 
   // Redirect users without QuickBooks connection to the disconnected page

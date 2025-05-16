@@ -24,11 +24,11 @@ const Disconnected = () => {
       <Card className="w-full max-w-md text-center">
         <CardHeader>
           <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-2" />
-          <CardTitle className="text-2xl">Disconnected from QuickBooks</CardTitle>
+          <CardTitle className="text-2xl">QuickBooks Connection Required</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-gray-600 mb-4">
-            You have been successfully disconnected from QuickBooks. You are still logged in to TransyncPro.
+            You need to connect to QuickBooks to access this feature. Please connect your QuickBooks account to continue.
           </p>
         </CardContent>
         <CardFooter className="flex flex-col gap-2">
@@ -41,9 +41,9 @@ const Disconnected = () => {
           <Button
             variant="outline"
             className="w-full mt-2"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/")}
           >
-            Go to Dashboard
+            Back to Home
           </Button>
         </CardFooter>
       </Card>

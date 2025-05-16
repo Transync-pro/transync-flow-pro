@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { CalendarIcon, CheckCircle, XCircle } from "lucide-react";
+import { CalendarIcon, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table,
@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
-import { deleteQuickbooksEntity, logOperation } from "@/services/quickbooksApi";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DeleteProgress {
   total: number;
@@ -55,6 +55,7 @@ const Delete = () => {
   const [records, setRecords] = useState<any[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<any[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [deleteProgress, setDeleteProgress] = useState<DeleteProgress>({
     total: 0,
     current: 0,
@@ -63,7 +64,6 @@ const Delete = () => {
     details: [],
   });
   const { user } = useAuth();
-  const { getAccessToken, getRealmId } = useQuickbooks();
   const navigate = useNavigate();
 
   const entityOptions = [
@@ -71,142 +71,231 @@ const Delete = () => {
     { value: "Invoice", label: "Invoice" },
     { value: "Item", label: "Item" },
     { value: "Bill", label: "Bill" },
+    { value: "Account", label: "Account" },
+    { value: "Vendor", label: "Vendor" },
+    { value: "Employee", label: "Employee" },
   ];
 
-  useEffect(() => {
-    const fetchRecords = async () => {
-      if (!selectedEntity || !selectedDateRange?.from || !selectedDateRange?.to) {
-        setRecords([]);
-        setFilteredRecords([]);
-        return;
+  // Function to fetch entities from QuickBooks
+  const fetchEntities = async () => {
+    if (!selectedEntity || !user?.id) return;
+
+    setIsLoading(true);
+    setRecords([]);
+    setFilteredRecords([]);
+
+    try {
+      // Build query with date filter if date range is selected
+      let query = null;
+      if (selectedDateRange?.from && selectedDateRange?.to) {
+        const fromDate = format(selectedDateRange.from, "yyyy-MM-dd");
+        const toDate = format(selectedDateRange.to, "yyyy-MM-dd");
+        
+        // Different entities may have different date fields
+        const dateField = selectedEntity === "Invoice" || selectedEntity === "Bill" ? "TxnDate" : "MetaData.CreateTime";
+        query = `SELECT * FROM ${selectedEntity} WHERE ${dateField} >= '${fromDate}' AND ${dateField} <= '${toDate}' MAXRESULTS 1000`;
       }
 
-      try {
-        const accessToken = await getAccessToken();
-        const realmId = await getRealmId();
-
-        if (!accessToken || !realmId) {
-          throw new Error("QuickBooks connection not available");
+      console.log("Calling quickbooks-entities edge function to fetch entities");
+      
+      // Call our edge function to fetch entities
+      const { data, error } = await supabase.functions.invoke("quickbooks-entities", {
+        body: {
+          operation: "fetch",
+          entityType: selectedEntity,
+          userId: user.id,
+          query: query
         }
+      });
 
-        // Fetch records from QuickBooks based on entity and date range
-        // (This is a placeholder - replace with actual API call)
-        const fetchedRecords = [
-          { id: "1", name: "Record 1", date: selectedDateRange.from.toISOString() },
-          { id: "2", name: "Record 2", date: selectedDateRange.from.toISOString() },
-          { id: "3", name: "Record 3", date: selectedDateRange.to.toISOString() },
-        ];
+      if (error) {
+        throw new Error(`Error invoking function: ${error.message}`);
+      }
+      
+      if (data.error) {
+        throw new Error(`Error from function: ${data.error}`);
+      }
 
-        setRecords(fetchedRecords);
-        setFilteredRecords(fetchedRecords);
-      } catch (error) {
-        console.error("Error fetching records:", error);
+      // Extract the entities from the response
+      const fetchedEntities = data.data?.QueryResponse?.[selectedEntity] || [];
+      console.log(`Fetched ${fetchedEntities.length} ${selectedEntity} entities`);
+      
+      setRecords(fetchedEntities);
+      setFilteredRecords(fetchedEntities);
+      
+      // Show success message
+      if (fetchedEntities.length > 0) {
         toast({
-          title: "Error",
-          description: "Failed to fetch records from QuickBooks.",
-          variant: "destructive",
+          title: "Data Loaded",
+          description: `Successfully loaded ${fetchedEntities.length} ${selectedEntity} records`,
+        });
+      } else {
+        toast({
+          title: "No Records Found",
+          description: `No ${selectedEntity} records match your criteria`,
         });
       }
-    };
+    } catch (error: any) {
+      console.error("Error fetching entities:", error);
+      toast({
+        title: "Error",
+        description: `Failed to fetch ${selectedEntity}: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    fetchRecords();
-  }, [selectedEntity, selectedDateRange, getAccessToken, getRealmId]);
+  // Effect to fetch records when entity and date range change
+  useEffect(() => {
+    if (selectedEntity) {
+      fetchEntities();
+    }
+  }, [selectedEntity, selectedDateRange]);
 
   const handleFilter = (e: React.ChangeEvent<HTMLInputElement>) => {
     const searchTerm = e.target.value.toLowerCase();
     const filtered = records.filter((record) => {
-      // Customize the filter logic based on your record structure
-      return record.name.toLowerCase().includes(searchTerm);
+      // Generic search across common fields
+      return (
+        (record.DisplayName && record.DisplayName.toLowerCase().includes(searchTerm)) ||
+        (record.Name && record.Name.toLowerCase().includes(searchTerm)) ||
+        (record.DocNumber && record.DocNumber.toLowerCase().includes(searchTerm)) ||
+        (record.Id && record.Id.toLowerCase().includes(searchTerm)) ||
+        JSON.stringify(record).toLowerCase().includes(searchTerm)
+      );
     });
     setFilteredRecords(filtered);
   };
 
-  const handleDeleteRecords = async () => {
-    if (!selectedEntity || !selectedDateRange || !filteredRecords.length) return;
-    
-    setIsDeleting(true);
+  const handleDeleteEntity = async (entityId: string) => {
+    if (!selectedEntity || !user?.id) return;
     
     try {
-      const accessToken = await getAccessToken();
-      const realmId = await getRealmId();
+      console.log(`Deleting ${selectedEntity} with ID ${entityId}`);
       
-      if (!accessToken || !realmId) {
-        throw new Error("QuickBooks connection not available");
+      // Call our edge function to delete the entity
+      const { data, error } = await supabase.functions.invoke("quickbooks-entities", {
+        body: {
+          operation: "delete",
+          entityType: selectedEntity,
+          userId: user.id,
+          id: entityId
+        }
+      });
+
+      if (error) {
+        throw new Error(`Error invoking function: ${error.message}`);
+      }
+      
+      if (data.error) {
+        throw new Error(`Error from function: ${data.error}`);
       }
 
-      setDeleteProgress({
-        total: recordsToDelete.length,
-        current: 0,
-        success: 0,
-        failed: 0,
-        details: []
+      // Remove the deleted entity from our lists
+      setRecords(records.filter(record => record.Id !== entityId));
+      setFilteredRecords(filteredRecords.filter(record => record.Id !== entityId));
+      
+      toast({
+        title: "Entity Deleted",
+        description: `Successfully deleted ${selectedEntity} with ID ${entityId}`,
       });
       
-      const deletionResults = {
-        success: 0,
-        failed: 0,
-        details: [] as { id: string; status: "success" | "error"; error?: string }[]
-      };
-      
-      for (const [index, record] of recordsToDelete.entries()) {
+      return true;
+    } catch (error: any) {
+      console.error(`Error deleting ${selectedEntity}:`, error);
+      toast({
+        title: "Deletion Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!selectedEntity || filteredRecords.length === 0) return;
+    
+    setIsDeleting(true);
+    setDeleteProgress({
+      total: filteredRecords.length,
+      current: 0,
+      success: 0,
+      failed: 0,
+      details: []
+    });
+    
+    try {
+      for (let i = 0; i < filteredRecords.length; i++) {
+        const record = filteredRecords[i];
         try {
-          await deleteQuickbooksEntity(accessToken, realmId, selectedEntity, record.id);
+          const success = await handleDeleteEntity(record.Id);
           
-          deletionResults.success++;
-          deletionResults.details.push({ id: record.id, status: "success" });
+          if (success) {
+            setDeleteProgress(prev => ({
+              ...prev,
+              current: i + 1,
+              success: prev.success + 1,
+              details: [...prev.details, { id: record.Id, status: "success" }]
+            }));
+          } else {
+            setDeleteProgress(prev => ({
+              ...prev,
+              current: i + 1,
+              failed: prev.failed + 1,
+              details: [...prev.details, { 
+                id: record.Id, 
+                status: "error", 
+                error: "Failed to delete" 
+              }]
+            }));
+          }
         } catch (error: any) {
-          deletionResults.failed++;
-          deletionResults.details.push({ id: record.id, status: "error", error: error.message });
-        } finally {
           setDeleteProgress(prev => ({
             ...prev,
-            current: index + 1,
-            success: deletionResults.success,
-            failed: deletionResults.failed,
-            details: deletionResults.details
+            current: i + 1,
+            failed: prev.failed + 1,
+            details: [...prev.details, { 
+              id: record.Id, 
+              status: "error", 
+              error: error.message 
+            }]
           }));
         }
       }
       
-      await logOperation({
-        operationType: "delete",
-        entityType: selectedEntity,
-        recordId: "batch",
-        status: deletionResults.failed > 0 ? "partial" : "success",
-        details: {
-          total: recordsToDelete.length,
-          success: deletionResults.success,
-          failed: deletionResults.failed,
-          errors: deletionResults.details.filter(d => d.status === "error")
-        }
-      });
+      // Refresh the list after bulk deletion
+      fetchEntities();
       
-      toast({
-        title: "Deletion Complete",
-        description: `Successfully deleted ${deletionResults.success} records. ${deletionResults.failed} failed.`,
-        variant: deletionResults.failed > 0 ? "destructive" : "default"
-      });
     } catch (error: any) {
-      console.error("Error deleting records:", error);
+      console.error("Error in bulk deletion:", error);
       toast({
-        title: "Deletion Failed",
-        description: "An error occurred while deleting records.",
+        title: "Bulk Deletion Error",
+        description: error.message,
         variant: "destructive",
-      });
-      
-      await logOperation({
-        operationType: "delete",
-        entityType: selectedEntity,
-        recordId: "batch",
-        status: "error",
-        details: { error: error.message }
       });
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const recordsToDelete = filteredRecords;
+  // Helper function to display entity properties safely
+  const getDisplayValue = (record: any, field: string) => {
+    if (!record) return "";
+    
+    // Handle different entity types
+    switch(field) {
+      case "name":
+        return record.DisplayName || record.Name || record.FullyQualifiedName || "N/A";
+      case "id":
+        return record.Id || "N/A";
+      case "date":
+        return record.TxnDate || record.MetaData?.CreateTime || record.MetaData?.LastUpdatedTime || "N/A";
+      default:
+        return "N/A";
+    }
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -230,7 +319,7 @@ const Delete = () => {
         </div>
 
         <div>
-          <Label>Select Date Range</Label>
+          <Label>Select Date Range (Optional)</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -248,7 +337,7 @@ const Delete = () => {
                     format(selectedDateRange.from, "PPP")
                   )
                 ) : (
-                  <span>Pick a date range</span>
+                  <span>Pick a date range (optional)</span>
                 )}
               </Button>
             </PopoverTrigger>
@@ -258,7 +347,6 @@ const Delete = () => {
                 defaultMonth={selectedDateRange?.from}
                 selected={selectedDateRange}
                 onSelect={setSelectedDateRange}
-                disabled={{ before: new Date("2023-01-01") }}
                 numberOfMonths={2}
               />
             </PopoverContent>
@@ -271,64 +359,111 @@ const Delete = () => {
         <Input
           type="text"
           id="filter"
-          placeholder="Filter by name"
+          placeholder="Filter by name, ID, or other fields"
           onChange={handleFilter}
         />
       </div>
 
       <div className="mb-4">
-        <Table>
-          <TableCaption>
-            Records to be deleted ({filteredRecords.length})
-          </TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]">ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Date</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredRecords.map((record) => (
-              <TableRow key={record.id}>
-                <TableCell className="font-medium">{record.id}</TableCell>
-                <TableCell>{record.name}</TableCell>
-                <TableCell>{record.date}</TableCell>
+        {isLoading ? (
+          <div className="flex flex-col items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            <p className="mt-4">Loading {selectedEntity} records...</p>
+          </div>
+        ) : (
+          <Table>
+            <TableCaption>
+              {filteredRecords.length > 0 
+                ? `${selectedEntity} records (${filteredRecords.length})`
+                : `No ${selectedEntity || 'entity'} records found`
+              }
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[100px]">ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredRecords.length > 0 ? (
+                filteredRecords.map((record) => (
+                  <TableRow key={record.Id}>
+                    <TableCell className="font-medium">{getDisplayValue(record, "id")}</TableCell>
+                    <TableCell>{getDisplayValue(record, "name")}</TableCell>
+                    <TableCell>{getDisplayValue(record, "date")}</TableCell>
+                    <TableCell>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm">Delete</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Delete this {selectedEntity}?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. The record will be permanently deleted from QuickBooks.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteEntity(record.Id)}>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                    {selectedEntity 
+                      ? "No records found. Select an entity type and date range above." 
+                      : "Please select an entity type to view records."
+                    }
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
-      <div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="destructive"
-              disabled={isDeleting || filteredRecords.length === 0}
-            >
-              Delete Records
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                Are you absolutely sure you want to delete these records?
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. All the selected records will be
-                permanently deleted from QuickBooks.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteRecords} disabled={isDeleting}>
-                {isDeleting ? "Deleting..." : "Delete"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+      {filteredRecords.length > 0 && (
+        <div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                disabled={isDeleting || filteredRecords.length === 0}
+              >
+                Delete All Records
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Are you absolutely sure you want to delete these records?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. All {filteredRecords.length} records will be
+                  permanently deleted from QuickBooks.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteSelected} disabled={isDeleting}>
+                  {isDeleting ? "Deleting..." : "Delete All"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
 
       {isDeleting && (
         <div className="mt-4">
@@ -349,8 +484,8 @@ const Delete = () => {
             <div className="mt-4">
               <h3 className="text-md font-semibold">Deletion Details</h3>
               <ul>
-                {deleteProgress.details.map((detail) => (
-                  <li key={detail.id} className="flex items-center space-x-2">
+                {deleteProgress.details.map((detail, index) => (
+                  <li key={index} className="flex items-center space-x-2">
                     <span>Record ID: {detail.id}</span>
                     {detail.status === "success" ? (
                       <CheckCircle className="h-4 w-4 text-green-500" />

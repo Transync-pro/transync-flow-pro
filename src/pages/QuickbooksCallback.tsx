@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +7,7 @@ import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
 
 const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
@@ -15,6 +17,7 @@ const QuickbooksCallback = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { refreshConnection } = useQuickbooks();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -70,7 +73,9 @@ const QuickbooksCallback = () => {
           );
         }
 
-
+        // Make sure to refresh the QuickBooks connection status in our context
+        await refreshConnection();
+        
         setSuccess(true);
         toast({
           title: "Connection Successful",
@@ -113,7 +118,7 @@ const QuickbooksCallback = () => {
         return () => clearTimeout(timer);
       }
     }
-  }, [location, navigate, user, isAuthLoading]);
+  }, [location, navigate, user, isAuthLoading, refreshConnection]);
 
   // Show loading state while checking session
   if (isCheckingSession || isAuthLoading) {
