@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,51 +11,20 @@ const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [waitingForAuth, setWaitingForAuth] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
-
-  useEffect(() => {
-    // Store the callback params in sessionStorage to preserve them across potential auth state changes
-    const storeCallbackParams = () => {
-      const params = new URLSearchParams(location.search);
-      const code = params.get("code");
-      const realmId = params.get("realmId");
-      const state = params.get("state");
-      const errorParam = params.get("error");
-      
-      if (code && realmId) {
-        console.log("Storing OAuth params in session storage");
-        sessionStorage.setItem("qb_callback_code", code);
-        sessionStorage.setItem("qb_callback_realmId", realmId);
-        if (state) sessionStorage.setItem("qb_callback_state", state);
-        if (errorParam) sessionStorage.setItem("qb_callback_error", errorParam);
-      }
-    };
-    
-    storeCallbackParams();
-  }, [location]);
+  const { user, isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Get params - either from URL or from sessionStorage (if we had to wait for auth)
-        let code = new URLSearchParams(location.search).get("code") || 
-                  sessionStorage.getItem("qb_callback_code");
-        let realmId = new URLSearchParams(location.search).get("realmId") || 
-                     sessionStorage.getItem("qb_callback_realmId");
-        let state = new URLSearchParams(location.search).get("state") || 
-                   sessionStorage.getItem("qb_callback_state");
-        let errorParam = new URLSearchParams(location.search).get("error") || 
-                        sessionStorage.getItem("qb_callback_error");
-
-        console.log("Processing callback with parameters:", { 
-          code: code ? "exists" : "missing", 
-          realmId, 
-          state, 
-          error: errorParam 
-        });
+        // Get URL parameters
+        const params = new URLSearchParams(location.search);
+        const code = params.get("code");
+        const realmId = params.get("realmId");
+        const state = params.get("state"); // This contains the userId from our auth process
+        const errorParam = params.get("error");
 
         if (errorParam) {
           throw new Error(`Authorization error: ${errorParam}`);
@@ -69,44 +37,39 @@ const QuickbooksCallback = () => {
         if (!realmId) {
           throw new Error("Missing realm ID from QuickBooks");
         }
-
-        if (!user) {
-          // If no user, wait for authentication
-          setWaitingForAuth(true);
-          setIsProcessing(false);
-          console.log("No user - waiting for authentication...");
-          return;
+        
+        // Get current session first to ensure we have authentication
+        const { data: sessionData } = await supabase.auth.getSession();
+        const currentUser = sessionData?.session?.user || user;
+        
+        if (!currentUser) {
+          console.error("No authenticated user found");
+          throw new Error("You must be signed in to complete this process");
         }
 
-        const userId = state || user.id;
-        console.log("Processing callback with code, realmId, and userId", { code: "exists", realmId, userId });
+        // Use state parameter as userId if available, otherwise use the current user's ID
+        const userId = state || currentUser.id;
+        console.log("Processing callback with code, realmId, and userId", { code, realmId, userId });
 
         // Call our edge function to exchange the code for tokens
         const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
           body: {
             path: "token",
             code,
-            realmId,
+            realmId, // Explicitly pass realmId to ensure it's stored
             redirectUri: window.location.origin + "/dashboard/quickbooks-callback",
             userId
           },
         });
 
-        if (invokeError) {
-          console.error("Edge function error:", invokeError);
-          throw new Error(invokeError?.message || "Failed to complete QuickBooks authentication");
+        if (invokeError || data?.error) {
+          throw new Error(
+            invokeError?.message || 
+            data?.error || 
+            "Failed to complete QuickBooks authentication"
+          );
         }
 
-        if (data?.error) {
-          console.error("Data error from edge function:", data.error);
-          throw new Error(data.error);
-        }
-
-        // Clear the stored callback params now that we've processed them
-        sessionStorage.removeItem("qb_callback_code");
-        sessionStorage.removeItem("qb_callback_realmId");
-        sessionStorage.removeItem("qb_callback_state");
-        sessionStorage.removeItem("qb_callback_error");
 
         setSuccess(true);
         toast({
@@ -123,7 +86,7 @@ const QuickbooksCallback = () => {
         setError(`Failed to complete QuickBooks connection: ${err.message || "Unknown error"}`);
         toast({
           title: "Connection Failed",
-          description: "Unable to connect to QuickBooks. Please try again.",
+          description: err.message || "Unable to connect to QuickBooks. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -131,28 +94,38 @@ const QuickbooksCallback = () => {
       }
     };
 
-    // Only process if we have a user or if we're coming back from waiting for auth
-    if (user || waitingForAuth) {
-      handleCallback();
-    } else {
-      // If no user, wait briefly then check again
-      const timer = setTimeout(() => {
-        if (user) {
-          handleCallback();
-        } else {
-          setError("Authentication required");
-          setIsProcessing(false);
-        }
-      }, 1500);
-      
-      return () => clearTimeout(timer);
+    // Only proceed if we're not still loading auth state
+    if (!isAuthLoading) {
+      if (user) {
+        handleCallback();
+      } else {
+        // If no user, wait briefly then check again
+        const timer = setTimeout(() => {
+          if (user) {
+            handleCallback();
+          } else {
+            setError("Authentication required. Please sign in and try again.");
+            setIsProcessing(false);
+          }
+          setIsCheckingSession(false);
+        }, 1500);
+        
+        return () => clearTimeout(timer);
+      }
     }
-  }, [location, navigate, user, waitingForAuth]);
+  }, [location, navigate, user, isAuthLoading]);
 
-  // Handle manual login if needed
-  const handleLogin = () => {
-    navigate("/login?returnTo=" + encodeURIComponent(window.location.pathname + window.location.search));
-  };
+  // Show loading state while checking session
+  if (isCheckingSession || isAuthLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100">
+        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto" />
+          <p className="text-gray-600">Checking your session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100">
@@ -166,24 +139,6 @@ const QuickbooksCallback = () => {
               Completing your QuickBooks connection...
             </p>
           </div>
-        ) : waitingForAuth ? (
-          <div className="space-y-4">
-            <Alert variant="default" className="bg-yellow-50 border-yellow-200">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
-              <AlertTitle className="text-yellow-700">Authentication Required</AlertTitle>
-              <AlertDescription className="text-yellow-700">
-                You need to be logged in to complete the QuickBooks connection.
-              </AlertDescription>
-            </Alert>
-            <div className="flex justify-center">
-              <Button
-                onClick={handleLogin}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                Log In to Continue
-              </Button>
-            </div>
-          </div>
         ) : error ? (
           <div className="space-y-4">
             <Alert variant="destructive">
@@ -191,12 +146,19 @@ const QuickbooksCallback = () => {
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-            <div className="flex justify-center">
+            <div className="flex flex-col space-y-2">
               <Button
+                onClick={() => navigate("/connect-quickbooks")}
+                className="w-full"
+              >
+                Try Again
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => navigate("/dashboard")}
                 className="w-full"
               >
-                Return to Dashboard
+                Go to Dashboard
               </Button>
             </div>
           </div>
