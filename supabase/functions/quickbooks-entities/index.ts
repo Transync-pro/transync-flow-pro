@@ -62,7 +62,7 @@ const checkAndRefreshToken = async (userId: string) => {
         }
       });
       
-      if (error || data.error) {
+      if (error || data?.error) {
         throw new Error(error?.message || data?.error || 'Failed to refresh token');
       }
       
@@ -111,7 +111,7 @@ const fetchEntities = async (
   }
 };
 
-// Delete entity from QuickBooks API
+// Improved delete entity function to handle different entity types
 const deleteEntity = async (
   accessToken: string,
   realmId: string,
@@ -119,24 +119,56 @@ const deleteEntity = async (
   entityId: string
 ) => {
   try {
-    // Most QuickBooks API entities are "deleted" by setting Active=false
-    const apiUrl = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
+    // First, get the entity to retrieve its SyncToken
+    const query = `SELECT * FROM ${entityType} WHERE Id = '${entityId}'`;
+    const entityData = await fetchEntities(accessToken, realmId, entityType, query);
     
-    console.log(`Deleting ${entityType} with ID ${entityId}`);
+    if (!entityData.QueryResponse || !entityData.QueryResponse[entityType] || 
+        entityData.QueryResponse[entityType].length === 0) {
+      throw new Error(`Entity ${entityType} with ID ${entityId} not found`);
+    }
     
-    const response = await fetch(apiUrl, {
+    const entity = entityData.QueryResponse[entityType][0];
+    const syncToken = entity.SyncToken;
+    
+    // Different entities have different deletion methods
+    let payload;
+    let endpoint;
+    
+    // Handle different entity types specifically
+    if (entityType === 'Invoice') {
+      // For invoices, we need to void them instead of deleting
+      endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/invoice?operation=void`;
+      payload = {
+        Id: entityId,
+        SyncToken: syncToken
+      };
+    } 
+    else if (['Customer', 'Vendor', 'Employee', 'Item'].includes(entityType)) {
+      // For these entity types, we set Active=false to "delete" them
+      endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
+      payload = {
+        Id: entityId,
+        SyncToken: syncToken,
+        Active: false,
+        sparse: true
+      };
+    }
+    else {
+      // Default approach - most entities don't support deletion directly
+      throw new Error(`Deletion not implemented for entity type: ${entityType}`);
+    }
+    
+    console.log(`Deleting ${entityType} with ID ${entityId} using payload:`, payload);
+    
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({
-        Id: entityId,
-        SyncToken: "0", // This may need to be fetched first for the actual entity
-        Active: false,
-        sparse: true
-      })
+      body: JSON.stringify(payload)
     });
     
     if (!response.ok) {
@@ -265,7 +297,10 @@ serve(async (req) => {
   }
 
   try {
-    const { operation, entityType, userId, ...params } = await req.json();
+    // Clone the request to use it multiple times if needed
+    const clonedReq = req.clone();
+    const reqBody = await clonedReq.json();
+    const { operation, entityType, userId, ...params } = reqBody;
     
     console.log(`Handling ${operation} operation for ${entityType}`, params);
     
@@ -371,7 +406,8 @@ serve(async (req) => {
     
     // Try to log the error if we have a userId
     try {
-      const { userId, entityType, operation } = await req.json();
+      const clonedReq = req.clone();
+      const { userId, entityType, operation } = await clonedReq.json();
       if (userId && entityType && operation) {
         await logOperation(userId, operation, entityType, 'error', {
           error: error.message || 'Unknown error'

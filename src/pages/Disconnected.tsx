@@ -1,4 +1,5 @@
 
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
@@ -6,10 +7,23 @@ import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
 
 const Disconnected = () => {
-  const { connect } = useQuickbooks();
+  const { connect, isConnected } = useQuickbooks();
   const navigate = useNavigate();
   
-  // Handle successful connection (redirect to dashboard)
+  // Check if we should redirect after connecting
+  useEffect(() => {
+    if (isConnected) {
+      const redirectPath = sessionStorage.getItem('qb_redirect_after_connect');
+      if (redirectPath) {
+        sessionStorage.removeItem('qb_redirect_after_connect');
+        navigate(redirectPath);
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [isConnected, navigate]);
+  
+  // Handle connection
   const handleConnect = async () => {
     try {
       await connect();
@@ -17,6 +31,13 @@ const Disconnected = () => {
     } catch (error) {
       console.error("Error connecting to QuickBooks:", error);
     }
+  };
+
+  // Handle back button
+  const handleBackToHome = () => {
+    // Clear any stored redirect path
+    sessionStorage.removeItem('qb_redirect_after_connect');
+    navigate("/");
   };
 
   return (
@@ -41,7 +62,7 @@ const Disconnected = () => {
           <Button
             variant="outline"
             className="w-full mt-2"
-            onClick={() => navigate("/")}
+            onClick={handleBackToHome}
           >
             Back to Home
           </Button>

@@ -25,6 +25,9 @@ const RouteGuard = ({
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const location = useLocation();
 
+  // Check if the current route is the QuickBooks callback route
+  const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
+  
   // Direct database check for QuickBooks connection
   const checkQbConnectionDirectly = useCallback(async () => {
     if (!user) {
@@ -41,6 +44,8 @@ const RouteGuard = ({
         .single();
       
       const hasConnection = !error && !!data;
+      
+      console.log('RouteGuard: Direct QB connection check result:', hasConnection);
       
       // Update state based on what we found
       setHasQbConnection(hasConnection);
@@ -72,8 +77,7 @@ const RouteGuard = ({
       
       // If we need QuickBooks, do a direct DB check
       if (user && requiresQuickbooks) {
-        const hasConnection = await checkQbConnectionDirectly();
-        console.log('RouteGuard: QB connection check result:', hasConnection);
+        await checkQbConnectionDirectly();
       }
       
       // Finish checking
@@ -83,22 +87,19 @@ const RouteGuard = ({
     checkAccess();
   }, [isAuthLoading, requiresQuickbooks, user, checkQbConnectionDirectly]);
   
-  // Check if the current route is the QuickBooks callback route
-  const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
-  
   // Periodic re-check for routes requiring QuickBooks
   useEffect(() => {
-    if (!requiresQuickbooks || !user) return;
+    if (!requiresQuickbooks || !user || isQbCallbackRoute) return;
     
     // Immediate check
     checkQbConnectionDirectly();
     
     const interval = setInterval(() => {
       checkQbConnectionDirectly();
-    }, 5000); // Check every 5 seconds
+    }, 10000); // Check every 10 seconds
     
     return () => clearInterval(interval);
-  }, [requiresQuickbooks, user, checkQbConnectionDirectly]);
+  }, [requiresQuickbooks, user, checkQbConnectionDirectly, isQbCallbackRoute]);
 
   if (isChecking) {
     return (
@@ -124,11 +125,12 @@ const RouteGuard = ({
     return <>{children}</>;
   }
 
-  // Redirect users without QuickBooks connection to the disconnected page
-  // Use our direct database check result instead of the context value
-  if (requiresQuickbooks && !hasQbConnection) {
+  // If we have a valid connection state from the context, use that
+  if (requiresQuickbooks && !hasQbConnection && !isQbCallbackRoute) {
     console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
-    return <Navigate to="/disconnected" state={{ from: location }} replace />;
+    // Store the current location to redirect back after connecting
+    sessionStorage.setItem('qb_redirect_after_connect', location.pathname);
+    return <Navigate to="/disconnected" replace />;
   }
 
   // If all requirements are met, render the children

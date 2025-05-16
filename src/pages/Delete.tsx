@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { CalendarIcon, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { CalendarIcon, CheckCircle, XCircle, Loader2, RefreshCcw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table,
@@ -40,14 +40,116 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
 
-interface DeleteProgress {
-  total: number;
-  current: number;
-  success: number;
-  failed: number;
-  details: { id: string; status: "success" | "error"; error?: string }[];
-}
+// Components to make the file smaller
+const DeleteProgressDisplay = ({ progress }) => (
+  <div className="mt-4">
+    <h2 className="text-lg font-semibold mb-2">Deletion Progress</h2>
+    <progress
+      max={progress.total}
+      value={progress.current}
+      className="w-full h-4"
+    />
+    <p className="text-sm mt-2">
+      {progress.current} of {progress.total} records processed.
+    </p>
+    <p className="text-sm">
+      Success: {progress.success}, Failed: {progress.failed}
+    </p>
+
+    {progress.details.length > 0 && (
+      <div className="mt-4">
+        <h3 className="text-md font-semibold">Deletion Details</h3>
+        <ul className="max-h-60 overflow-y-auto">
+          {progress.details.map((detail, index) => (
+            <li key={index} className="flex items-center space-x-2 py-1">
+              <span className="text-sm">Record ID: {detail.id}</span>
+              {detail.status === "success" ? (
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              ) : (
+                <XCircle className="h-4 w-4 text-red-500" />
+              )}
+              {detail.error && <span className="text-sm text-red-500">Error: {detail.error}</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </div>
+);
+
+const EntityFilterSection = ({ 
+  selectedEntity, 
+  setSelectedEntity, 
+  selectedDateRange, 
+  setSelectedDateRange, 
+  handleFilter, 
+  entityOptions 
+}) => (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+    <div>
+      <Label htmlFor="entity">Select Entity</Label>
+      <Select onValueChange={setSelectedEntity}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select an entity" />
+        </SelectTrigger>
+        <SelectContent>
+          {entityOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+
+    <div>
+      <Label>Select Date Range (Optional)</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant={"outline"}
+            className="w-full justify-start text-left font-normal"
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {selectedDateRange?.from ? (
+              selectedDateRange.to ? (
+                `${format(selectedDateRange.from, "PPP")} - ${format(
+                  selectedDateRange.to,
+                  "PPP"
+                )}`
+              ) : (
+                format(selectedDateRange.from, "PPP")
+              )
+            ) : (
+              <span>Pick a date range (optional)</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="center">
+          <Calendar
+            mode="range"
+            defaultMonth={selectedDateRange?.from}
+            selected={selectedDateRange}
+            onSelect={setSelectedDateRange}
+            numberOfMonths={2}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+
+    <div>
+      <Label htmlFor="filter">Filter Records</Label>
+      <Input
+        type="text"
+        id="filter"
+        placeholder="Filter by name, ID, or other fields"
+        onChange={handleFilter}
+      />
+    </div>
+  </div>
+);
 
 const Delete = () => {
   const [selectedEntity, setSelectedEntity] = useState<string | null>(null);
@@ -56,7 +158,7 @@ const Delete = () => {
   const [filteredRecords, setFilteredRecords] = useState<any[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [deleteProgress, setDeleteProgress] = useState<DeleteProgress>({
+  const [deleteProgress, setDeleteProgress] = useState({
     total: 0,
     current: 0,
     success: 0,
@@ -64,20 +166,21 @@ const Delete = () => {
     details: [],
   });
   const { user } = useAuth();
+  const { getAccessToken } = useQuickbooks();
   const navigate = useNavigate();
-
+  
   const entityOptions = [
-    { value: "Customer", label: "Customer" },
-    { value: "Invoice", label: "Invoice" },
-    { value: "Item", label: "Item" },
-    { value: "Bill", label: "Bill" },
-    { value: "Account", label: "Account" },
-    { value: "Vendor", label: "Vendor" },
-    { value: "Employee", label: "Employee" },
+    { value: "Customer", label: "Customers" },
+    { value: "Invoice", label: "Invoices" },
+    { value: "Item", label: "Items (Products & Services)" },
+    { value: "Bill", label: "Bills" },
+    { value: "Account", label: "Accounts" },
+    { value: "Vendor", label: "Vendors" },
+    { value: "Employee", label: "Employees" },
   ];
 
   // Function to fetch entities from QuickBooks
-  const fetchEntities = async () => {
+  const fetchEntities = useCallback(async () => {
     if (!selectedEntity || !user?.id) return;
 
     setIsLoading(true);
@@ -92,7 +195,10 @@ const Delete = () => {
         const toDate = format(selectedDateRange.to, "yyyy-MM-dd");
         
         // Different entities may have different date fields
-        const dateField = selectedEntity === "Invoice" || selectedEntity === "Bill" ? "TxnDate" : "MetaData.CreateTime";
+        const dateField = selectedEntity === "Invoice" || selectedEntity === "Bill" 
+          ? "TxnDate" 
+          : "MetaData.CreateTime";
+        
         query = `SELECT * FROM ${selectedEntity} WHERE ${dateField} >= '${fromDate}' AND ${dateField} <= '${toDate}' MAXRESULTS 1000`;
       }
 
@@ -145,14 +251,14 @@ const Delete = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedEntity, selectedDateRange, user?.id]);
 
   // Effect to fetch records when entity and date range change
   useEffect(() => {
     if (selectedEntity) {
       fetchEntities();
     }
-  }, [selectedEntity, selectedDateRange]);
+  }, [selectedEntity, selectedDateRange, fetchEntities]);
 
   const handleFilter = (e: React.ChangeEvent<HTMLInputElement>) => {
     const searchTerm = e.target.value.toLowerCase();
@@ -170,10 +276,10 @@ const Delete = () => {
   };
 
   const handleDeleteEntity = async (entityId: string) => {
-    if (!selectedEntity || !user?.id) return;
+    if (!selectedEntity || !user?.id) return false;
     
     try {
-      console.log(`Deleting ${selectedEntity} with ID ${entityId}`);
+      console.log(`Attempting to delete ${selectedEntity} with ID ${entityId}`);
       
       // Call our edge function to delete the entity
       const { data, error } = await supabase.functions.invoke("quickbooks-entities", {
@@ -299,70 +405,30 @@ const Delete = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-semibold mb-4">Delete Records</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <Label htmlFor="entity">Select Entity</Label>
-          <Select onValueChange={setSelectedEntity as (value: string) => void}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select an entity" />
-            </SelectTrigger>
-            <SelectContent>
-              {entityOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label>Select Date Range (Optional)</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className="w-full justify-start text-left font-normal"
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDateRange?.from ? (
-                  selectedDateRange.to ? (
-                    `${format(selectedDateRange.from, "PPP")} - ${format(
-                      selectedDateRange.to,
-                      "PPP"
-                    )}`
-                  ) : (
-                    format(selectedDateRange.from, "PPP")
-                  )
-                ) : (
-                  <span>Pick a date range (optional)</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="center">
-              <Calendar
-                mode="range"
-                defaultMonth={selectedDateRange?.from}
-                selected={selectedDateRange}
-                onSelect={setSelectedDateRange}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold">Delete QuickBooks Records</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={fetchEntities}
+          disabled={isLoading || !selectedEntity}
+        >
+          <RefreshCcw className="h-4 w-4" />
+          Refresh Data
+        </Button>
       </div>
 
-      <div className="mb-4">
-        <Label htmlFor="filter">Filter Records</Label>
-        <Input
-          type="text"
-          id="filter"
-          placeholder="Filter by name, ID, or other fields"
-          onChange={handleFilter}
+      <Card className="mb-6 p-4">
+        <EntityFilterSection
+          selectedEntity={selectedEntity}
+          setSelectedEntity={setSelectedEntity}
+          selectedDateRange={selectedDateRange}
+          setSelectedDateRange={setSelectedDateRange}
+          handleFilter={handleFilter}
+          entityOptions={entityOptions}
         />
-      </div>
+      </Card>
 
       <div className="mb-4">
         {isLoading ? (
@@ -404,7 +470,7 @@ const Delete = () => {
                               Delete this {selectedEntity}?
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              This action cannot be undone. The record will be permanently deleted from QuickBooks.
+                              This action cannot be undone. The record will be deactivated in QuickBooks.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -451,7 +517,7 @@ const Delete = () => {
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   This action cannot be undone. All {filteredRecords.length} records will be
-                  permanently deleted from QuickBooks.
+                  permanently deactivated in QuickBooks.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -465,41 +531,7 @@ const Delete = () => {
         </div>
       )}
 
-      {isDeleting && (
-        <div className="mt-4">
-          <h2 className="text-lg font-semibold mb-2">Deletion Progress</h2>
-          <progress
-            max={deleteProgress.total}
-            value={deleteProgress.current}
-            className="w-full h-4"
-          />
-          <p className="text-sm mt-2">
-            {deleteProgress.current} of {deleteProgress.total} records processed.
-          </p>
-          <p className="text-sm">
-            Success: {deleteProgress.success}, Failed: {deleteProgress.failed}
-          </p>
-
-          {deleteProgress.details.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-md font-semibold">Deletion Details</h3>
-              <ul>
-                {deleteProgress.details.map((detail, index) => (
-                  <li key={index} className="flex items-center space-x-2">
-                    <span>Record ID: {detail.id}</span>
-                    {detail.status === "success" ? (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-red-500" />
-                    )}
-                    {detail.error && <span>Error: {detail.error}</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+      {isDeleting && <DeleteProgressDisplay progress={deleteProgress} />}
     </div>
   );
 };

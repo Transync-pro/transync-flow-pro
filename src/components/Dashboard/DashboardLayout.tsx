@@ -42,10 +42,11 @@ import {
 import { toast } from "@/components/ui/use-toast";
 
 
-const DashboardHeader = () => {
+const UserMenu = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
+  // Handle sign out
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -77,6 +78,38 @@ const DashboardHeader = () => {
   };
   
   return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center space-x-1 focus:outline-none">
+          <div className="h-8 w-8 rounded-full bg-transyncpro-button text-white flex items-center justify-center cursor-pointer">
+            {getUserInitials()}
+          </div>
+          <ChevronDown size={14} className="text-gray-500" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <div className="px-2 py-1.5 text-sm font-medium">
+          {user?.email}
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate('/profile')}>
+          <User size={16} className="mr-2" />
+          Profile Settings
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleSignOut}>
+          <LogOut size={16} className="mr-2" />
+          Sign Out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const DashboardHeader = () => {
+  const navigate = useNavigate();
+  
+  return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-8">
       <div className="flex items-center">
         <SidebarTrigger className="mr-4" />
@@ -96,44 +129,21 @@ const DashboardHeader = () => {
         </div>
         
         <div>
-          <Button className="bg-transyncpro-button hover:bg-transyncpro-button/90 text-white">
-            <Plus size={16} className="mr-2" /> New Task
+          <Button 
+            className="bg-transyncpro-button hover:bg-transyncpro-button/90 text-white" 
+            onClick={() => navigate('/dashboard/templates')}
+          >
+            <Plus size={16} className="mr-2" /> New Sync
           </Button>
         </div>
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center space-x-1 focus:outline-none">
-              <div className="h-8 w-8 rounded-full bg-transyncpro-button text-white flex items-center justify-center cursor-pointer">
-                {getUserInitials()}
-              </div>
-              <ChevronDown size={14} className="text-gray-500" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <div className="px-2 py-1.5 text-sm font-medium">
-              {user?.email}
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/profile')}>
-              <User size={16} className="mr-2" />
-              Profile Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
-              <LogOut size={16} className="mr-2" />
-              Sign Out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <UserMenu />
       </div>
     </header>
   );
 };
 
-const DashboardSidebar = () => {
-  const { state } = useSidebar();
-  const isCollapsed = state === "collapsed";
+const QuickbooksConnectionButton = () => {
   const { isConnected, disconnect, isLoading } = useQuickbooks();
   const navigate = useNavigate();
 
@@ -141,6 +151,39 @@ const DashboardSidebar = () => {
     await disconnect();
     navigate("/disconnected");
   };
+
+  const handleConnect = () => {
+    navigate("/disconnected");
+  };
+
+  if (isLoading) {
+    return (
+      <Button className="w-full" variant="outline" disabled>
+        Loading...
+      </Button>
+    );
+  }
+
+  return isConnected ? (
+    <button
+      onClick={handleDisconnect}
+      className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
+    >
+      Disconnect QuickBooks
+    </button>
+  ) : (
+    <button
+      onClick={handleConnect}
+      className="w-full bg-transyncpro-button hover:bg-transyncpro-button/90 text-white py-2 px-4 rounded transition-colors"
+    >
+      Connect to QuickBooks
+    </button>
+  );
+};
+
+const DashboardSidebar = () => {
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   return (
     <Sidebar className={isCollapsed ? "w-16" : "w-64"} collapsible="icon">
@@ -220,21 +263,7 @@ const DashboardSidebar = () => {
       </div>
       {/* QuickBooks connection button at the bottom */}
       <div className="p-4 border-t mt-4">
-        {isConnected && !isLoading ? (
-          <button
-            onClick={handleDisconnect}
-            className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
-          >
-            Disconnect QuickBooks
-          </button>
-        ) : (
-          <button
-            onClick={() => navigate("/disconnected")}
-            className="w-full bg-transyncpro-button hover:bg-transyncpro-button/90 text-white py-2 px-4 rounded transition-colors"
-          >
-            Connect to QuickBooks
-          </button>
-        )}
+        <QuickbooksConnectionButton />
       </div>
     </SidebarContent>
   </Sidebar>
