@@ -24,4 +24,5 @@ export interface QuickbooksContextType {
   getAccessToken: () => Promise<string | null>;
   getRealmId: () => Promise<string | null>;
   clearError: () => void;
+  refreshConnection: () => Promise<void>;
 }
