@@ -65,6 +65,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     getAccessToken,
     getRealmId,
     clearError,
+    refreshConnection
   };
 
   return (
