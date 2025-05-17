@@ -78,20 +78,27 @@ export const logError = async (
   if (persistToDb) {
     try {
       // Get current user if no user_id is provided
-      if (!user_id) {
+      let userId = user_id;
+      if (!userId) {
         const { data } = await supabase.auth.getUser();
-        entry.user_id = data?.user?.id;
+        userId = data?.user?.id;
       }
       
-      // Store in error_logs table (you'll need to create this table)
-      await supabase.from('error_logs').insert({
-        timestamp: entry.timestamp,
-        message: entry.message,
-        source: entry.source,
-        stack: entry.stack,
-        context: entry.context,
-        user_id: entry.user_id,
-        severity: entry.severity
+      // Store in operation_logs table instead of error_logs
+      // Adjusted to use the fields available in operation_logs table
+      await supabase.from('operation_logs').insert({
+        operation_type: 'error',
+        entity_type: source,
+        record_id: null,
+        status: severity,
+        details: {
+          message,
+          timestamp: entry.timestamp,
+          stack,
+          context
+        },
+        user_id: userId
+        // created_at will be automatically set by the database default
       });
     } catch (err) {
       // Don't log this error to prevent infinite loops
