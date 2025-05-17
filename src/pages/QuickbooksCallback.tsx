@@ -8,12 +8,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { logError } from "@/utils/errorLogger";
 
 const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [attempts, setAttempts] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -65,43 +67,67 @@ const QuickbooksCallback = () => {
         // Use the current origin for the redirect URI to ensure it matches what we used for authorization
         const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
 
-        // Call our edge function to exchange the code for tokens
-        const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
-          body: {
-            path: "token",
-            code,
-            realmId,
-            redirectUri,
-            userId
-          },
-        });
+        try {
+          // Call our edge function to exchange the code for tokens
+          const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
+            body: {
+              path: "token",
+              code,
+              realmId,
+              redirectUri,
+              userId
+            },
+          });
 
-        if (invokeError) {
-          console.error("Edge function error:", invokeError);
-          throw new Error(invokeError.message || "Failed to complete QuickBooks authentication");
+          if (invokeError) {
+            console.error("Edge function error:", invokeError);
+            throw new Error(invokeError.message || "Failed to complete QuickBooks authentication");
+          }
+          
+          if (data?.error) {
+            console.error("Error from edge function:", data.error);
+            throw new Error(data.error);
+          }
+
+          // Clear the stored user ID as we no longer need it
+          sessionStorage.removeItem("qb_connecting_user");
+
+          // Make sure to refresh the QuickBooks connection status in our context
+          await refreshConnection();
+          
+          setSuccess(true);
+          toast({
+            title: "Connection Successful",
+            description: `Your QuickBooks account (${data.companyName || 'Unknown Company'}) has been connected successfully!`,
+          });
+
+          // Redirect to dashboard after a short delay
+          setTimeout(() => {
+            // Check for a stored redirect path
+            const redirectPath = sessionStorage.getItem('qb_redirect_after_connect');
+            if (redirectPath) {
+              sessionStorage.removeItem('qb_redirect_after_connect');
+              navigate(redirectPath);
+            } else {
+              navigate("/dashboard");
+            }
+          }, 1500);
+        } catch (err: any) {
+          // If there's an error but we haven't exceeded 3 attempts, try again
+          if (attempts < 2) {
+            console.log(`Retrying token exchange, attempt ${attempts + 1}`);
+            setAttempts(attempts + 1);
+            // Wait a short time before retrying
+            setTimeout(() => handleCallback(), 1000);
+            return;
+          }
+          
+          logError("Error processing QuickBooks callback", {
+            source: "QuickbooksCallback",
+            context: { err }
+          });
+          throw err;
         }
-        
-        if (data?.error) {
-          console.error("Error from edge function:", data.error);
-          throw new Error(data.error);
-        }
-
-        // Clear the stored user ID as we no longer need it
-        sessionStorage.removeItem("qb_connecting_user");
-
-        // Make sure to refresh the QuickBooks connection status in our context
-        await refreshConnection();
-        
-        setSuccess(true);
-        toast({
-          title: "Connection Successful",
-          description: `Your QuickBooks account (${data.companyName || 'Unknown Company'}) has been connected successfully!`,
-        });
-
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          navigate("/dashboard");
-        }, 2000);
       } catch (err: any) {
         console.error("Error processing callback:", err);
         setError(`Failed to complete QuickBooks connection: ${err.message || "Unknown error"}`);
@@ -120,7 +146,7 @@ const QuickbooksCallback = () => {
     if (!isAuthLoading) {
       handleCallback();
     }
-  }, [location, navigate, user, isAuthLoading, refreshConnection]);
+  }, [location, navigate, user, isAuthLoading, refreshConnection, attempts]);
 
   // Show loading state while checking session
   if (isCheckingSession || isAuthLoading) {

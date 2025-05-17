@@ -5,9 +5,11 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { CheckCircle } from "lucide-react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Disconnected = () => {
-  const { connect, isConnected } = useQuickbooks();
+  const { connect, isConnected, isLoading } = useQuickbooks();
+  const { user } = useAuth();
   const navigate = useNavigate();
   
   // Check if we should redirect after connecting
@@ -26,6 +28,11 @@ const Disconnected = () => {
   // Handle connection
   const handleConnect = async () => {
     try {
+      if (!user) {
+        navigate('/login', { state: { redirectAfter: '/connect-quickbooks' } });
+        return;
+      }
+      
       await connect();
       // The connect function will handle the redirection to QuickBooks auth
     } catch (error) {
@@ -56,8 +63,9 @@ const Disconnected = () => {
           <Button
             className="w-full bg-transyncpro-button hover:bg-transyncpro-button/90"
             onClick={handleConnect}
+            disabled={isLoading}
           >
-            Connect to QuickBooks
+            {isLoading ? "Connecting..." : "Connect to QuickBooks"}
           </Button>
           <Button
             variant="outline"

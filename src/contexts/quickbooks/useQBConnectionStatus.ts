@@ -47,10 +47,9 @@ export const useQBConnectionStatus = (user: User | null) => {
         .eq('user_id', user.id)
         .maybeSingle(); // Use maybeSingle instead of single to avoid 406 errors
       
-      if (error) {
+      if (error && error.code !== 'PGRST116') {
         logError("Error checking QuickBooks connection", {
           source: "useQBConnectionStatus",
-          stack: error.stack,
           context: { error, userId: user.id }
         });
         resetConnectionState();
@@ -71,7 +70,6 @@ export const useQBConnectionStatus = (user: User | null) => {
     } catch (error: any) {
       logError("Error checking QuickBooks connection", {
         source: "useQBConnectionStatus",
-        stack: error instanceof Error ? error.stack : undefined,
         context: { error }
       });
       resetConnectionState();
@@ -88,8 +86,8 @@ export const useQBConnectionStatus = (user: User | null) => {
     setConnection(null);
   };
 
-  const refreshConnection = () => {
-    return checkConnectionStatus();
+  const refreshConnection = async () => {
+    await checkConnectionStatus();
   };
 
   return {

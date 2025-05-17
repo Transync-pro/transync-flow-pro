@@ -26,7 +26,9 @@ const RouteGuard = ({
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const location = useLocation();
   const checkInProgress = useRef(false);
-
+  const lastCheckTime = useRef(0);
+  const MIN_CHECK_INTERVAL = 1000; // 1 second
+  
   // Check if the current route is the QuickBooks callback route
   const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
   
@@ -35,9 +37,16 @@ const RouteGuard = ({
     if (!user || checkInProgress.current) {
       return false;
     }
+    
+    // Throttle checks
+    const now = Date.now();
+    if (now - lastCheckTime.current < MIN_CHECK_INTERVAL) {
+      return hasQbConnection; // Return current state if checking too frequently
+    }
 
     // Set flag to prevent concurrent checks
     checkInProgress.current = true;
+    lastCheckTime.current = now;
 
     try {
       // Query the database directly to check connection status
@@ -66,12 +75,11 @@ const RouteGuard = ({
         stack: error instanceof Error ? error.stack : undefined,
         context: { userId: user.id }
       });
-      setHasQbConnection(false);
-      return false;
+      return hasQbConnection; // Return current state on error
     } finally {
       checkInProgress.current = false;
     }
-  }, [user, isConnected, refreshConnection]);
+  }, [user, isConnected, refreshConnection, hasQbConnection]);
 
   // Initial check on mount and when dependencies change
   useEffect(() => {
@@ -79,15 +87,16 @@ const RouteGuard = ({
       // Wait for auth to load first
       if (isAuthLoading) return;
       
-      // If we don't need QuickBooks, we can finish checking immediately
-      if (!requiresQuickbooks) {
+      // If we don't need QuickBooks or we're on the callback route, we can finish checking immediately
+      if (!requiresQuickbooks || isQbCallbackRoute) {
         setIsChecking(false);
         return;
       }
       
       // If we need QuickBooks, do a direct DB check
-      if (user && requiresQuickbooks && !isQbCallbackRoute) {
-        await checkQbConnectionDirectly();
+      if (user && requiresQuickbooks) {
+        const hasConnection = await checkQbConnectionDirectly();
+        setHasQbConnection(hasConnection);
       }
       
       // Finish checking
@@ -96,7 +105,8 @@ const RouteGuard = ({
     
     checkAccess();
   }, [isAuthLoading, requiresQuickbooks, user, checkQbConnectionDirectly, isQbCallbackRoute]);
-  
+
+  // Show loading state while checking session
   if (isChecking) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
@@ -121,8 +131,8 @@ const RouteGuard = ({
     return <>{children}</>;
   }
 
-  // If we have a valid connection state from the context, use that
-  if (requiresQuickbooks && !hasQbConnection && !isQbCallbackRoute) {
+  // If QuickBooks is required and the user doesn't have a connection, redirect to disconnected page
+  if (requiresQuickbooks && user && !hasQbConnection && !isQbCallbackRoute) {
     console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
     // Store the current location to redirect back after connecting
     sessionStorage.setItem('qb_redirect_after_connect', location.pathname);
