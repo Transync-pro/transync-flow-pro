@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -125,11 +124,7 @@ const Delete = () => {
       return [];
     }
 
-    // Get a sample record to extract all possible fields
-    const sampleRecord = filteredRecords[0];
-    const fields = Object.keys(sampleRecord);
-
-    // Always include common fields first
+    // Base columns for selection and common fields
     const baseColumns: ColumnDef<any>[] = [
       {
         id: "select",
@@ -154,224 +149,570 @@ const Delete = () => {
         accessorKey: "Id",
         header: "ID",
       },
-      {
-        accessorKey: "DisplayName",
-        header: "Name",
-        cell: ({ row }) => row.original.DisplayName || row.original.Name || row.original.FullyQualifiedName || row.original.DocNumber || row.original.Id,
-      },
     ];
 
-    // Add additional common fields if they exist in the data
-    if (fields.includes("MetaData")) {
-      baseColumns.push({
-        accessorKey: "MetaData.CreateTime",
-        header: "Created",
-        cell: ({ row }) => {
-          const createTime = row.original.MetaData?.CreateTime;
-          return createTime ? new Date(createTime).toLocaleDateString() : "N/A";
-        },
-      });
+    // Add entity-specific columns based on the entity type
+    let entityColumns: ColumnDef<any>[] = [];
+
+    switch (selectedEntity) {
+      case "Customer":
+        entityColumns = [
+          {
+            accessorKey: "DisplayName",
+            header: "Display Name",
+          },
+          {
+            accessorKey: "CompanyName",
+            header: "Company Name",
+          },
+          {
+            accessorKey: "Title",
+            header: "Title",
+          },
+          {
+            accessorKey: "GivenName",
+            header: "First Name",
+          },
+          {
+            accessorKey: "FamilyName",
+            header: "Last Name",
+          },
+          {
+            accessorKey: "PrimaryEmailAddr.Address",
+            header: "Email",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryEmailAddr.Address") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryPhone.FreeFormNumber",
+            header: "Phone",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Line1",
+            header: "Address",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.City",
+            header: "City",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Country",
+            header: "Country",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.PostalCode",
+            header: "Postal Code",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.CountrySubDivisionCode",
+            header: "State/Province",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.CountrySubDivisionCode") || "N/A",
+          },
+          {
+            accessorKey: "CurrencyRef.value",
+            header: "Currency",
+            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
+          },
+          {
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+          },
+        ];
+        break;
+
+      case "Vendor":
+        entityColumns = [
+          {
+            accessorKey: "DisplayName",
+            header: "Display Name",
+          },
+          {
+            accessorKey: "CompanyName",
+            header: "Company Name",
+          },
+          {
+            accessorKey: "Title",
+            header: "Title",
+          },
+          {
+            accessorKey: "GivenName",
+            header: "First Name",
+          },
+          {
+            accessorKey: "FamilyName",
+            header: "Last Name",
+          },
+          {
+            accessorKey: "PrimaryEmailAddr.Address",
+            header: "Email",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryEmailAddr.Address") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryPhone.FreeFormNumber",
+            header: "Phone",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Line1",
+            header: "Address",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.City",
+            header: "City",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Country",
+            header: "Country",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.PostalCode",
+            header: "Postal Code",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.CountrySubDivisionCode",
+            header: "State/Province",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.CountrySubDivisionCode") || "N/A",
+          },
+          {
+            accessorKey: "CurrencyRef.value",
+            header: "Currency",
+            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
+          },
+          {
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+          },
+        ];
+        break;
+
+      case "Item":
+        entityColumns = [
+          {
+            accessorKey: "Name",
+            header: "Name",
+          },
+          {
+            accessorKey: "Type",
+            header: "Type",
+          },
+          {
+            accessorKey: "Sku",
+            header: "SKU",
+          },
+          {
+            accessorKey: "UnitPrice",
+            header: "Price",
+            cell: ({ row }) => {
+              const price = row.original.UnitPrice;
+              return price ? `$${parseFloat(price).toFixed(2)}` : "N/A";
+            },
+          },
+          {
+            accessorKey: "IncomeAccountRef.name",
+            header: "Income Account",
+            cell: ({ row }) => getNestedValue(row.original, "IncomeAccountRef.name") || "N/A",
+          },
+          {
+            accessorKey: "Description",
+            header: "Description",
+          },
+          {
+            accessorKey: "SubItem",
+            header: "Sub-item",
+            cell: ({ row }) => (row.original.SubItem ? "Yes" : "No"),
+          },
+          {
+            accessorKey: "SalesTaxCodeRef.name",
+            header: "Sales Tax",
+            cell: ({ row }) => getNestedValue(row.original, "SalesTaxCodeRef.name") || "N/A",
+          },
+          {
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+          },
+        ];
+        break;
+
+      case "Account":
+        entityColumns = [
+          {
+            accessorKey: "Name",
+            header: "Name",
+          },
+          {
+            accessorKey: "AccountType",
+            header: "Account Type",
+          },
+          {
+            accessorKey: "AccountSubType",
+            header: "Account Subtype",
+          },
+          {
+            accessorKey: "AcctNum",
+            header: "Account Number",
+          },
+          {
+            accessorKey: "ParentRef.name",
+            header: "Parent Account",
+            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
+          },
+          {
+            accessorKey: "Description",
+            header: "Description",
+          },
+          {
+            accessorKey: "CurrentBalance",
+            header: "Current Balance",
+            cell: ({ row }) => {
+              const balance = row.original.CurrentBalance;
+              return balance !== undefined ? `$${parseFloat(balance).toFixed(2)}` : "N/A";
+            },
+          },
+          {
+            accessorKey: "CurrencyRef.value",
+            header: "Currency",
+            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
+          },
+          {
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+          },
+        ];
+        break;
+
+      case "Employee":
+        entityColumns = [
+          {
+            accessorKey: "DisplayName",
+            header: "Name",
+          },
+          {
+            accessorKey: "HiredDate",
+            header: "Hire Date",
+            cell: ({ row }) => {
+              const date = row.original.HiredDate;
+              return date ? new Date(date).toLocaleDateString() : "N/A";
+            },
+          },
+          {
+            accessorKey: "PrimaryPhone.FreeFormNumber",
+            header: "Phone",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.Line1",
+            header: "Address",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.Line1") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.City",
+            header: "City",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.City") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.CountrySubDivisionCode",
+            header: "State/Province",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.CountrySubDivisionCode") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.Country",
+            header: "Country",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.Country") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.PostalCode",
+            header: "Postal Code",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.PostalCode") || "N/A",
+          },
+          {
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+          },
+        ];
+        break;
+
+      case "Department":
+        entityColumns = [
+          {
+            accessorKey: "Name",
+            header: "Name",
+          },
+          {
+            accessorKey: "SubDepartment",
+            header: "Sub-department",
+            cell: ({ row }) => (row.original.SubDepartment ? "Yes" : "No"),
+          },
+          {
+            accessorKey: "ParentRef.name",
+            header: "Parent Department",
+            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
+          },
+          {
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+          },
+        ];
+        break;
+
+      case "Class":
+        entityColumns = [
+          {
+            accessorKey: "Name",
+            header: "Name",
+          },
+          {
+            accessorKey: "SubClass",
+            header: "Sub-class",
+            cell: ({ row }) => (row.original.SubClass ? "Yes" : "No"),
+          },
+          {
+            accessorKey: "ParentRef.name",
+            header: "Parent Class",
+            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
+          },
+          {
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+          },
+        ];
+        break;
+
+      case "Invoice":
+        entityColumns = [
+          {
+            accessorKey: "DocNumber",
+            header: "Invoice #",
+          },
+          {
+            accessorKey: "CustomerRef.name",
+            header: "Customer",
+            cell: ({ row }) => getNestedValue(row.original, "CustomerRef.name") || "N/A",
+          },
+          {
+            accessorKey: "TxnDate",
+            header: "Date",
+            cell: ({ row }) => {
+              const date = row.original.TxnDate;
+              return date ? new Date(date).toLocaleDateString() : "N/A";
+            },
+          },
+          {
+            accessorKey: "DueDate",
+            header: "Due Date",
+            cell: ({ row }) => {
+              const date = row.original.DueDate;
+              return date ? new Date(date).toLocaleDateString() : "N/A";
+            },
+          },
+          {
+            accessorKey: "EmailStatus",
+            header: "Email Status",
+          },
+          {
+            accessorKey: "BillEmail.Address",
+            header: "Email",
+            cell: ({ row }) => getNestedValue(row.original, "BillEmail.Address") || "N/A",
+          },
+          {
+            accessorKey: "Line[0].SalesItemLineDetail.ItemRef.name",
+            header: "Product/Service",
+            cell: ({ row }) => getNestedValue(row.original, "Line[0].SalesItemLineDetail.ItemRef.name") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Line1",
+            header: "Billing Address",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.City",
+            header: "City",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Country",
+            header: "Country",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.PostalCode",
+            header: "Postal Code",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
+          },
+          {
+            accessorKey: "CurrencyRef.value",
+            header: "Currency",
+            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
+          },
+          {
+            accessorKey: "TotalAmt",
+            header: "Total",
+            cell: ({ row }) => {
+              const amount = row.original.TotalAmt;
+              return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
+            },
+          },
+          {
+            accessorKey: "Balance",
+            header: "Balance",
+            cell: ({ row }) => {
+              const balance = row.original.Balance;
+              return balance !== undefined ? `$${parseFloat(balance).toFixed(2)}` : "N/A";
+            },
+          },
+        ];
+        break;
+
+      // Add more entity types with their specific columns...
+      // For brevity, I'll include a few more key ones and use a default for the rest
+
+      case "Estimate":
+        entityColumns = [
+          {
+            accessorKey: "DocNumber",
+            header: "Estimate #",
+          },
+          {
+            accessorKey: "CustomerRef.name",
+            header: "Customer",
+            cell: ({ row }) => getNestedValue(row.original, "CustomerRef.name") || "N/A",
+          },
+          {
+            accessorKey: "TxnDate",
+            header: "Date",
+            cell: ({ row }) => {
+              const date = row.original.TxnDate;
+              return date ? new Date(date).toLocaleDateString() : "N/A";
+            },
+          },
+          {
+            accessorKey: "ExpirationDate",
+            header: "Expiration Date",
+            cell: ({ row }) => {
+              const date = row.original.ExpirationDate;
+              return date ? new Date(date).toLocaleDateString() : "N/A";
+            },
+          },
+          {
+            accessorKey: "EmailStatus",
+            header: "Email Status",
+          },
+          {
+            accessorKey: "BillEmail.Address",
+            header: "Email",
+            cell: ({ row }) => getNestedValue(row.original, "BillEmail.Address") || "N/A",
+          },
+          {
+            accessorKey: "Line[0].SalesItemLineDetail.ItemRef.name",
+            header: "Product/Service",
+            cell: ({ row }) => getNestedValue(row.original, "Line[0].SalesItemLineDetail.ItemRef.name") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Line1",
+            header: "Billing Address",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.City",
+            header: "City",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Country",
+            header: "Country",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.PostalCode",
+            header: "Postal Code",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
+          },
+          {
+            accessorKey: "CurrencyRef.value",
+            header: "Currency",
+            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
+          },
+          {
+            accessorKey: "TotalAmt",
+            header: "Total",
+            cell: ({ row }) => {
+              const amount = row.original.TotalAmt;
+              return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
+            },
+          },
+          {
+            accessorKey: "TxnStatus",
+            header: "Status",
+          },
+        ];
+        break;
+
+      // Default case for other entity types
+      default:
+        // Get a sample record to extract all possible fields
+        const sampleRecord = filteredRecords[0];
+        const fields = Object.keys(sampleRecord);
+        
+        // Add common display fields
+        entityColumns = [
+          {
+            accessorKey: "DisplayName",
+            header: "Name",
+            cell: ({ row }) => row.original.DisplayName || row.original.Name || row.original.FullyQualifiedName || row.original.DocNumber || "N/A",
+          },
+        ];
+        
+        // Add date fields if they exist
+        if (fields.includes("TxnDate")) {
+          entityColumns.push({
+            accessorKey: "TxnDate",
+            header: "Date",
+            cell: ({ row }) => {
+              const date = row.original.TxnDate;
+              return date ? new Date(date).toLocaleDateString() : "N/A";
+            },
+          });
+        }
+        
+        // Add amount fields if they exist
+        if (fields.includes("TotalAmt")) {
+          entityColumns.push({
+            accessorKey: "TotalAmt",
+            header: "Amount",
+            cell: ({ row }) => {
+              const amount = row.original.TotalAmt;
+              return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
+            },
+          });
+        }
+        
+        // Add status fields if they exist
+        if (fields.includes("Active")) {
+          entityColumns.push({
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+          });
+        }
+        
+        break;
     }
 
-    if (fields.includes("Active")) {
-      baseColumns.push({
-        accessorKey: "Active",
-        header: "Status",
-        cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
-      });
-    }
-
-    // Add entity-specific fields based on the type
-    if (selectedEntity === "Customer") {
-      baseColumns.push(
-        {
-          accessorKey: "CompanyName",
-          header: "Company Name",
-        },
-        {
-          accessorKey: "Title",
-          header: "Title",
-        },
-        {
-          accessorKey: "GivenName",
-          header: "Given Name",
-        },
-        {
-          accessorKey: "FamilyName",
-          header: "Family Name",
-        },
-        {
-          accessorKey: "PrimaryEmailAddr",
-          header: "Email Id",
-          cell: ({ row }) => row.original.PrimaryEmailAddr?.Address || "N/A",
-        },
-        {
-          accessorKey: "PrimaryPhone",
-          header: "Phone Number",
-          cell: ({ row }) => row.original.PrimaryPhone?.FreeFormNumber || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.Line1",
-          header: "Billing Address Line 1",
-          cell: ({ row }) => row.original.BillAddr?.Line1 || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.City",
-          header: "Billing Address City",
-          cell: ({ row }) => row.original.BillAddr?.City || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.Country",
-          header: "Billing Address Country",
-          cell: ({ row }) => row.original.BillAddr?.Country || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.PostalCode",
-          header: "Billing Address Postal Code",
-          cell: ({ row }) => row.original.BillAddr?.PostalCode || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.CountrySubDivisionCode",
-          header: "Billing Address Subdivision",
-          cell: ({ row }) => row.original.BillAddr?.CountrySubDivisionCode || "N/A",
-        },
-        {
-          accessorKey: "CurrencyRef.value",
-          header: "Currency Code",
-          cell: ({ row }) => row.original.CurrencyRef?.value || "N/A",
-        }
-      );
-    } else if (selectedEntity === "Vendor") {
-      baseColumns.push(
-        {
-          accessorKey: "CompanyName",
-          header: "Company Name",
-        },
-        {
-          accessorKey: "Title",
-          header: "Title",
-        },
-        {
-          accessorKey: "GivenName",
-          header: "Given Name",
-        },
-        {
-          accessorKey: "FamilyName",
-          header: "Family Name",
-        },
-        {
-          accessorKey: "PrimaryEmailAddr",
-          header: "Email Id",
-          cell: ({ row }) => row.original.PrimaryEmailAddr?.Address || "N/A",
-        },
-        {
-          accessorKey: "PrimaryPhone",
-          header: "Phone Number",
-          cell: ({ row }) => row.original.PrimaryPhone?.FreeFormNumber || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.Line1",
-          header: "Billing Address Line 1",
-          cell: ({ row }) => row.original.BillAddr?.Line1 || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.City",
-          header: "Billing Address City",
-          cell: ({ row }) => row.original.BillAddr?.City || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.Country",
-          header: "Billing Address Country",
-          cell: ({ row }) => row.original.BillAddr?.Country || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.PostalCode",
-          header: "Billing Address Postal Code",
-          cell: ({ row }) => row.original.BillAddr?.PostalCode || "N/A",
-        },
-        {
-          accessorKey: "BillAddr.CountrySubDivisionCode",
-          header: "Billing Address Subdivision",
-          cell: ({ row }) => row.original.BillAddr?.CountrySubDivisionCode || "N/A",
-        },
-        {
-          accessorKey: "CurrencyRef.value",
-          header: "Currency Code",
-          cell: ({ row }) => row.original.CurrencyRef?.value || "N/A",
-        }
-      );
-    } else if (selectedEntity === "Item") {
-      baseColumns.push(
-        {
-          accessorKey: "Type",
-          header: "Type",
-        },
-        {
-          accessorKey: "Sku",
-          header: "SKU",
-        },
-        {
-          accessorKey: "UnitPrice",
-          header: "Price",
-          cell: ({ row }) => (row.original.UnitPrice ? `$${row.original.UnitPrice}` : "N/A"),
-        },
-        {
-          accessorKey: "IncomeAccountRef.name",
-          header: "Income Account",
-          cell: ({ row }) => row.original.IncomeAccountRef?.name || "N/A",
-        },
-        {
-          accessorKey: "Description",
-          header: "Description",
-        },
-        {
-          accessorKey: "SubItem",
-          header: "Category",
-          cell: ({ row }) => row.original.SubItem ? "Yes" : "No",
-        },
-        {
-          accessorKey: "SalesTaxCodeRef.name",
-          header: "Sales Tax",
-          cell: ({ row }) => row.original.SalesTaxCodeRef?.name || "N/A",
-        }
-      );
-    } else if (selectedEntity === "Account") {
-      baseColumns.push(
-        {
-          accessorKey: "AccountType",
-          header: "Account Type",
-        },
-        {
-          accessorKey: "AccountSubType",
-          header: "Account Subtype",
-        },
-        {
-          accessorKey: "AcctNum",
-          header: "Account Number",
-        },
-        {
-          accessorKey: "ParentRef.name",
-          header: "Parent Account",
-          cell: ({ row }) => row.original.ParentRef?.name || "N/A",
-        },
-        {
-          accessorKey: "Description",
-          header: "Description",
-        },
-        {
-          accessorKey: "CurrentBalance",
-          header: "Opening Balance",
-          cell: ({ row }) => (row.original.CurrentBalance !== undefined ? `$${row.original.CurrentBalance}` : "N/A"),
-        },
-        {
-          accessorKey: "CurrencyRef.value",
-          header: "Currency Code",
-          cell: ({ row }) => row.original.CurrencyRef?.value || "N/A",
-        }
-      );
-    }
-
-    return baseColumns;
+    return [...baseColumns, ...entityColumns];
   };
 
   return (
@@ -535,13 +876,12 @@ const Delete = () => {
                 : "Select an entity type to get started"}
             </div>
           ) : (
-            <>
-              <DataTable
-                columns={generateColumns()}
-                data={filteredRecords}
-                pageSize={10}
-              />
-            </>
+            <DataTable
+              columns={generateColumns()}
+              data={filteredRecords}
+              pageSize={10}
+              className="overflow-x-auto"
+            />
           )}
         </CardContent>
         {selectedEntityIds.length > 0 && (
