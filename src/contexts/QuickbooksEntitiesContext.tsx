@@ -8,6 +8,7 @@ import { getEntityOptions } from "./quickbooks/entityMapping";
 import { useEntityOperations } from "./quickbooks/useEntityOperations";
 import { useEntitySelection } from "./quickbooks/useEntitySelection";
 import { getNestedValue } from "./quickbooks/entityUtils";
+import { logError } from "@/utils/errorLogger";
 
 // Create the context
 const QuickbooksEntitiesContext = createContext<QuickbooksEntitiesContextType | undefined>(undefined);
@@ -15,7 +16,7 @@ const QuickbooksEntitiesContext = createContext<QuickbooksEntitiesContextType | 
 // Create a provider component
 export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { getAccessToken } = useQuickbooks();
+  const { getAccessToken, isConnected } = useQuickbooks();
   
   // Entity data state - using a record to store state for multiple entity types
   const [entityState, setEntityState] = useState<Record<string, EntityState>>({});
@@ -56,23 +57,9 @@ export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ 
     setSelectedEntityIds([]);
   }, [selectedEntity, setSelectedEntityIds]);
   
-  // Initialize context with default entity when first loaded
-  useEffect(() => {
-    if (user && entityOptions.length > 0 && !selectedEntity) {
-      // Set a default entity (e.g., Customer)
-      const defaultEntity = "Customer";
-      console.log("Initializing QuickbooksEntitiesContext with default entity:", defaultEntity);
-      setSelectedEntity(defaultEntity);
-    }
-  }, [user, entityOptions, selectedEntity, setSelectedEntity]);
+  // Do not initialize with default entity and do not fetch entities automatically
+  // This addresses Issue #1 and Issue #2 by not loading entities automatically on login
   
-  // Effect to fetch records when entity and date range change
-  useEffect(() => {
-    if (selectedEntity) {
-      fetchEntities();
-    }
-  }, [selectedEntity, selectedDateRange, fetchEntities]);
-
   // Wrapper for selectAllEntities that uses the current entity's filtered records
   const selectAllEntitiesWrapper = (select: boolean, entityType?: string) => {
     const typeToSelect = entityType || selectedEntity;

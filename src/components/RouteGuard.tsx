@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { logError } from "@/utils/errorLogger";
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -57,7 +58,11 @@ const RouteGuard = ({
       
       return hasConnection;
     } catch (error) {
-      console.error('Error checking QB connection directly:', error);
+      logError("Error checking QB connection directly", {
+        source: "RouteGuard",
+        stack: error instanceof Error ? error.stack : undefined,
+        context: { userId: user.id }
+      });
       setHasQbConnection(false);
       return false;
     }
@@ -87,20 +92,9 @@ const RouteGuard = ({
     checkAccess();
   }, [isAuthLoading, requiresQuickbooks, user, checkQbConnectionDirectly]);
   
-  // Periodic re-check for routes requiring QuickBooks
-  useEffect(() => {
-    if (!requiresQuickbooks || !user || isQbCallbackRoute) return;
-    
-    // Immediate check
-    checkQbConnectionDirectly();
-    
-    const interval = setInterval(() => {
-      checkQbConnectionDirectly();
-    }, 10000); // Check every 10 seconds
-    
-    return () => clearInterval(interval);
-  }, [requiresQuickbooks, user, checkQbConnectionDirectly, isQbCallbackRoute]);
-
+  // No periodic recheck - only check on mount and after re-auth
+  // This helps reduce unnecessary API calls
+  
   if (isChecking) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">

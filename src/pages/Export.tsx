@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
+import { logError } from "@/utils/errorLogger";
 
 const Export = () => {
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
@@ -29,23 +31,12 @@ const Export = () => {
     getNestedValue
   } = useQuickbooksEntities();
 
-  // Debug logging
-  useEffect(() => {
-    console.log("QuickbooksEntitiesContext in Export.tsx:", {
-      selectedEntity,
-      entityOptions,
-      entityState,
-      availableFields,
-      selectedFields
-    });
-  }, [selectedEntity, entityOptions, entityState, availableFields, selectedFields]);
-
   // Get current entity data
   const currentEntityState = selectedEntity ? entityState[selectedEntity] : null;
   const exportedData = currentEntityState?.records || [];
   const isLoading = currentEntityState?.isLoading || false;
 
-  // Reset fields when entity changes
+  // Update fields when entity changes
   useEffect(() => {
     if (selectedEntity) {
       // Get default fields for the entity
@@ -53,12 +44,10 @@ const Export = () => {
       setAvailableFields(fields);
       setSelectedFields(fields);
       
-      // Fetch entities if not already loaded
-      if (!currentEntityState || !currentEntityState.records || currentEntityState.records.length === 0) {
-        fetchEntities();
-      }
+      // Important: Do NOT fetch entities automatically
+      // This prevents the issue #3 - we only fetch when user explicitly requests it
     }
-  }, [selectedEntity, currentEntityState, fetchEntities]);
+  }, [selectedEntity]);
 
   // Handle field selection
   const handleFieldToggle = (field: string) => {
@@ -67,6 +56,13 @@ const Export = () => {
         ? prev.filter((f) => f !== field)
         : [...prev, field]
     );
+  };
+
+  // Handle entity selection with explicit fetch
+  const handleEntitySelect = (entity: string) => {
+    setSelectedEntity(entity);
+    // Clear any previous data to avoid confusion
+    // Let the user explicitly request data by clicking "Fetch Data"
   };
 
   // Generate columns for the data table
@@ -79,6 +75,28 @@ const Export = () => {
         return value;
       },
     }));
+  };
+
+  // Explicitly fetch data when requested by user
+  const handleFetchData = async () => {
+    try {
+      if (!selectedEntity) {
+        toast({
+          title: "Select Entity",
+          description: "Please select an entity type first.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      await fetchEntities();
+    } catch (error) {
+      logError(`Error fetching ${selectedEntity} data`, {
+        source: "Export",
+        stack: error instanceof Error ? error.stack : undefined,
+        context: { selectedEntity }
+      });
+    }
   };
 
   const downloadCSV = () => {
@@ -107,7 +125,12 @@ const Export = () => {
         description: `Your ${selectedEntity} data is being downloaded as CSV.`,
       });
     } catch (error) {
-      console.error("Download error:", error);
+      logError("Download CSV error", {
+        source: "Export",
+        stack: error instanceof Error ? error.stack : undefined,
+        context: { selectedEntity }
+      });
+      
       toast({
         title: "Download Failed",
         description: "Failed to generate CSV file.",
@@ -140,7 +163,12 @@ const Export = () => {
         description: `Your ${selectedEntity} data is being downloaded as JSON.`,
       });
     } catch (error) {
-      console.error("Download error:", error);
+      logError("Download JSON error", {
+        source: "Export",
+        stack: error instanceof Error ? error.stack : undefined,
+        context: { selectedEntity }
+      });
+      
       toast({
         title: "Download Failed",
         description: "Failed to generate JSON file.",
@@ -153,23 +181,13 @@ const Export = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold">Export QuickBooks Data</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => fetchEntities()}
-          disabled={isLoading || !selectedEntity}
-        >
-          <Loader2 className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          Refresh Data
-        </Button>
       </div>
 
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Export Settings</CardTitle>
           <CardDescription>
-            Select the entity type and fields you want to export
+            Select the entity type and click "Fetch Data" to load records
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -178,7 +196,7 @@ const Export = () => {
               <Label htmlFor="entity-type">Entity Type</Label>
               <Select
                 value={selectedEntity || ""}
-                onValueChange={setSelectedEntity}
+                onValueChange={handleEntitySelect}
               >
                 <SelectTrigger id="entity-type">
                   <SelectValue placeholder="Select an entity type" />
@@ -195,43 +213,58 @@ const Export = () => {
 
             {selectedEntity && (
               <>
-                <div>
-                  <Label>Select Fields to Export</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-2">
-                    {availableFields.map((field) => (
-                      <div
-                        key={field}
-                        className="flex items-center space-x-2"
-                      >
-                        <Checkbox
-                          id={`field-${field}`}
-                          checked={selectedFields.includes(field)}
-                          onCheckedChange={() => handleFieldToggle(field)}
-                        />
-                        <Label
-                          htmlFor={`field-${field}`}
-                          className="text-sm cursor-pointer"
-                        >
-                          {field}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <Button
+                  onClick={handleFetchData}
+                  disabled={isLoading}
+                  className="flex items-center"
+                >
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  {isLoading ? "Loading Data..." : "Fetch Data"}
+                </Button>
 
-                <div>
-                  <Label>Preview Mode</Label>
-                  <Tabs
-                    value={viewMode}
-                    onValueChange={(v) => setViewMode(v as "preview" | "json")}
-                    className="mt-2"
-                  >
-                    <TabsList>
-                      <TabsTrigger value="preview">Table Preview</TabsTrigger>
-                      <TabsTrigger value="json">JSON View</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
+                {exportedData.length > 0 && (
+                  <div>
+                    <Label>Select Fields to Export</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-2">
+                      {availableFields.map((field) => (
+                        <div
+                          key={field}
+                          className="flex items-center space-x-2"
+                        >
+                          <Checkbox
+                            id={`field-${field}`}
+                            checked={selectedFields.includes(field)}
+                            onCheckedChange={() => handleFieldToggle(field)}
+                          />
+                          <Label
+                            htmlFor={`field-${field}`}
+                            className="text-sm cursor-pointer"
+                          >
+                            {field}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {exportedData.length > 0 && (
+                  <div>
+                    <Label>Preview Mode</Label>
+                    <Tabs
+                      value={viewMode}
+                      onValueChange={(v) => setViewMode(v as "preview" | "json")}
+                      className="mt-2"
+                    >
+                      <TabsList>
+                        <TabsTrigger value="preview">Table Preview</TabsTrigger>
+                        <TabsTrigger value="json">JSON View</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -254,7 +287,7 @@ const Export = () => {
               </div>
             ) : exportedData.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                No {selectedEntity} data found. Try refreshing or selecting a different entity.
+                No {selectedEntity} data found. Click "Fetch Data" above to load records.
               </div>
             ) : viewMode === "preview" ? (
               <div className="overflow-x-auto">
