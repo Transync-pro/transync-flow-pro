@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -44,13 +43,164 @@ const Export = () => {
   const exportedData = currentEntityState?.records || [];
   const isLoading = currentEntityState?.isLoading || false;
 
-  // Update fields when entity changes
+  // Get entity-specific fields based on the selected entity
+  const getEntityFields = (entityType: string): string[] => {
+    switch (entityType) {
+      case "Customer":
+        return [
+          "Id", "DisplayName", "CompanyName", "Title", "GivenName", "FamilyName",
+          "PrimaryEmailAddr.Address", "PrimaryPhone.FreeFormNumber",
+          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
+          "BillAddr.CountrySubDivisionCode", "CurrencyRef.value", "Active"
+        ];
+      case "Vendor":
+        return [
+          "Id", "DisplayName", "CompanyName", "Title", "GivenName", "FamilyName",
+          "PrimaryEmailAddr.Address", "PrimaryPhone.FreeFormNumber",
+          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
+          "BillAddr.CountrySubDivisionCode", "CurrencyRef.value", "Active"
+        ];
+      case "Item":
+        return [
+          "Id", "Name", "Type", "Sku", "UnitPrice", "IncomeAccountRef.name",
+          "Description", "SubItem", "SalesTaxCodeRef.name", "Active"
+        ];
+      case "Account":
+        return [
+          "Id", "Name", "AccountType", "AccountSubType", "AcctNum", "ParentRef.name",
+          "Description", "CurrentBalance", "CurrencyRef.value", "Active"
+        ];
+      case "Employee":
+        return [
+          "Id", "DisplayName", "HiredDate", "PrimaryPhone.FreeFormNumber",
+          "PrimaryAddr.Line1", "PrimaryAddr.City", "PrimaryAddr.CountrySubDivisionCode",
+          "PrimaryAddr.Country", "PrimaryAddr.PostalCode", "Active"
+        ];
+      case "Department":
+        return [
+          "Id", "Name", "SubDepartment", "ParentRef.name", "Active"
+        ];
+      case "Class":
+        return [
+          "Id", "Name", "SubClass", "ParentRef.name", "Active"
+        ];
+      case "Invoice":
+        return [
+          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "DueDate", "EmailStatus",
+          "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
+          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
+          "CurrencyRef.value", "TotalAmt", "Balance"
+        ];
+      case "Estimate":
+        return [
+          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "ExpirationDate", "EmailStatus",
+          "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
+          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
+          "CurrencyRef.value", "TotalAmt", "TxnStatus"
+        ];
+      case "CreditMemo":
+        return [
+          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "EmailStatus",
+          "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
+          "BillAddr.Line1", "BillAddr.City", "BillAddr.CountrySubDivisionCode",
+          "BillAddr.Country", "BillAddr.PostalCode", "CurrencyRef.value",
+          "TotalAmt", "CustomerMemo.value"
+        ];
+      case "SalesReceipt":
+        return [
+          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "DepositToAccountRef.name",
+          "EmailStatus", "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
+          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
+          "CurrencyRef.value", "TotalAmt", "PrivateNote"
+        ];
+      case "Payment":
+        return [
+          "Id", "PaymentRefNum", "CustomerRef.name", "TxnDate", "PaymentMethodRef.name",
+          "Line[0].LinkedTxn[0].TxnId", "DepositToAccountRef.name", "CurrencyRef.value", "TotalAmt"
+        ];
+      case "RefundReceipt":
+        return [
+          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "DepositToAccountRef.name",
+          "PaymentMethodRef.name", "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
+          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
+          "CurrencyRef.value", "PrivateNote", "PrintStatus"
+        ];
+      case "PurchaseOrder":
+        return [
+          "Id", "DocNumber", "VendorRef.name", "TxnDate", "APAccountRef.name",
+          "VendorAddr.Line1", "VendorAddr.City", "VendorAddr.Country", "VendorAddr.PostalCode",
+          "CurrencyRef.value", "TotalAmt"
+        ];
+      case "Bill":
+        return [
+          "Id", "DocNumber", "VendorRef.name", "TxnDate", "APAccountRef.name", "DueDate",
+          "Line[0].ItemBasedExpenseLineDetail.ItemRef.name",
+          "VendorAddr.Line1", "VendorAddr.City", "VendorAddr.Country", "VendorAddr.PostalCode",
+          "CurrencyRef.value", "TotalAmt"
+        ];
+      case "VendorCredit":
+        return [
+          "Id", "DocNumber", "VendorRef.name", "TxnDate", "APAccountRef.name",
+          "Line[0].ItemBasedExpenseLineDetail.ItemRef.name",
+          "VendorAddr.Line1", "VendorAddr.City", "VendorAddr.CountrySubDivisionCode",
+          "VendorAddr.Country", "VendorAddr.PostalCode", "CurrencyRef.value", "TotalAmt"
+        ];
+      case "Deposit":
+        return [
+          "Id", "PrivateNote", "DepositToAccountRef.name", "TxnDate",
+          "Line[0].DepositLineDetail.Entity.name", "Line[0].DepositLineDetail.PaymentMethodRef.name",
+          "CurrencyRef.value", "TotalAmt"
+        ];
+      case "Transfer":
+        return [
+          "Id", "FromAccountRef.name", "TxnDate", "ToAccountRef.name",
+          "PrivateNote", "CurrencyRef.value", "Amount"
+        ];
+      case "JournalEntry":
+        return [
+          "Id", "DocNumber", "PrivateNote", "TxnDate",
+          "Line[0].JournalEntryLineDetail.AccountRef.name", "TotalAmt", "CurrencyRef.value"
+        ];
+      default:
+        return ["Id", "Name", "DisplayName"];
+    }
+  };
+
+  // Generate columns for the data table
+  const generateColumns = (): ColumnDef<any>[] => {
+    return selectedFields.map((field) => ({
+      accessorKey: field,
+      header: field,
+      cell: ({ row }) => {
+        const value = getNestedValue(row.original, field);
+        
+        // Format value based on its type
+        if (value === null || value === undefined) {
+          return "";
+        } else if (typeof value === "object") {
+          return JSON.stringify(value);
+        } else if (typeof value === "boolean") {
+          return value ? "Yes" : "No";
+        } else if (field.includes("Date") && typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}/)) {
+          // Format dates
+          return new Date(value).toLocaleDateString();
+        } else if ((field.includes("Amt") || field.includes("Price") || field.includes("Cost") || field.includes("Balance")) && typeof value === "number") {
+          // Format currency
+          return `$${value.toFixed(2)}`;
+        }
+        
+        return String(value);
+      },
+    }));
+  };
+
+  // Reset fields when entity changes
   useEffect(() => {
     if (selectedEntity) {
-      // Get default fields for the entity
-      const { fields } = getEntitySchema(selectedEntity);
-      setAvailableFields(fields);
-      setSelectedFields(fields);
+      // Get entity-specific fields for the selected entity
+      const entityFields = getEntityFields(selectedEntity);
+      setAvailableFields(entityFields);
+      setSelectedFields(entityFields);
       
       // Important: Do NOT fetch entities automatically
       // This prevents the issue #3 - we only fetch when user explicitly requests it
@@ -78,28 +228,6 @@ const Export = () => {
     setSelectedEntity(entity);
     // Clear any previous data to avoid confusion
     // Let the user explicitly request data by clicking "Fetch Data"
-  };
-
-  // Generate columns for the data table
-  const generateColumns = (): ColumnDef<any>[] => {
-    return selectedFields.map((field) => ({
-      accessorKey: field,
-      header: field,
-      cell: ({ row }) => {
-        const value = getNestedValue(row.original, field);
-        
-        // Format value based on its type
-        if (value === null || value === undefined) {
-          return "";
-        } else if (typeof value === "object") {
-          return JSON.stringify(value);
-        } else if (typeof value === "boolean") {
-          return value ? "Yes" : "No";
-        }
-        
-        return String(value);
-      },
-    }));
   };
 
   // Explicitly fetch data when requested by user

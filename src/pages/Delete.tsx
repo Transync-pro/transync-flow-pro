@@ -185,36 +185,119 @@ const Delete = () => {
     if (selectedEntity === "Customer") {
       baseColumns.push(
         {
+          accessorKey: "CompanyName",
+          header: "Company Name",
+        },
+        {
+          accessorKey: "Title",
+          header: "Title",
+        },
+        {
+          accessorKey: "GivenName",
+          header: "Given Name",
+        },
+        {
+          accessorKey: "FamilyName",
+          header: "Family Name",
+        },
+        {
           accessorKey: "PrimaryEmailAddr",
-          header: "Email",
+          header: "Email Id",
           cell: ({ row }) => row.original.PrimaryEmailAddr?.Address || "N/A",
         },
         {
           accessorKey: "PrimaryPhone",
-          header: "Phone",
+          header: "Phone Number",
           cell: ({ row }) => row.original.PrimaryPhone?.FreeFormNumber || "N/A",
         },
         {
-          accessorKey: "CompanyName",
-          header: "Company",
+          accessorKey: "BillAddr.Line1",
+          header: "Billing Address Line 1",
+          cell: ({ row }) => row.original.BillAddr?.Line1 || "N/A",
+        },
+        {
+          accessorKey: "BillAddr.City",
+          header: "Billing Address City",
+          cell: ({ row }) => row.original.BillAddr?.City || "N/A",
+        },
+        {
+          accessorKey: "BillAddr.Country",
+          header: "Billing Address Country",
+          cell: ({ row }) => row.original.BillAddr?.Country || "N/A",
+        },
+        {
+          accessorKey: "BillAddr.PostalCode",
+          header: "Billing Address Postal Code",
+          cell: ({ row }) => row.original.BillAddr?.PostalCode || "N/A",
+        },
+        {
+          accessorKey: "BillAddr.CountrySubDivisionCode",
+          header: "Billing Address Subdivision",
+          cell: ({ row }) => row.original.BillAddr?.CountrySubDivisionCode || "N/A",
+        },
+        {
+          accessorKey: "CurrencyRef.value",
+          header: "Currency Code",
+          cell: ({ row }) => row.original.CurrencyRef?.value || "N/A",
         }
       );
-    } else if (selectedEntity === "Invoice") {
+    } else if (selectedEntity === "Vendor") {
       baseColumns.push(
         {
-          accessorKey: "TxnDate",
-          header: "Date",
-          cell: ({ row }) => row.original.TxnDate ? new Date(row.original.TxnDate).toLocaleDateString() : "N/A",
+          accessorKey: "CompanyName",
+          header: "Company Name",
         },
         {
-          accessorKey: "DueDate",
-          header: "Due Date",
-          cell: ({ row }) => row.original.DueDate ? new Date(row.original.DueDate).toLocaleDateString() : "N/A",
+          accessorKey: "Title",
+          header: "Title",
         },
         {
-          accessorKey: "TotalAmt",
-          header: "Amount",
-          cell: ({ row }) => `$${row.original.TotalAmt || 0}`,
+          accessorKey: "GivenName",
+          header: "Given Name",
+        },
+        {
+          accessorKey: "FamilyName",
+          header: "Family Name",
+        },
+        {
+          accessorKey: "PrimaryEmailAddr",
+          header: "Email Id",
+          cell: ({ row }) => row.original.PrimaryEmailAddr?.Address || "N/A",
+        },
+        {
+          accessorKey: "PrimaryPhone",
+          header: "Phone Number",
+          cell: ({ row }) => row.original.PrimaryPhone?.FreeFormNumber || "N/A",
+        },
+        {
+          accessorKey: "BillAddr.Line1",
+          header: "Billing Address Line 1",
+          cell: ({ row }) => row.original.BillAddr?.Line1 || "N/A",
+        },
+        {
+          accessorKey: "BillAddr.City",
+          header: "Billing Address City",
+          cell: ({ row }) => row.original.BillAddr?.City || "N/A",
+        },
+        {
+          accessorKey: "BillAddr.Country",
+          header: "Billing Address Country",
+          cell: ({ row }) => row.original.BillAddr?.Country || "N/A",
+        },
+        {
+          accessorKey: "BillAddr.PostalCode",
+          header: "Billing Address Postal Code",
+          cell: ({ row }) => row.original.BillAddr?.PostalCode || "N/A",
+        },
+        {
+          accessorKey: "BillAddr.CountrySubDivisionCode",
+          header: "Billing Address Subdivision",
+          cell: ({ row }) => row.original.BillAddr?.CountrySubDivisionCode || "N/A",
+        },
+        {
+          accessorKey: "CurrencyRef.value",
+          header: "Currency Code",
+          cell: ({ row }) => row.original.CurrencyRef?.value || "N/A",
         }
       );
     } else if (selectedEntity === "Item") {
@@ -224,14 +307,66 @@ const Delete = () => {
           header: "Type",
         },
         {
+          accessorKey: "Sku",
+          header: "SKU",
+        },
+        {
           accessorKey: "UnitPrice",
           header: "Price",
           cell: ({ row }) => (row.original.UnitPrice ? `$${row.original.UnitPrice}` : "N/A"),
         },
         {
-          accessorKey: "PurchaseCost",
-          header: "Cost",
-          cell: ({ row }) => (row.original.PurchaseCost ? `$${row.original.PurchaseCost}` : "N/A"),
+          accessorKey: "IncomeAccountRef.name",
+          header: "Income Account",
+          cell: ({ row }) => row.original.IncomeAccountRef?.name || "N/A",
+        },
+        {
+          accessorKey: "Description",
+          header: "Description",
+        },
+        {
+          accessorKey: "SubItem",
+          header: "Category",
+          cell: ({ row }) => row.original.SubItem ? "Yes" : "No",
+        },
+        {
+          accessorKey: "SalesTaxCodeRef.name",
+          header: "Sales Tax",
+          cell: ({ row }) => row.original.SalesTaxCodeRef?.name || "N/A",
+        }
+      );
+    } else if (selectedEntity === "Account") {
+      baseColumns.push(
+        {
+          accessorKey: "AccountType",
+          header: "Account Type",
+        },
+        {
+          accessorKey: "AccountSubType",
+          header: "Account Subtype",
+        },
+        {
+          accessorKey: "AcctNum",
+          header: "Account Number",
+        },
+        {
+          accessorKey: "ParentRef.name",
+          header: "Parent Account",
+          cell: ({ row }) => row.original.ParentRef?.name || "N/A",
+        },
+        {
+          accessorKey: "Description",
+          header: "Description",
+        },
+        {
+          accessorKey: "CurrentBalance",
+          header: "Opening Balance",
+          cell: ({ row }) => (row.original.CurrentBalance !== undefined ? `$${row.original.CurrentBalance}` : "N/A"),
+        },
+        {
+          accessorKey: "CurrencyRef.value",
+          header: "Currency Code",
+          cell: ({ row }) => row.original.CurrencyRef?.value || "N/A",
         }
       );
     }
