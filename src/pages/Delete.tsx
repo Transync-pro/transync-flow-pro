@@ -41,6 +41,46 @@ import { toast } from "@/components/ui/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 
+// Test component to directly display context state
+const ContextDebugDisplay = () => {
+  const context = useQuickbooksEntities();
+  
+  return (
+    <div className="bg-yellow-100 p-4 mb-4 rounded-md">
+      <h3 className="font-bold mb-2">Context Debug</h3>
+      <div className="text-xs overflow-auto max-h-40">
+        <div><strong>Selected Entity:</strong> {context.selectedEntity || 'None'}</div>
+        <div><strong>Entity Options:</strong> {context.entityOptions.length} options available</div>
+        <div><strong>Has Entity State:</strong> {Object.keys(context.entityState).length > 0 ? 'Yes' : 'No'}</div>
+        <div>
+          <strong>Current Entity Records:</strong> 
+          {context.selectedEntity && context.entityState[context.selectedEntity] 
+            ? `${context.entityState[context.selectedEntity].records?.length || 0} records` 
+            : 'None'}
+        </div>
+        <div>
+          <button 
+            className="bg-blue-500 text-white px-2 py-1 rounded text-xs mt-2"
+            onClick={() => {
+              console.log("Manual fetch triggered");
+              if (context.selectedEntity) {
+                context.fetchEntities(context.selectedEntity);
+              } else if (context.entityOptions.length > 0) {
+                const firstEntity = context.entityOptions[0].value;
+                console.log(`Setting entity to ${firstEntity} and fetching`);
+                context.setSelectedEntity(firstEntity);
+                setTimeout(() => context.fetchEntities(firstEntity), 100);
+              }
+            }}
+          >
+            Force Fetch
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Add a debug component at the top of the file
 const DebugContext = () => {
   const context = useQuickbooksEntities();
@@ -484,6 +524,9 @@ const Delete = () => {
   
   // Add the debug component
   <DebugContext />
+  
+  // Add the test component
+  <ContextDebugDisplay />
   
   // Handler for filtering entities
   const handleFilter = (e: React.ChangeEvent<HTMLInputElement>) => {
