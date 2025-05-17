@@ -23,8 +23,12 @@ export const useQBActions = (
       // Store the user ID in session storage in case we lose auth state during the OAuth flow
       sessionStorage.setItem("qb_connecting_user", user.id);
       
-      // Determine the appropriate redirect URL
-      const redirectUrl = `${window.location.origin}/dashboard/quickbooks-callback`;
+      // Get the current URL to use as a base for the redirect URI
+      // Use window.location.origin to ensure we get the correct protocol and domain
+      const baseUrl = window.location.origin;
+      
+      // Construct the redirect URL using the base URL
+      const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
       
       console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);
       console.log("User ID for connection:", user.id);
@@ -82,11 +86,12 @@ export const useQBActions = (
       }
       
       if (data && data.error) {
-        console.error("Error from revoke endpoint:", data.error);
-        throw new Error(data.error);
+        // Handle non-critical error: Continue with database cleanup even if token revocation fails
+        console.warn("Warning from revoke endpoint:", data.error);
+        // We continue anyway since we want to remove the connection from our database
       }
       
-      console.log("QuickBooks disconnection successful, refreshing connection status...");
+      console.log("QuickBooks disconnection process completed, refreshing connection status...");
       
       // Refresh the connection status
       await refreshConnection();

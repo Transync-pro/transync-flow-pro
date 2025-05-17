@@ -45,33 +45,49 @@ const QuickbooksCallback = () => {
         const { data: sessionData } = await supabase.auth.getSession();
         const currentUser = sessionData?.session?.user || user;
         
-        if (!currentUser) {
-          console.error("No authenticated user found");
+        // Check if we have a stored user ID from the connection initiation
+        const storedUserId = sessionStorage.getItem("qb_connecting_user");
+        
+        if (!currentUser && !storedUserId) {
+          console.error("No authenticated user found and no stored user ID");
           throw new Error("You must be signed in to complete this process");
         }
 
-        // Use state parameter as userId if available, otherwise use the current user's ID
-        const userId = state || currentUser.id;
+        // Use state parameter as userId if available, otherwise use stored ID or current user's ID
+        const userId = state || storedUserId || currentUser?.id;
+        
+        if (!userId) {
+          throw new Error("Could not determine user ID for QuickBooks connection");
+        }
+        
         console.log("Processing callback with code, realmId, and userId", { code, realmId, userId });
+        
+        // Use the current origin for the redirect URI to ensure it matches what we used for authorization
+        const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
 
         // Call our edge function to exchange the code for tokens
         const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
           body: {
             path: "token",
             code,
-            realmId, // Explicitly pass realmId to ensure it's stored
-            redirectUri: window.location.origin + "/dashboard/quickbooks-callback",
+            realmId,
+            redirectUri,
             userId
           },
         });
 
-        if (invokeError || data?.error) {
-          throw new Error(
-            invokeError?.message || 
-            data?.error || 
-            "Failed to complete QuickBooks authentication"
-          );
+        if (invokeError) {
+          console.error("Edge function error:", invokeError);
+          throw new Error(invokeError.message || "Failed to complete QuickBooks authentication");
         }
+        
+        if (data?.error) {
+          console.error("Error from edge function:", data.error);
+          throw new Error(data.error);
+        }
+
+        // Clear the stored user ID as we no longer need it
+        sessionStorage.removeItem("qb_connecting_user");
 
         // Make sure to refresh the QuickBooks connection status in our context
         await refreshConnection();
@@ -96,27 +112,13 @@ const QuickbooksCallback = () => {
         });
       } finally {
         setIsProcessing(false);
+        setIsCheckingSession(false);
       }
     };
 
     // Only proceed if we're not still loading auth state
     if (!isAuthLoading) {
-      if (user) {
-        handleCallback();
-      } else {
-        // If no user, wait briefly then check again
-        const timer = setTimeout(() => {
-          if (user) {
-            handleCallback();
-          } else {
-            setError("Authentication required. Please sign in and try again.");
-            setIsProcessing(false);
-          }
-          setIsCheckingSession(false);
-        }, 1500);
-        
-        return () => clearTimeout(timer);
-      }
+      handleCallback();
     }
   }, [location, navigate, user, isAuthLoading, refreshConnection]);
 
