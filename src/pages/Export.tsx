@@ -191,6 +191,14 @@ const Export = () => {
 
   return (
     <div className="container mx-auto p-4">
+      {/* VERY OBVIOUS TEST BANNER - REMOVE AFTER TESTING */}
+      <div className="bg-blue-500 text-white p-6 mb-6 text-center text-xl font-bold rounded-lg">
+        THIS IS A TEST BANNER - IF YOU CAN SEE THIS, THE DEPLOYMENT IS WORKING
+        <div className="mt-2 text-sm">
+          Current time: {new Date().toLocaleTimeString()}
+        </div>
+      </div>
+      
       <ContextDebugDisplay />
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold">Export QuickBooks Data</h1>
