@@ -90,26 +90,6 @@ export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ 
     details: [],
   });
   
-  // Map entityGroups to entityOptions for dropdowns
-  const entityOptions = React.useMemo(() => {
-    return entityGroups.flatMap(group => 
-      group.entities.map(entity => ({
-        value: mapEntityIdToQuickbooksType(entity.id),
-        label: entity.name
-      }))
-    );
-  }, []);
-
-  // Initialize context with default entity when first loaded
-  useEffect(() => {
-    if (user && entityOptions.length > 0 && !selectedEntity) {
-      // Set a default entity (e.g., Customer)
-      const defaultEntity = "Customer";
-      console.log("Initializing QuickbooksEntitiesContext with default entity:", defaultEntity);
-      setSelectedEntity(defaultEntity);
-    }
-  }, [user, entityOptions, selectedEntity]);
-  
   // Helper function to map entity IDs from EntityGroups to QuickBooks API entity types
   const mapEntityIdToQuickbooksType = (entityId: string): string => {
     const mapping: Record<string, string> = {
@@ -141,6 +121,26 @@ export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ 
     
     return mapping[entityId] || entityId;
   };
+  
+  // Map entityGroups to entityOptions for dropdowns
+  const entityOptions = React.useMemo(() => {
+    return entityGroups.flatMap(group => 
+      group.entities.map(entity => ({
+        value: mapEntityIdToQuickbooksType(entity.id),
+        label: entity.name
+      }))
+    );
+  }, []);
+
+  // Initialize context with default entity when first loaded
+  useEffect(() => {
+    if (user && entityOptions.length > 0 && !selectedEntity) {
+      // Set a default entity (e.g., Customer)
+      const defaultEntity = "Customer";
+      console.log("Initializing QuickbooksEntitiesContext with default entity:", defaultEntity);
+      setSelectedEntity(defaultEntity);
+    }
+  }, [user, entityOptions, selectedEntity]);
   
   // Reset selected entity IDs when entity type changes
   useEffect(() => {
