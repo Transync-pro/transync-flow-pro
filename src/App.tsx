@@ -74,14 +74,15 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      // Fix: Update to use meta.onError which is supported in the current version
-      onError: (error) => {
-        import('./utils/errorLogger').then(({ logError }) => {
-          logError(`Query error: ${error instanceof Error ? error.message : String(error)}`, {
-            source: 'react-query',
-            stack: error instanceof Error ? error.stack : undefined
+      meta: {
+        onError: (error: unknown) => {
+          import('./utils/errorLogger').then(({ logError }) => {
+            logError(`Query error: ${error instanceof Error ? error.message : String(error)}`, {
+              source: 'react-query',
+              stack: error instanceof Error ? error.stack : undefined
+            });
           });
-        });
+        }
       }
     }
   }
