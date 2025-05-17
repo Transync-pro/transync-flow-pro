@@ -21,7 +21,7 @@ export const getQBConnection = async (): Promise<QuickbooksConnection | null> =>
     .from('quickbooks_connections')
     .select('*')
     .eq('user_id', userData.user.id)
-    .single();
+    .maybeSingle(); // Use maybeSingle instead of single to avoid 406 errors
   
   if (error || !data) return null;
   return data as QuickbooksConnection;
@@ -55,3 +55,23 @@ export async function updateConnectionTokens(
     throw new Error(`Failed to update tokens: ${error.message}`);
   }
 }
+
+// Check if a QuickBooks connection exists for the user
+export const checkQBConnectionExists = async (userId: string): Promise<boolean> => {
+  try {
+    const { count, error } = await supabase
+      .from('quickbooks_connections')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId);
+    
+    if (error) {
+      console.error("Error checking QuickBooks connection existence:", error);
+      return false;
+    }
+    
+    return (count || 0) > 0;
+  } catch (error) {
+    console.error("Exception checking QuickBooks connection:", error);
+    return false;
+  }
+};

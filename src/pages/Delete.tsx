@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,20 +8,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Loader2, Search, Trash2, AlertCircle } from "lucide-react";
+import { Loader2, Search, Trash2, AlertCircle, ChevronLeft, Calendar } from "lucide-react";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { logError } from "@/utils/errorLogger";
+import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { DateRange } from "react-day-picker";
 
 const Delete = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedAll, setSelectedAll] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   const {
     selectedEntity,
     setSelectedEntity,
+    selectedDateRange,
+    setSelectedDateRange,
     entityState,
     fetchEntities,
     filterEntities,
@@ -38,6 +47,13 @@ const Delete = () => {
   const filteredRecords = currentEntityState?.filteredRecords || [];
   const isLoading = currentEntityState?.isLoading || false;
   const error = currentEntityState?.error || null;
+
+  // Handle date range change
+  useEffect(() => {
+    if (dateRange) {
+      setSelectedDateRange(dateRange);
+    }
+  }, [dateRange, setSelectedDateRange]);
 
   // Handle entity selection with explicit fetch
   const handleEntitySelect = (entity: string) => {
@@ -98,9 +114,23 @@ const Delete = () => {
     }
   };
 
+  // Navigate back to dashboard
+  const handleBackToDashboard = () => {
+    navigate('/dashboard');
+  };
+
   // Generate columns for the data table
   const generateColumns = (): ColumnDef<any>[] => {
-    return [
+    if (!selectedEntity || !filteredRecords.length) {
+      return [];
+    }
+
+    // Get a sample record to extract all possible fields
+    const sampleRecord = filteredRecords[0];
+    const fields = Object.keys(sampleRecord);
+
+    // Always include common fields first
+    const baseColumns: ColumnDef<any>[] = [
       {
         id: "select",
         header: ({ table }) => (
@@ -129,20 +159,84 @@ const Delete = () => {
         header: "Name",
         cell: ({ row }) => row.original.DisplayName || row.original.Name || row.original.FullyQualifiedName || row.original.DocNumber || row.original.Id,
       },
-      {
+    ];
+
+    // Add additional common fields if they exist in the data
+    if (fields.includes("MetaData")) {
+      baseColumns.push({
         accessorKey: "MetaData.CreateTime",
         header: "Created",
         cell: ({ row }) => {
           const createTime = row.original.MetaData?.CreateTime;
           return createTime ? new Date(createTime).toLocaleDateString() : "N/A";
         },
-      },
-      {
+      });
+    }
+
+    if (fields.includes("Active")) {
+      baseColumns.push({
         accessorKey: "Active",
         header: "Status",
         cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
-      },
-    ];
+      });
+    }
+
+    // Add entity-specific fields based on the type
+    if (selectedEntity === "Customer") {
+      baseColumns.push(
+        {
+          accessorKey: "PrimaryEmailAddr",
+          header: "Email",
+          cell: ({ row }) => row.original.PrimaryEmailAddr?.Address || "N/A",
+        },
+        {
+          accessorKey: "PrimaryPhone",
+          header: "Phone",
+          cell: ({ row }) => row.original.PrimaryPhone?.FreeFormNumber || "N/A",
+        },
+        {
+          accessorKey: "CompanyName",
+          header: "Company",
+        }
+      );
+    } else if (selectedEntity === "Invoice") {
+      baseColumns.push(
+        {
+          accessorKey: "TxnDate",
+          header: "Date",
+          cell: ({ row }) => row.original.TxnDate ? new Date(row.original.TxnDate).toLocaleDateString() : "N/A",
+        },
+        {
+          accessorKey: "DueDate",
+          header: "Due Date",
+          cell: ({ row }) => row.original.DueDate ? new Date(row.original.DueDate).toLocaleDateString() : "N/A",
+        },
+        {
+          accessorKey: "TotalAmt",
+          header: "Amount",
+          cell: ({ row }) => `$${row.original.TotalAmt || 0}`,
+        }
+      );
+    } else if (selectedEntity === "Item") {
+      baseColumns.push(
+        {
+          accessorKey: "Type",
+          header: "Type",
+        },
+        {
+          accessorKey: "UnitPrice",
+          header: "Price",
+          cell: ({ row }) => (row.original.UnitPrice ? `$${row.original.UnitPrice}` : "N/A"),
+        },
+        {
+          accessorKey: "PurchaseCost",
+          header: "Cost",
+          cell: ({ row }) => (row.original.PurchaseCost ? `$${row.original.PurchaseCost}` : "N/A"),
+        }
+      );
+    }
+
+    return baseColumns;
   };
 
   return (
@@ -158,6 +252,14 @@ const Delete = () => {
       />
 
       <div className="flex justify-between items-center mb-6">
+        <Button 
+          variant="outline" 
+          onClick={handleBackToDashboard} 
+          className="flex items-center gap-2"
+        >
+          <ChevronLeft size={16} />
+          Back to Dashboard
+        </Button>
         <h1 className="text-2xl font-semibold">Delete QuickBooks Data</h1>
       </div>
 
@@ -189,16 +291,65 @@ const Delete = () => {
           </div>
 
           {selectedEntity && (
-            <Button
-              onClick={handleFetchData}
-              disabled={isLoading}
-              className="flex items-center"
-            >
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              {isLoading ? "Loading Data..." : "Fetch Data"}
-            </Button>
+            <>
+              <div className="flex flex-col space-y-2">
+                <Label>Date Range (Optional)</Label>
+                <div className="flex items-center space-x-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                          dateRange.to ? (
+                            <>
+                              {format(dateRange.from, "LLL dd, y")} -{" "}
+                              {format(dateRange.to, "LLL dd, y")}
+                            </>
+                          ) : (
+                            format(dateRange.from, "LLL dd, y")
+                          )
+                        ) : (
+                          <span>Select date range</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={2}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {dateRange && dateRange.from && (
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setDateRange(undefined)}
+                      size="sm"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <Button
+                onClick={handleFetchData}
+                disabled={isLoading}
+                className="flex items-center"
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {isLoading ? "Loading Data..." : "Fetch Data"}
+              </Button>
+            </>
           )}
 
           {selectedEntity && !isLoading && filteredRecords.length > 0 && (

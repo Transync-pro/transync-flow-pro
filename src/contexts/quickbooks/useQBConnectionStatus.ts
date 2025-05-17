@@ -1,8 +1,9 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { QuickbooksConnection } from "./types";
 import { User } from "@supabase/supabase-js";
+import { logError } from "@/utils/errorLogger";
 
 export const useQBConnectionStatus = (user: User | null) => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -10,6 +11,9 @@ export const useQBConnectionStatus = (user: User | null) => {
   const [realmId, setRealmId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
+  const checkInProgress = useRef<boolean>(false);
+  const lastCheckTime = useRef<number>(0);
+  const MIN_CHECK_INTERVAL = 5000; // 5 seconds
 
   useEffect(() => {
     if (user) {
@@ -23,17 +27,32 @@ export const useQBConnectionStatus = (user: User | null) => {
   const checkConnectionStatus = async () => {
     if (!user) return;
     
+    // Prevent concurrent checks and throttle frequent checks
+    if (checkInProgress.current) return;
+    
+    const now = Date.now();
+    if (now - lastCheckTime.current < MIN_CHECK_INTERVAL) {
+      return;
+    }
+    
+    checkInProgress.current = true;
     setIsLoading(true);
+    lastCheckTime.current = now;
+    
     try {
       // Query the QuickBooks connections table for this user
       const { data, error } = await supabase
         .from('quickbooks_connections')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid 406 errors
       
       if (error) {
-        console.error("Error checking QuickBooks connection:", error);
+        logError("Error checking QuickBooks connection", {
+          source: "useQBConnectionStatus",
+          stack: error.stack,
+          context: { error, userId: user.id }
+        });
         resetConnectionState();
         return;
       }
@@ -49,11 +68,16 @@ export const useQBConnectionStatus = (user: User | null) => {
       } else {
         resetConnectionState();
       }
-    } catch (error) {
-      console.error("Error checking QuickBooks connection:", error);
+    } catch (error: any) {
+      logError("Error checking QuickBooks connection", {
+        source: "useQBConnectionStatus",
+        stack: error instanceof Error ? error.stack : undefined,
+        context: { error }
+      });
       resetConnectionState();
     } finally {
       setIsLoading(false);
+      checkInProgress.current = false;
     }
   };
 

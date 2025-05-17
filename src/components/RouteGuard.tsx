@@ -1,5 +1,5 @@
 
-import { ReactNode, useEffect, useState, useCallback } from "react";
+import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -25,16 +25,19 @@ const RouteGuard = ({
   const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const location = useLocation();
+  const checkInProgress = useRef(false);
 
   // Check if the current route is the QuickBooks callback route
   const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
   
   // Direct database check for QuickBooks connection
   const checkQbConnectionDirectly = useCallback(async () => {
-    if (!user) {
-      setHasQbConnection(false);
+    if (!user || checkInProgress.current) {
       return false;
     }
+
+    // Set flag to prevent concurrent checks
+    checkInProgress.current = true;
 
     try {
       // Query the database directly to check connection status
@@ -42,7 +45,7 @@ const RouteGuard = ({
         .from('quickbooks_connections')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to avoid 406 errors
       
       const hasConnection = !error && !!data;
       
@@ -57,7 +60,7 @@ const RouteGuard = ({
       }
       
       return hasConnection;
-    } catch (error) {
+    } catch (error: any) {
       logError("Error checking QB connection directly", {
         source: "RouteGuard",
         stack: error instanceof Error ? error.stack : undefined,
@@ -65,6 +68,8 @@ const RouteGuard = ({
       });
       setHasQbConnection(false);
       return false;
+    } finally {
+      checkInProgress.current = false;
     }
   }, [user, isConnected, refreshConnection]);
 
@@ -81,7 +86,7 @@ const RouteGuard = ({
       }
       
       // If we need QuickBooks, do a direct DB check
-      if (user && requiresQuickbooks) {
+      if (user && requiresQuickbooks && !isQbCallbackRoute) {
         await checkQbConnectionDirectly();
       }
       
@@ -90,10 +95,7 @@ const RouteGuard = ({
     };
     
     checkAccess();
-  }, [isAuthLoading, requiresQuickbooks, user, checkQbConnectionDirectly]);
-  
-  // No periodic recheck - only check on mount and after re-auth
-  // This helps reduce unnecessary API calls
+  }, [isAuthLoading, requiresQuickbooks, user, checkQbConnectionDirectly, isQbCallbackRoute]);
   
   if (isChecking) {
     return (

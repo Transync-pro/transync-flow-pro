@@ -1,12 +1,13 @@
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
-import { convertToCSV, getEntitySchema } from "@/services/quickbooksApi";
+import { convertToCSV, getEntitySchema, flattenQuickbooksData } from "@/services/quickbooksApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Download, FileDown } from "lucide-react";
+import { Loader2, Download, FileDown, ChevronLeft, Calendar } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -15,16 +16,23 @@ import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { logError } from "@/utils/errorLogger";
+import { DateRange } from "react-day-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 const Export = () => {
+  const navigate = useNavigate();
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [availableFields, setAvailableFields] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"preview" | "json">("preview");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   // Use the centralized QuickbooksEntities context
   const { 
     selectedEntity, 
     setSelectedEntity,
+    selectedDateRange,
+    setSelectedDateRange,
     entityState,
     fetchEntities,
     entityOptions,
@@ -49,6 +57,13 @@ const Export = () => {
     }
   }, [selectedEntity]);
 
+  // Handle date range change
+  useEffect(() => {
+    if (dateRange) {
+      setSelectedDateRange(dateRange);
+    }
+  }, [dateRange, setSelectedDateRange]);
+
   // Handle field selection
   const handleFieldToggle = (field: string) => {
     setSelectedFields((prev) =>
@@ -72,7 +87,17 @@ const Export = () => {
       header: field,
       cell: ({ row }) => {
         const value = getNestedValue(row.original, field);
-        return value;
+        
+        // Format value based on its type
+        if (value === null || value === undefined) {
+          return "";
+        } else if (typeof value === "object") {
+          return JSON.stringify(value);
+        } else if (typeof value === "boolean") {
+          return value ? "Yes" : "No";
+        }
+        
+        return String(value);
       },
     }));
   };
@@ -177,9 +202,22 @@ const Export = () => {
     }
   };
 
+  // Go back to dashboard
+  const handleBackToDashboard = () => {
+    navigate('/dashboard');
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
+        <Button 
+          variant="outline" 
+          onClick={handleBackToDashboard} 
+          className="flex items-center gap-2"
+        >
+          <ChevronLeft size={16} />
+          Back to Dashboard
+        </Button>
         <h1 className="text-2xl font-semibold">Export QuickBooks Data</h1>
       </div>
 
@@ -213,6 +251,53 @@ const Export = () => {
 
             {selectedEntity && (
               <>
+                <div className="flex flex-col space-y-2">
+                  <Label>Date Range (Optional)</Label>
+                  <div className="flex items-center space-x-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {dateRange?.from ? (
+                            dateRange.to ? (
+                              <>
+                                {format(dateRange.from, "LLL dd, y")} -{" "}
+                                {format(dateRange.to, "LLL dd, y")}
+                              </>
+                            ) : (
+                              format(dateRange.from, "LLL dd, y")
+                            )
+                          ) : (
+                            <span>Select date range</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          initialFocus
+                          mode="range"
+                          defaultMonth={dateRange?.from}
+                          selected={dateRange}
+                          onSelect={setDateRange}
+                          numberOfMonths={2}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    {dateRange && dateRange.from && (
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => setDateRange(undefined)}
+                        size="sm"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
                 <Button
                   onClick={handleFetchData}
                   disabled={isLoading}
