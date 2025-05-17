@@ -39,7 +39,8 @@ const Delete = () => {
     toggleEntitySelection,
     selectAllEntities,
     isDeleting,
-    deleteProgress
+    deleteProgress,
+    getNestedValue
   } = useQuickbooksEntities();
 
   const currentEntityState = selectedEntity ? entityState[selectedEntity] : null;
