@@ -24,7 +24,9 @@ const Export = () => {
     selectedEntity, 
     setSelectedEntity,
     entityState,
-    fetchEntities
+    fetchEntities,
+    entityOptions,
+    getNestedValue
   } = useQuickbooksEntities();
 
   // Get current entity data
@@ -62,10 +64,8 @@ const Export = () => {
       accessorKey: field,
       header: field,
       cell: ({ row }) => {
-        const value = row.getValue(field);
-        if (value === null || value === undefined) return "-";
-        if (typeof value === "object") return JSON.stringify(value);
-        return String(value);
+        const value = getNestedValue(row.original, field);
+        return value;
       },
     }));
   };
@@ -173,8 +173,7 @@ const Export = () => {
                   <SelectValue placeholder="Select an entity type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* Use the entity options from the context */}
-                  {useQuickbooksEntities().entityOptions.map((entity) => (
+                  {entityOptions.map((entity) => (
                     <SelectItem key={entity.value} value={entity.value}>
                       {entity.label}
                     </SelectItem>

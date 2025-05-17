@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 
 // Components to make the file smaller
@@ -89,7 +89,7 @@ const EntityFilterSection = ({
   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
     <div>
       <Label htmlFor="entity">Select Entity</Label>
-      <Select onValueChange={setSelectedEntity}>
+      <Select value={selectedEntity || ""} onValueChange={setSelectedEntity}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Select an entity" />
         </SelectTrigger>
@@ -199,34 +199,34 @@ const entityColumnConfigs = {
     { key: "Id", label: "Id" },
     { key: "Name", label: "Name" },
     { key: "AccountType", label: "Account Type" },
-    { key: "AccountSubType", label: "Account Subtype" },
-    { key: "AcctNum", label: "Account Number" },
-    { key: "ParentRef.name", label: "Parent Account" },
+    { key: "AccountSubType", label: "Account Sub Type" },
     { key: "Description", label: "Description" },
-    { key: "CurrentBalance", label: "Opening Balance" },
     { key: "CurrencyRef.value", label: "Currency Code" },
+    { key: "CurrentBalance", label: "Current Balance" },
+    { key: "Active", label: "Active" },
   ],
   Employee: [
     { key: "Id", label: "Id" },
-    { key: "DisplayName", label: "Name" },
-    { key: "HiredDate", label: "Hiring Date" },
+    { key: "DisplayName", label: "Display Name" },
+    { key: "Title", label: "Title" },
+    { key: "GivenName", label: "Given Name" },
+    { key: "FamilyName", label: "Family Name" },
+    { key: "PrimaryEmailAddr.Address", label: "Email Id" },
     { key: "PrimaryPhone.FreeFormNumber", label: "Phone Number" },
-    { key: "PrimaryAddr.Line1", label: "Address Line 1" },
-    { key: "PrimaryAddr.City", label: "Address City" },
-    { key: "PrimaryAddr.CountrySubDivisionCode", label: "Address Subdivision" },
-    { key: "PrimaryAddr.Country", label: "Address Country/State" },
-    { key: "PrimaryAddr.PostalCode", label: "Postal Code" },
+    { key: "Active", label: "Active" },
   ],
   Department: [
     { key: "Id", label: "Id" },
     { key: "Name", label: "Name" },
-    { key: "SubDepartment", label: "Is Sub-department?" },
+    { key: "SubDepartment", label: "Sub Department" },
+    { key: "ParentRef.name", label: "Parent Department" },
     { key: "Active", label: "Active" },
   ],
   Class: [
     { key: "Id", label: "Id" },
     { key: "Name", label: "Name" },
-    { key: "SubClass", label: "Is Sub-class?" },
+    { key: "SubClass", label: "Sub Class" },
+    { key: "ParentRef.name", label: "Parent Class" },
     { key: "Active", label: "Active" },
   ],
   Invoice: [
@@ -235,164 +235,102 @@ const entityColumnConfigs = {
     { key: "CustomerRef.name", label: "Customer Name" },
     { key: "TxnDate", label: "Invoice Date" },
     { key: "DueDate", label: "Due Date" },
-    { key: "EmailStatus", label: "Email Sent" },
-    { key: "BillEmail.Address", label: "Email Id" },
-    { key: "Line[0].SalesItemLineDetail.ItemRef.name", label: "Product/Service" },
-    { key: "BillAddr.Line1", label: "Billing Address Line 1" },
-    { key: "BillAddr.City", label: "Billing Address City" },
-    { key: "BillAddr.Country", label: "Billing Address Country" },
-    { key: "BillAddr.PostalCode", label: "Billing Address Postal Code" },
+    { key: "TotalAmt", label: "Total Amount" },
+    { key: "Balance", label: "Balance" },
     { key: "CurrencyRef.value", label: "Currency Code" },
-    { key: "TotalAmt", label: "Amount" },
-    { key: "Balance", label: "Payment Status" },
+    { key: "BillEmail.Address", label: "Bill Email" },
   ],
   Estimate: [
     { key: "Id", label: "Id" },
     { key: "DocNumber", label: "Estimate Number" },
     { key: "CustomerRef.name", label: "Customer Name" },
     { key: "TxnDate", label: "Estimate Date" },
-    { key: "ExpirationDate", label: "Expiration Date" },
-    { key: "EmailStatus", label: "Email Sent" },
-    { key: "BillEmail.Address", label: "Email Id" },
-    { key: "Line[0].SalesItemLineDetail.ItemRef.name", label: "Product/Service" },
-    { key: "BillAddr.Line1", label: "Billing Address Line 1" },
-    { key: "BillAddr.City", label: "Billing Address City" },
-    { key: "BillAddr.Country", label: "Billing Address Country" },
-    { key: "BillAddr.PostalCode", label: "Billing Address Postal Code" },
+    { key: "TotalAmt", label: "Total Amount" },
     { key: "CurrencyRef.value", label: "Currency Code" },
-    { key: "TotalAmt", label: "Amount" },
-    { key: "TxnStatus", label: "Estimate Status" },
+    { key: "BillEmail.Address", label: "Bill Email" },
   ],
   CreditMemo: [
     { key: "Id", label: "Id" },
-    { key: "DocNumber", label: "Credit Note No" },
+    { key: "DocNumber", label: "Credit Memo Number" },
     { key: "CustomerRef.name", label: "Customer Name" },
-    { key: "TxnDate", label: "Credit Note Date" },
-    { key: "EmailStatus", label: "Email Sent" },
-    { key: "BillEmail.Address", label: "Email Id" },
-    { key: "Line[0].SalesItemLineDetail.ItemRef.name", label: "Product/Service" },
-    { key: "BillAddr.Line1", label: "Address Line 1" },
-    { key: "BillAddr.City", label: "Address City" },
-    { key: "BillAddr.CountrySubDivisionCode", label: "Address Subdivision" },
-    { key: "BillAddr.Country", label: "Address Country" },
-    { key: "BillAddr.PostalCode", label: "Address Postal Code" },
-    { key: "CurrencyRef.value", label: "Currency Code" },
+    { key: "TxnDate", label: "Credit Memo Date" },
     { key: "TotalAmt", label: "Total Amount" },
-    { key: "CustomerMemo.value", label: "Message" },
+    { key: "RemainingCredit", label: "Remaining Credit" },
+    { key: "CurrencyRef.value", label: "Currency Code" },
   ],
   SalesReceipt: [
     { key: "Id", label: "Id" },
-    { key: "DocNumber", label: "Sales Receipt No" },
+    { key: "DocNumber", label: "Sales Receipt Number" },
     { key: "CustomerRef.name", label: "Customer Name" },
-    { key: "TxnDate", label: "Receipt Date" },
-    { key: "DepositToAccountRef.name", label: "Deposit To" },
-    { key: "EmailStatus", label: "Email Sent" },
-    { key: "BillEmail.Address", label: "Email Id" },
-    { key: "Line[0].SalesItemLineDetail.ItemRef.name", label: "Product/Service" },
-    { key: "BillAddr.Line1", label: "Billing Address Line 1" },
-    { key: "BillAddr.City", label: "Billing Address City" },
-    { key: "BillAddr.Country", label: "Billing Address Country" },
-    { key: "BillAddr.PostalCode", label: "Billing Address Postal Code" },
-    { key: "CurrencyRef.value", label: "Currency Code" },
+    { key: "TxnDate", label: "Sales Receipt Date" },
     { key: "TotalAmt", label: "Total Amount" },
-    { key: "CustomerMemo.value", label: "Description" },
+    { key: "CurrencyRef.value", label: "Currency Code" },
   ],
   Payment: [
     { key: "Id", label: "Id" },
-    { key: "PaymentRefNum", label: "Ref Number" },
+    { key: "TotalAmt", label: "Total Amount" },
     { key: "CustomerRef.name", label: "Customer Name" },
     { key: "TxnDate", label: "Payment Date" },
     { key: "PaymentMethodRef.name", label: "Payment Method" },
-    { key: "Line[0].LinkedTxn[0].TxnId", label: "Invoice No" },
-    { key: "DepositToAccountRef.name", label: "Deposit To Account Name" },
     { key: "CurrencyRef.value", label: "Currency Code" },
-    { key: "TotalAmt", label: "Amount" },
   ],
   RefundReceipt: [
     { key: "Id", label: "Id" },
-    { key: "DocNumber", label: "Receipt Number" },
+    { key: "DocNumber", label: "Refund Receipt Number" },
     { key: "CustomerRef.name", label: "Customer Name" },
-    { key: "TxnDate", label: "Receipt Date" },
-    { key: "DepositToAccountRef.name", label: "Refunded From" },
+    { key: "TxnDate", label: "Refund Date" },
+    { key: "TotalAmt", label: "Total Amount" },
     { key: "PaymentMethodRef.name", label: "Payment Method" },
-    { key: "BillEmail.Address", label: "Email Id" },
-    { key: "Line[0].SalesItemLineDetail.ItemRef.name", label: "Product/Service" },
-    { key: "BillAddr.Line1", label: "Billing Address Line 1" },
-    { key: "BillAddr.City", label: "Billing Address City" },
-    { key: "BillAddr.Country", label: "Billing Address Country" },
-    { key: "BillAddr.PostalCode", label: "Billing Address Postal Code" },
     { key: "CurrencyRef.value", label: "Currency Code" },
-    { key: "CustomerMemo.value", label: "Memo" },
-    { key: "PrintStatus", label: "Print Status" },
   ],
   PurchaseOrder: [
     { key: "Id", label: "Id" },
-    { key: "DocNumber", label: "PO Number" },
+    { key: "DocNumber", label: "Purchase Order Number" },
     { key: "VendorRef.name", label: "Supplier Name" },
-    { key: "TxnDate", label: "PO Date" },
-    { key: "APAccountRef.name", label: "Payment Account" },
-    { key: "VendorAddr.Line1", label: "Billing Address Line 1" },
-    { key: "VendorAddr.City", label: "Billing Address City" },
-    { key: "VendorAddr.Country", label: "Billing Address Country" },
-    { key: "VendorAddr.PostalCode", label: "Billing Address Postal Code" },
+    { key: "TxnDate", label: "Purchase Order Date" },
+    { key: "TotalAmt", label: "Total Amount" },
     { key: "CurrencyRef.value", label: "Currency Code" },
-    { key: "TotalAmt", label: "Amount" },
   ],
   Bill: [
     { key: "Id", label: "Id" },
     { key: "DocNumber", label: "Bill Number" },
     { key: "VendorRef.name", label: "Supplier Name" },
     { key: "TxnDate", label: "Bill Date" },
-    { key: "APAccountRef.name", label: "Payment Account" },
     { key: "DueDate", label: "Due Date" },
-    { key: "Line[0].ItemBasedExpenseLineDetail.ItemRef.name", label: "Product/Service" },
-    { key: "VendorAddr.Line1", label: "Billing Address Line 1" },
-    { key: "VendorAddr.City", label: "Billing Address City" },
-    { key: "VendorAddr.Country", label: "Billing Address Country" },
-    { key: "VendorAddr.PostalCode", label: "Billing Address Postal Code" },
-    { key: "CurrencyRef.value", label: "Currency Code" },
     { key: "TotalAmt", label: "Total Amount" },
+    { key: "Balance", label: "Balance" },
+    { key: "CurrencyRef.value", label: "Currency Code" },
   ],
   VendorCredit: [
     { key: "Id", label: "Id" },
-    { key: "DocNumber", label: "Ref Number" },
+    { key: "DocNumber", label: "Vendor Credit Number" },
     { key: "VendorRef.name", label: "Supplier Name" },
-    { key: "TxnDate", label: "Credit Date" },
-    { key: "APAccountRef.name", label: "Payment Account" },
-    { key: "Line[0].ItemBasedExpenseLineDetail.ItemRef.name", label: "Product/Service" },
-    { key: "VendorAddr.Line1", label: "Billing Address Line 1" },
-    { key: "VendorAddr.City", label: "Billing Address City" },
-    { key: "VendorAddr.CountrySubDivisionCode", label: "Billing Address Sub Division" },
-    { key: "VendorAddr.Country", label: "Billing Address Country" },
-    { key: "VendorAddr.PostalCode", label: "Billing Address Postal Code" },
+    { key: "TxnDate", label: "Vendor Credit Date" },
+    { key: "TotalAmt", label: "Total Amount" },
+    { key: "RemainingCredit", label: "Remaining Credit" },
     { key: "CurrencyRef.value", label: "Currency Code" },
-    { key: "TotalAmt", label: "Amount" },
   ],
   Deposit: [
     { key: "Id", label: "Id" },
-    { key: "PrivateNote", label: "Private Note" },
-    { key: "DepositToAccountRef.name", label: "Deposit Account" },
+    { key: "DepositToAccountRef.name", label: "Deposit To Account" },
     { key: "TxnDate", label: "Deposit Date" },
-    { key: "Line[0].LinkedTxn[0].TxnId", label: "Received From" },
-    { key: "Line[0].DepositLineDetail.PaymentMethodRef.name", label: "Payment Method" },
+    { key: "TotalAmt", label: "Total Amount" },
     { key: "CurrencyRef.value", label: "Currency Code" },
-    { key: "TotalAmt", label: "Amount" },
   ],
   Transfer: [
     { key: "Id", label: "Id" },
-    { key: "FromAccountRef.name", label: "Transfer from Account" },
+    { key: "FromAccountRef.name", label: "From Account" },
+    { key: "ToAccountRef.name", label: "To Account" },
     { key: "TxnDate", label: "Transfer Date" },
-    { key: "ToAccountRef.name", label: "Transfer To Account" },
-    { key: "PrivateNote", label: "Note" },
-    { key: "CurrencyRef.value", label: "Currency Code" },
     { key: "Amount", label: "Amount" },
+    { key: "CurrencyRef.value", label: "Currency Code" },
   ],
   JournalEntry: [
     { key: "Id", label: "Id" },
-    { key: "DocNumber", label: "Journal No" },
-    { key: "PrivateNote", label: "Memo" },
-    { key: "TxnDate", label: "Journal Date" },
-    { key: "Line[0].AccountRef.name", label: "Account" },
+    { key: "DocNumber", label: "Journal Entry Number" },
+    { key: "TxnDate", label: "Journal Entry Date" },
+    { key: "TotalAmt", label: "Total Amount" },
+    { key: "CurrencyRef.value", label: "Currency Code" },
   ],
 };
 
@@ -401,7 +339,11 @@ const EntityTable = ({
   records, 
   selectedEntity, 
   isLoading, 
-  handleDeleteEntity 
+  handleDeleteEntity,
+  selectedIds,
+  toggleSelection,
+  selectAll,
+  allSelected
 }) => {
   // Get the column configuration for the selected entity
   const columns = entityColumnConfigs[selectedEntity] || [
@@ -410,38 +352,8 @@ const EntityTable = ({
     { key: "TxnDate", label: "Date" },
   ];
 
-  // Helper function to safely get nested property values
-  const getNestedValue = (obj, path) => {
-    if (!obj) return "N/A";
-    
-    const keys = path.split('.');
-    let value = obj;
-    
-    for (const key of keys) {
-      // Handle array notation like Line[0]
-      if (key.includes('[') && key.includes(']')) {
-        const arrayKey = key.split('[')[0];
-        const index = parseInt(key.split('[')[1].split(']')[0]);
-        
-        if (!value[arrayKey] || !value[arrayKey][index]) {
-          return "N/A";
-        }
-        
-        value = value[arrayKey][index];
-      } else if (value[key] === undefined || value[key] === null) {
-        return "N/A";
-      } else {
-        value = value[key];
-      }
-    }
-    
-    // Format certain types of values
-    if (typeof value === 'boolean') {
-      return value ? "Yes" : "No";
-    }
-    
-    return value.toString();
-  };
+  // Use the getNestedValue from the context
+  const { getNestedValue } = useQuickbooksEntities();
 
   return (
     <Table>
@@ -453,6 +365,13 @@ const EntityTable = ({
       </TableCaption>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-[50px]">
+            <Checkbox 
+              checked={allSelected} 
+              onCheckedChange={selectAll}
+              disabled={records.length === 0 || isLoading}
+            />
+          </TableHead>
           <TableHead className="w-[50px]">S. No.</TableHead>
           {columns.map((column) => (
             <TableHead key={column.key}>{column.label}</TableHead>
@@ -463,7 +382,7 @@ const EntityTable = ({
       <TableBody>
         {isLoading ? (
           <TableRow>
-            <TableCell colSpan={columns.length + 2} className="text-center py-8">
+            <TableCell colSpan={columns.length + 3} className="text-center py-8">
               <div className="flex flex-col items-center">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                 <p className="mt-4">Loading {selectedEntity} records...</p>
@@ -473,6 +392,12 @@ const EntityTable = ({
         ) : records.length > 0 ? (
           records.map((record, index) => (
             <TableRow key={record.Id}>
+              <TableCell>
+                <Checkbox 
+                  checked={selectedIds.includes(record.Id)}
+                  onCheckedChange={() => toggleSelection(record.Id)}
+                />
+              </TableCell>
               <TableCell>{index + 1}</TableCell>
               {columns.map((column) => (
                 <TableCell key={column.key}>
@@ -506,7 +431,7 @@ const EntityTable = ({
           ))
         ) : (
           <TableRow>
-            <TableCell colSpan={columns.length + 2} className="text-center py-8 text-gray-500">
+            <TableCell colSpan={columns.length + 3} className="text-center py-8 text-gray-500">
               {selectedEntity 
                 ? "No records found. Select an entity type and date range above." 
                 : "Please select an entity type to view records."
@@ -520,268 +445,41 @@ const EntityTable = ({
 };
 
 const Delete = () => {
-  const [selectedEntity, setSelectedEntity] = useState<string | null>(null);
-  const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(undefined);
-  const [records, setRecords] = useState<any[]>([]);
-  const [filteredRecords, setFilteredRecords] = useState<any[]>([]);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [deleteProgress, setDeleteProgress] = useState({
-    total: 0,
-    current: 0,
-    success: 0,
-    failed: 0,
-    details: [],
-  });
   const { user } = useAuth();
   const { getAccessToken } = useQuickbooks();
-  const navigate = useNavigate();
   
-  // Updated entityOptions to match all the required entity types
-  const entityOptions = [
-    { value: "Customer", label: "Customers/Vendors" },
-    { value: "Item", label: "Products & Services" },
-    { value: "Account", label: "Chart of Accounts" },
-    { value: "Employee", label: "Employees" },
-    { value: "Department", label: "Departments/Locations" },
-    { value: "Class", label: "Classes" },
-    { value: "Invoice", label: "Invoices" },
-    { value: "Estimate", label: "Estimates" },
-    { value: "CreditMemo", label: "Credit Memos" },
-    { value: "SalesReceipt", label: "Sales Receipts" },
-    { value: "Payment", label: "Received Payments" },
-    { value: "RefundReceipt", label: "Refund Receipts" },
-    { value: "PurchaseOrder", label: "Purchase Orders" },
-    { value: "Bill", label: "Bills" },
-    { value: "VendorCredit", label: "Vendor Credits" },
-    { value: "Deposit", label: "Bank Deposits" },
-    { value: "Transfer", label: "Bank Transfers" },
-    { value: "JournalEntry", label: "Journal Entries" },
-  ];
-
-  // Function to fetch entities from QuickBooks
-  const fetchEntities = useCallback(async () => {
-    if (!selectedEntity || !user?.id) return;
-
-    setIsLoading(true);
-    setRecords([]);
-    setFilteredRecords([]);
-
-    try {
-      // Build query with date filter if date range is selected
-      let query = null;
-      if (selectedDateRange?.from && selectedDateRange?.to) {
-        const fromDate = format(selectedDateRange.from, "yyyy-MM-dd");
-        const toDate = format(selectedDateRange.to, "yyyy-MM-dd");
-        
-        // Different entities may have different date fields
-        const dateField = selectedEntity === "Invoice" || selectedEntity === "Bill" 
-          ? "TxnDate" 
-          : "MetaData.CreateTime";
-        
-        query = `SELECT * FROM ${selectedEntity} WHERE ${dateField} >= '${fromDate}' AND ${dateField} <= '${toDate}' MAXRESULTS 1000`;
-      }
-
-      console.log("Calling quickbooks-entities edge function to fetch entities");
-      
-      // Call our edge function to fetch entities
-      const { data, error } = await supabase.functions.invoke("quickbooks-entities", {
-        body: {
-          operation: "fetch",
-          entityType: selectedEntity,
-          userId: user.id,
-          query: query
-        }
-      });
-
-      if (error) {
-        throw new Error(`Error invoking function: ${error.message}`);
-      }
-      
-      if (data.error) {
-        throw new Error(`Error from function: ${data.error}`);
-      }
-
-      // Extract the entities from the response
-      const fetchedEntities = data.data?.QueryResponse?.[selectedEntity] || [];
-      console.log(`Fetched ${fetchedEntities.length} ${selectedEntity} entities`);
-      
-      setRecords(fetchedEntities);
-      setFilteredRecords(fetchedEntities);
-      
-      // Show success message
-      if (fetchedEntities.length > 0) {
-        toast({
-          title: "Data Loaded",
-          description: `Successfully loaded ${fetchedEntities.length} ${selectedEntity} records`,
-        });
-      } else {
-        toast({
-          title: "No Records Found",
-          description: `No ${selectedEntity} records match your criteria`,
-        });
-      }
-    } catch (error: any) {
-      console.error("Error fetching entities:", error);
-      toast({
-        title: "Error",
-        description: `Failed to fetch ${selectedEntity}: ${error.message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedEntity, selectedDateRange, user?.id]);
-
-  // Effect to fetch records when entity and date range change
-  useEffect(() => {
-    if (selectedEntity) {
-      fetchEntities();
-    }
-  }, [selectedEntity, selectedDateRange, fetchEntities]);
-
+  // Use the QuickbooksEntitiesContext
+  const { 
+    selectedEntity, 
+    setSelectedEntity,
+    selectedDateRange,
+    setSelectedDateRange,
+    entityState,
+    fetchEntities,
+    filterEntities,
+    deleteEntity,
+    deleteSelectedEntities,
+    selectedEntityIds,
+    setSelectedEntityIds,
+    toggleEntitySelection,
+    selectAllEntities,
+    deleteProgress,
+    isDeleting,
+    entityOptions
+  } = useQuickbooksEntities();
+  
+  // Handler for filtering entities
   const handleFilter = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const searchTerm = e.target.value.toLowerCase();
-    const filtered = records.filter((record) => {
-      // Generic search across common fields
-      return (
-        (record.DisplayName && record.DisplayName.toLowerCase().includes(searchTerm)) ||
-        (record.Name && record.Name.toLowerCase().includes(searchTerm)) ||
-        (record.DocNumber && record.DocNumber.toLowerCase().includes(searchTerm)) ||
-        (record.Id && record.Id.toLowerCase().includes(searchTerm)) ||
-        JSON.stringify(record).toLowerCase().includes(searchTerm)
-      );
-    });
-    setFilteredRecords(filtered);
+    filterEntities(e.target.value);
   };
 
-  const handleDeleteEntity = async (entityId: string) => {
-    if (!selectedEntity || !user?.id) return false;
-    
-    try {
-      console.log(`Attempting to delete ${selectedEntity} with ID ${entityId}`);
-      
-      // Call our edge function to delete the entity
-      const { data, error } = await supabase.functions.invoke("quickbooks-entities", {
-        body: {
-          operation: "delete",
-          entityType: selectedEntity,
-          userId: user.id,
-          id: entityId
-        }
-      });
+  // Get the current entity state
+  const currentEntityState = selectedEntity ? entityState[selectedEntity] : null;
+  const records = currentEntityState?.filteredRecords || [];
+  const isLoading = currentEntityState?.isLoading || false;
 
-      if (error) {
-        throw new Error(`Error invoking function: ${error.message}`);
-      }
-      
-      if (data.error) {
-        throw new Error(`Error from function: ${data.error}`);
-      }
-
-      // Remove the deleted entity from our lists
-      setRecords(records.filter(record => record.Id !== entityId));
-      setFilteredRecords(filteredRecords.filter(record => record.Id !== entityId));
-      
-      toast({
-        title: "Entity Deleted",
-        description: `Successfully deleted ${selectedEntity} with ID ${entityId}`,
-      });
-      
-      return true;
-    } catch (error: any) {
-      console.error(`Error deleting ${selectedEntity}:`, error);
-      toast({
-        title: "Deletion Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
-
-  const handleDeleteSelected = async () => {
-    if (!selectedEntity || filteredRecords.length === 0) return;
-    
-    setIsDeleting(true);
-    setDeleteProgress({
-      total: filteredRecords.length,
-      current: 0,
-      success: 0,
-      failed: 0,
-      details: []
-    });
-    
-    try {
-      for (let i = 0; i < filteredRecords.length; i++) {
-        const record = filteredRecords[i];
-        try {
-          const success = await handleDeleteEntity(record.Id);
-          
-          if (success) {
-            setDeleteProgress(prev => ({
-              ...prev,
-              current: i + 1,
-              success: prev.success + 1,
-              details: [...prev.details, { id: record.Id, status: "success" }]
-            }));
-          } else {
-            setDeleteProgress(prev => ({
-              ...prev,
-              current: i + 1,
-              failed: prev.failed + 1,
-              details: [...prev.details, { 
-                id: record.Id, 
-                status: "error", 
-                error: "Failed to delete" 
-              }]
-            }));
-          }
-        } catch (error: any) {
-          setDeleteProgress(prev => ({
-            ...prev,
-            current: i + 1,
-            failed: prev.failed + 1,
-            details: [...prev.details, { 
-              id: record.Id, 
-              status: "error", 
-              error: error.message 
-            }]
-          }));
-        }
-      }
-      
-      // Refresh the list after bulk deletion
-      fetchEntities();
-      
-    } catch (error: any) {
-      console.error("Error in bulk deletion:", error);
-      toast({
-        title: "Bulk Deletion Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Helper function to display entity properties safely
-  const getDisplayValue = (record: any, field: string) => {
-    if (!record) return "";
-    
-    // Handle different entity types
-    switch(field) {
-      case "name":
-        return record.DisplayName || record.Name || record.FullyQualifiedName || "N/A";
-      case "id":
-        return record.Id || "N/A";
-      case "date":
-        return record.TxnDate || record.MetaData?.CreateTime || record.MetaData?.LastUpdatedTime || "N/A";
-      default:
-        return "N/A";
-    }
-  };
+  // Check if all entities are selected
+  const allSelected = records.length > 0 && selectedEntityIds.length === records.length;
 
   return (
     <div className="container mx-auto p-4">
@@ -791,7 +489,7 @@ const Delete = () => {
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
-          onClick={fetchEntities}
+          onClick={() => fetchEntities()}
           disabled={isLoading || !selectedEntity}
         >
           <RefreshCcw className="h-4 w-4" />
@@ -812,20 +510,56 @@ const Delete = () => {
 
       <div className="mb-4 overflow-x-auto">
         <EntityTable 
-          records={filteredRecords} 
+          records={records} 
           selectedEntity={selectedEntity} 
           isLoading={isLoading} 
-          handleDeleteEntity={handleDeleteEntity}
+          handleDeleteEntity={deleteEntity}
+          selectedIds={selectedEntityIds}
+          toggleSelection={toggleEntitySelection}
+          selectAll={(checked) => selectAllEntities(!!checked)}
+          allSelected={allSelected}
         />
       </div>
 
-      {filteredRecords.length > 0 && (
+      {selectedEntityIds.length > 0 && (
         <div>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
                 variant="destructive"
-                disabled={isDeleting || filteredRecords.length === 0}
+                disabled={isDeleting || selectedEntityIds.length === 0}
+              >
+                Delete Selected Records ({selectedEntityIds.length})
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Are you absolutely sure you want to delete these records?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. {selectedEntityIds.length} records will be
+                  permanently deactivated in QuickBooks.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => deleteSelectedEntities(selectedEntityIds)} disabled={isDeleting}>
+                  {isDeleting ? "Deleting..." : "Delete Selected"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
+
+      {records.length > 0 && selectedEntityIds.length === 0 && (
+        <div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                disabled={isDeleting || records.length === 0}
               >
                 Delete All Records
               </Button>
@@ -836,13 +570,19 @@ const Delete = () => {
                   Are you absolutely sure you want to delete these records?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. All {filteredRecords.length} records will be
+                  This action cannot be undone. All {records.length} records will be
                   permanently deactivated in QuickBooks.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteSelected} disabled={isDeleting}>
+                <AlertDialogAction 
+                  onClick={() => {
+                    selectAllEntities(true);
+                    deleteSelectedEntities(records.map(record => record.Id));
+                  }} 
+                  disabled={isDeleting}
+                >
                   {isDeleting ? "Deleting..." : "Delete All"}
                 </AlertDialogAction>
               </AlertDialogFooter>
