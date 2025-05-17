@@ -6,7 +6,7 @@ import { convertToCSV, getEntitySchema, flattenQuickbooksData } from "@/services
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Download, FileDown, ChevronLeft, Calendar } from "lucide-react";
+import { Loader2, Download, FileDown, ChevronLeft, Calendar, CheckSquare } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,7 @@ const Export = () => {
   const [availableFields, setAvailableFields] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"preview" | "json">("preview");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [selectedAll, setSelectedAll] = useState(false);
   
   // Use the centralized QuickbooksEntities context
   const { 
@@ -35,7 +36,11 @@ const Export = () => {
     entityState,
     fetchEntities,
     entityOptions,
-    getNestedValue
+    getNestedValue,
+    selectedEntityIds,
+    setSelectedEntityIds,
+    toggleEntitySelection,
+    selectAllEntities
   } = useQuickbooksEntities();
 
   // Get current entity data
@@ -168,9 +173,35 @@ const Export = () => {
 
   // Generate columns for the data table
   const generateColumns = (): ColumnDef<any>[] => {
-    return selectedFields.map((field) => ({
+    // Add a selection column if we have data
+    const selectionColumn: ColumnDef<any>[] = exportedData.length > 0 ? [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={selectedAll}
+            onCheckedChange={(checked) => {
+              setSelectedAll(!!checked);
+              selectAllEntities(!!checked);
+            }}
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={selectedEntityIds.includes(row.original.Id)}
+            onCheckedChange={() => toggleEntitySelection(row.original.Id)}
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      }
+    ] : [];
+
+    // Create columns for selected fields
+    const dataColumns = selectedFields.map((field) => ({
       accessorKey: field,
-      header: field,
+      // Convert field names to user-friendly headers
+      header: formatFieldHeader(field),
       cell: ({ row }) => {
         const value = getNestedValue(row.original, field);
         
@@ -192,6 +223,46 @@ const Export = () => {
         return String(value);
       },
     }));
+
+    return [...selectionColumn, ...dataColumns];
+  };
+
+  // Format field names to user-friendly headers
+  const formatFieldHeader = (field: string): string => {
+    // Handle nested fields
+    if (field.includes('.')) {
+      const parts = field.split('.');
+      const lastPart = parts[parts.length - 1];
+      
+      // Handle array notation
+      if (lastPart.includes('[')) {
+        return formatFieldHeader(lastPart.split('[')[0]);
+      }
+      
+      return formatFieldHeader(lastPart);
+    }
+    
+    // Handle array notation without dot
+    if (field.includes('[')) {
+      return formatFieldHeader(field.split('[')[0]);
+    }
+    
+    // Format camelCase to Title Case with spaces
+    return field
+      // Insert a space before all uppercase letters
+      .replace(/([A-Z])/g, ' $1')
+      // Replace specific abbreviations
+      .replace(/\bId\b/g, 'ID')
+      .replace(/\bRef\b/g, 'Reference')
+      .replace(/\bAddr\b/g, 'Address')
+      .replace(/\bAmt\b/g, 'Amount')
+      .replace(/\bNum\b/g, 'Number')
+      .replace(/\bTxn\b/g, 'Transaction')
+      .replace(/\bAcct\b/g, 'Account')
+      // Capitalize the first letter
+      .replace(/^./, (str) => str.toUpperCase())
+      // Trim any leading/trailing spaces
+      .trim();
   };
 
   // Reset fields when entity changes
@@ -252,12 +323,16 @@ const Export = () => {
     }
   };
 
-  const downloadCSV = () => {
-    if (!exportedData.length || !selectedFields.length) return;
+  const downloadCSV = (data?: any[]) => {
+    if (!data) {
+      data = exportedData;
+    }
+    
+    if (!data.length || !selectedFields.length) return;
     
     try {
       // Convert data to CSV
-      const csv = convertToCSV(exportedData, selectedFields);
+      const csv = convertToCSV(data, selectedFields);
       
       // Create download link
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -292,12 +367,16 @@ const Export = () => {
     }
   };
 
-  const downloadJSON = () => {
-    if (!exportedData.length) return;
+  const downloadJSON = (data?: any[]) => {
+    if (!data) {
+      data = exportedData;
+    }
+    
+    if (!data.length) return;
     
     try {
       // Create download link for JSON
-      const json = JSON.stringify(exportedData, null, 2);
+      const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: "application/json;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -325,6 +404,48 @@ const Export = () => {
       toast({
         title: "Download Failed",
         description: "Failed to generate JSON file.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle export of selected records
+  const handleExportSelected = (format: "csv" | "json") => {
+    try {
+      if (selectedEntityIds.length === 0) {
+        toast({
+          title: "No Records Selected",
+          description: "Please select at least one record to export",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Filter the data to only include selected records
+      const selectedData = exportedData.filter(record => 
+        selectedEntityIds.includes(record.Id)
+      );
+
+      if (format === "csv") {
+        downloadCSV(selectedData);
+      } else {
+        downloadJSON(selectedData);
+      }
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${selectedEntityIds.length} selected records as ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      logError(`Error exporting selected records as ${format}`, {
+        source: "Export",
+        stack: error instanceof Error ? error.stack : undefined,
+        context: { selectedEntity, selectedEntityIds }
+      });
+      
+      toast({
+        title: "Export Failed",
+        description: `Failed to export selected records: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     }
@@ -518,21 +639,50 @@ const Export = () => {
           </CardContent>
           {exportedData.length > 0 && (
             <CardFooter className="flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                onClick={downloadJSON}
-                className="flex items-center"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Export as JSON
-              </Button>
-              <Button
-                onClick={downloadCSV}
-                className="flex items-center"
-              >
-                <FileDown className="mr-2 h-4 w-4" />
-                Export as CSV
-              </Button>
+              <div className="mr-auto">
+                {selectedEntityIds.length > 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    {selectedEntityIds.length} record{selectedEntityIds.length !== 1 ? 's' : ''} selected
+                  </span>
+                )}
+              </div>
+              {selectedEntityIds.length > 0 ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleExportSelected("json")}
+                    className="flex items-center"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Selected as JSON
+                  </Button>
+                  <Button
+                    onClick={() => handleExportSelected("csv")}
+                    className="flex items-center"
+                  >
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Export Selected as CSV
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={downloadJSON}
+                    className="flex items-center"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Export All as JSON
+                  </Button>
+                  <Button
+                    onClick={downloadCSV}
+                    className="flex items-center"
+                  >
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Export All as CSV
+                  </Button>
+                </>
+              )}
             </CardFooter>
           )}
         </Card>

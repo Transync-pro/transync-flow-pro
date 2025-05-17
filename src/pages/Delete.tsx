@@ -152,6 +152,44 @@ const Delete = () => {
       },
     ];
 
+    // Format field names to user-friendly headers
+    const formatFieldHeader = (field: string): string => {
+      // Handle nested fields
+      if (field.includes('.')) {
+        const parts = field.split('.');
+        const lastPart = parts[parts.length - 1];
+        
+        // Handle array notation
+        if (lastPart.includes('[')) {
+          return formatFieldHeader(lastPart.split('[')[0]);
+        }
+        
+        return formatFieldHeader(lastPart);
+      }
+      
+      // Handle array notation without dot
+      if (field.includes('[')) {
+        return formatFieldHeader(field.split('[')[0]);
+      }
+      
+      // Format camelCase to Title Case with spaces
+      return field
+        // Insert a space before all uppercase letters
+        .replace(/([A-Z])/g, ' $1')
+        // Replace specific abbreviations
+        .replace(/\bId\b/g, 'ID')
+        .replace(/\bRef\b/g, 'Reference')
+        .replace(/\bAddr\b/g, 'Address')
+        .replace(/\bAmt\b/g, 'Amount')
+        .replace(/\bNum\b/g, 'Number')
+        .replace(/\bTxn\b/g, 'Transaction')
+        .replace(/\bAcct\b/g, 'Account')
+        // Capitalize the first letter
+        .replace(/^./, (str) => str.toUpperCase())
+        // Trim any leading/trailing spaces
+        .trim();
+    };
+
     // Add entity-specific columns based on the entity type
     let entityColumns: ColumnDef<any>[] = [];
 
@@ -180,42 +218,42 @@ const Delete = () => {
           },
           {
             accessorKey: "PrimaryEmailAddr.Address",
-            header: "Email",
+            header: formatFieldHeader("PrimaryEmailAddr.Address"),
             cell: ({ row }) => getNestedValue(row.original, "PrimaryEmailAddr.Address") || "N/A",
           },
           {
             accessorKey: "PrimaryPhone.FreeFormNumber",
-            header: "Phone",
+            header: formatFieldHeader("PrimaryPhone.FreeFormNumber"),
             cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
           },
           {
             accessorKey: "BillAddr.Line1",
-            header: "Address",
+            header: formatFieldHeader("BillAddr.Line1"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
           },
           {
             accessorKey: "BillAddr.City",
-            header: "City",
+            header: formatFieldHeader("BillAddr.City"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
           },
           {
             accessorKey: "BillAddr.Country",
-            header: "Country",
+            header: formatFieldHeader("BillAddr.Country"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
           },
           {
             accessorKey: "BillAddr.PostalCode",
-            header: "Postal Code",
+            header: formatFieldHeader("BillAddr.PostalCode"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
           },
           {
             accessorKey: "BillAddr.CountrySubDivisionCode",
-            header: "State/Province",
+            header: formatFieldHeader("BillAddr.CountrySubDivisionCode"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.CountrySubDivisionCode") || "N/A",
           },
           {
             accessorKey: "CurrencyRef.value",
-            header: "Currency",
+            header: formatFieldHeader("CurrencyRef.value"),
             cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
           },
           {
@@ -250,42 +288,42 @@ const Delete = () => {
           },
           {
             accessorKey: "PrimaryEmailAddr.Address",
-            header: "Email",
+            header: formatFieldHeader("PrimaryEmailAddr.Address"),
             cell: ({ row }) => getNestedValue(row.original, "PrimaryEmailAddr.Address") || "N/A",
           },
           {
             accessorKey: "PrimaryPhone.FreeFormNumber",
-            header: "Phone",
+            header: formatFieldHeader("PrimaryPhone.FreeFormNumber"),
             cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
           },
           {
             accessorKey: "BillAddr.Line1",
-            header: "Address",
+            header: formatFieldHeader("BillAddr.Line1"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
           },
           {
             accessorKey: "BillAddr.City",
-            header: "City",
+            header: formatFieldHeader("BillAddr.City"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
           },
           {
             accessorKey: "BillAddr.Country",
-            header: "Country",
+            header: formatFieldHeader("BillAddr.Country"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
           },
           {
             accessorKey: "BillAddr.PostalCode",
-            header: "Postal Code",
+            header: formatFieldHeader("BillAddr.PostalCode"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
           },
           {
             accessorKey: "BillAddr.CountrySubDivisionCode",
-            header: "State/Province",
+            header: formatFieldHeader("BillAddr.CountrySubDivisionCode"),
             cell: ({ row }) => getNestedValue(row.original, "BillAddr.CountrySubDivisionCode") || "N/A",
           },
           {
             accessorKey: "CurrencyRef.value",
-            header: "Currency",
+            header: formatFieldHeader("CurrencyRef.value"),
             cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
           },
           {
@@ -320,7 +358,7 @@ const Delete = () => {
           },
           {
             accessorKey: "IncomeAccountRef.name",
-            header: "Income Account",
+            header: formatFieldHeader("IncomeAccountRef.name"),
             cell: ({ row }) => getNestedValue(row.original, "IncomeAccountRef.name") || "N/A",
           },
           {
@@ -334,330 +372,13 @@ const Delete = () => {
           },
           {
             accessorKey: "SalesTaxCodeRef.name",
-            header: "Sales Tax",
+            header: formatFieldHeader("SalesTaxCodeRef.name"),
             cell: ({ row }) => getNestedValue(row.original, "SalesTaxCodeRef.name") || "N/A",
           },
           {
             accessorKey: "Active",
             header: "Status",
             cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
-          },
-        ];
-        break;
-
-      case "Account":
-        entityColumns = [
-          {
-            accessorKey: "Name",
-            header: "Name",
-          },
-          {
-            accessorKey: "AccountType",
-            header: "Account Type",
-          },
-          {
-            accessorKey: "AccountSubType",
-            header: "Account Subtype",
-          },
-          {
-            accessorKey: "AcctNum",
-            header: "Account Number",
-          },
-          {
-            accessorKey: "ParentRef.name",
-            header: "Parent Account",
-            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
-          },
-          {
-            accessorKey: "Description",
-            header: "Description",
-          },
-          {
-            accessorKey: "CurrentBalance",
-            header: "Current Balance",
-            cell: ({ row }) => {
-              const balance = row.original.CurrentBalance;
-              return balance !== undefined ? `$${parseFloat(balance).toFixed(2)}` : "N/A";
-            },
-          },
-          {
-            accessorKey: "CurrencyRef.value",
-            header: "Currency",
-            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
-          },
-          {
-            accessorKey: "Active",
-            header: "Status",
-            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
-          },
-        ];
-        break;
-
-      case "Employee":
-        entityColumns = [
-          {
-            accessorKey: "DisplayName",
-            header: "Name",
-          },
-          {
-            accessorKey: "HiredDate",
-            header: "Hire Date",
-            cell: ({ row }) => {
-              const date = row.original.HiredDate;
-              return date ? new Date(date).toLocaleDateString() : "N/A";
-            },
-          },
-          {
-            accessorKey: "PrimaryPhone.FreeFormNumber",
-            header: "Phone",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.Line1",
-            header: "Address",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.Line1") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.City",
-            header: "City",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.City") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.CountrySubDivisionCode",
-            header: "State/Province",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.CountrySubDivisionCode") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.Country",
-            header: "Country",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.Country") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.PostalCode",
-            header: "Postal Code",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.PostalCode") || "N/A",
-          },
-          {
-            accessorKey: "Active",
-            header: "Status",
-            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
-          },
-        ];
-        break;
-
-      case "Department":
-        entityColumns = [
-          {
-            accessorKey: "Name",
-            header: "Name",
-          },
-          {
-            accessorKey: "SubDepartment",
-            header: "Sub-department",
-            cell: ({ row }) => (row.original.SubDepartment ? "Yes" : "No"),
-          },
-          {
-            accessorKey: "ParentRef.name",
-            header: "Parent Department",
-            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
-          },
-          {
-            accessorKey: "Active",
-            header: "Status",
-            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
-          },
-        ];
-        break;
-
-      case "Class":
-        entityColumns = [
-          {
-            accessorKey: "Name",
-            header: "Name",
-          },
-          {
-            accessorKey: "SubClass",
-            header: "Sub-class",
-            cell: ({ row }) => (row.original.SubClass ? "Yes" : "No"),
-          },
-          {
-            accessorKey: "ParentRef.name",
-            header: "Parent Class",
-            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
-          },
-          {
-            accessorKey: "Active",
-            header: "Status",
-            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
-          },
-        ];
-        break;
-
-      case "Invoice":
-        entityColumns = [
-          {
-            accessorKey: "DocNumber",
-            header: "Invoice #",
-          },
-          {
-            accessorKey: "CustomerRef.name",
-            header: "Customer",
-            cell: ({ row }) => getNestedValue(row.original, "CustomerRef.name") || "N/A",
-          },
-          {
-            accessorKey: "TxnDate",
-            header: "Date",
-            cell: ({ row }) => {
-              const date = row.original.TxnDate;
-              return date ? new Date(date).toLocaleDateString() : "N/A";
-            },
-          },
-          {
-            accessorKey: "DueDate",
-            header: "Due Date",
-            cell: ({ row }) => {
-              const date = row.original.DueDate;
-              return date ? new Date(date).toLocaleDateString() : "N/A";
-            },
-          },
-          {
-            accessorKey: "EmailStatus",
-            header: "Email Status",
-          },
-          {
-            accessorKey: "BillEmail.Address",
-            header: "Email",
-            cell: ({ row }) => getNestedValue(row.original, "BillEmail.Address") || "N/A",
-          },
-          {
-            accessorKey: "Line[0].SalesItemLineDetail.ItemRef.name",
-            header: "Product/Service",
-            cell: ({ row }) => getNestedValue(row.original, "Line[0].SalesItemLineDetail.ItemRef.name") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Line1",
-            header: "Billing Address",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.City",
-            header: "City",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Country",
-            header: "Country",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.PostalCode",
-            header: "Postal Code",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
-          },
-          {
-            accessorKey: "CurrencyRef.value",
-            header: "Currency",
-            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
-          },
-          {
-            accessorKey: "TotalAmt",
-            header: "Total",
-            cell: ({ row }) => {
-              const amount = row.original.TotalAmt;
-              return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
-            },
-          },
-          {
-            accessorKey: "Balance",
-            header: "Balance",
-            cell: ({ row }) => {
-              const balance = row.original.Balance;
-              return balance !== undefined ? `$${parseFloat(balance).toFixed(2)}` : "N/A";
-            },
-          },
-        ];
-        break;
-
-      // Add more entity types with their specific columns...
-      // For brevity, I'll include a few more key ones and use a default for the rest
-
-      case "Estimate":
-        entityColumns = [
-          {
-            accessorKey: "DocNumber",
-            header: "Estimate #",
-          },
-          {
-            accessorKey: "CustomerRef.name",
-            header: "Customer",
-            cell: ({ row }) => getNestedValue(row.original, "CustomerRef.name") || "N/A",
-          },
-          {
-            accessorKey: "TxnDate",
-            header: "Date",
-            cell: ({ row }) => {
-              const date = row.original.TxnDate;
-              return date ? new Date(date).toLocaleDateString() : "N/A";
-            },
-          },
-          {
-            accessorKey: "ExpirationDate",
-            header: "Expiration Date",
-            cell: ({ row }) => {
-              const date = row.original.ExpirationDate;
-              return date ? new Date(date).toLocaleDateString() : "N/A";
-            },
-          },
-          {
-            accessorKey: "EmailStatus",
-            header: "Email Status",
-          },
-          {
-            accessorKey: "BillEmail.Address",
-            header: "Email",
-            cell: ({ row }) => getNestedValue(row.original, "BillEmail.Address") || "N/A",
-          },
-          {
-            accessorKey: "Line[0].SalesItemLineDetail.ItemRef.name",
-            header: "Product/Service",
-            cell: ({ row }) => getNestedValue(row.original, "Line[0].SalesItemLineDetail.ItemRef.name") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Line1",
-            header: "Billing Address",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.City",
-            header: "City",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Country",
-            header: "Country",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.PostalCode",
-            header: "Postal Code",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
-          },
-          {
-            accessorKey: "CurrencyRef.value",
-            header: "Currency",
-            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
-          },
-          {
-            accessorKey: "TotalAmt",
-            header: "Total",
-            cell: ({ row }) => {
-              const amount = row.original.TotalAmt;
-              return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
-            },
-          },
-          {
-            accessorKey: "TxnStatus",
-            header: "Status",
           },
         ];
         break;
@@ -681,7 +402,7 @@ const Delete = () => {
         if (fields.includes("TxnDate")) {
           entityColumns.push({
             accessorKey: "TxnDate",
-            header: "Date",
+            header: formatFieldHeader("TxnDate"),
             cell: ({ row }) => {
               const date = row.original.TxnDate;
               return date ? new Date(date).toLocaleDateString() : "N/A";
@@ -693,7 +414,7 @@ const Delete = () => {
         if (fields.includes("TotalAmt")) {
           entityColumns.push({
             accessorKey: "TotalAmt",
-            header: "Amount",
+            header: formatFieldHeader("TotalAmt"),
             cell: ({ row }) => {
               const amount = row.original.TotalAmt;
               return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
