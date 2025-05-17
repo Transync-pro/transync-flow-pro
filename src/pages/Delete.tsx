@@ -41,6 +41,20 @@ import { toast } from "@/components/ui/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 
+// Add a debug component at the top of the file
+const DebugContext = () => {
+  const context = useQuickbooksEntities();
+  
+  useEffect(() => {
+    console.log("QuickbooksEntitiesContext in Delete.tsx:", context);
+    console.log("entityOptions:", context.entityOptions);
+    console.log("selectedEntity:", context.selectedEntity);
+    console.log("entityState:", context.entityState);
+  }, [context]);
+  
+  return null;
+};
+
 // Components to make the file smaller
 const DeleteProgressDisplay = ({ progress }) => (
   <div className="mt-4">
@@ -467,6 +481,9 @@ const Delete = () => {
     isDeleting,
     entityOptions
   } = useQuickbooksEntities();
+  
+  // Add the debug component
+  <DebugContext />
   
   // Handler for filtering entities
   const handleFilter = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -29,6 +29,17 @@ const Export = () => {
     getNestedValue
   } = useQuickbooksEntities();
 
+  // Debug logging
+  useEffect(() => {
+    console.log("QuickbooksEntitiesContext in Export.tsx:", {
+      selectedEntity,
+      entityOptions,
+      entityState,
+      availableFields,
+      selectedFields
+    });
+  }, [selectedEntity, entityOptions, entityState, availableFields, selectedFields]);
+
   // Get current entity data
   const currentEntityState = selectedEntity ? entityState[selectedEntity] : null;
   const exportedData = currentEntityState?.records || [];
