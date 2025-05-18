@@ -111,12 +111,13 @@ const Export = () => {
   const handleFilterChange = () => {
     if (!selectedEntity || !filterField) return;
     
-    // Fix: Pass only entity and filter condition to filterEntities
-    filterEntities(selectedEntity, filterField, filterValue);
+    // Fix: Pass condition object instead of separate parameters
+    const condition = { field: filterField, value: filterValue };
+    filterEntities(selectedEntity, condition);
   };
 
   // Convert records to CSV
-  const convertToCSV = (records: EntityRecord[], fields: string[]) => {
+  const convertToCSV = (records: EntityRecord[], fields: string[]): string => {
     if (!records || records.length === 0) return "";
     
     const header = fields.join(',');
