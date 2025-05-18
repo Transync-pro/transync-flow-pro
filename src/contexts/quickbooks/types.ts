@@ -1,10 +1,9 @@
-
 import { DateRange } from "react-day-picker";
 import { DeleteProgress } from "./useEntityOperations";
 import { User } from "@supabase/supabase-js";
 
 export interface EntityRecord {
-  Id: string;
+  Id?: string;
   [key: string]: any;
 }
 

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -7,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Search, Trash2, AlertCircle, ChevronLeft, Calendar } from "lucide-react";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
@@ -32,6 +34,7 @@ const Delete = () => {
     entityState,
     fetchEntities,
     filterEntities,
+    deleteEntity,
     deleteSelectedEntities,
     entityOptions,
     selectedEntityIds,
@@ -366,9 +369,9 @@ const Delete = () => {
             header: "Description",
           },
           {
-            accessorKey: "SubItem",
-            header: "Sub-item",
-            cell: ({ row }) => (row.original.SubItem ? "Yes" : "No"),
+            accessorKey: "ParentRef.name",
+            header: "Category",
+            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
           },
           {
             accessorKey: "SalesTaxCodeRef.name",
@@ -383,52 +386,295 @@ const Delete = () => {
         ];
         break;
 
-      // Default case for other entity types
-      default:
-        // Get a sample record to extract all possible fields
-        const sampleRecord = filteredRecords[0];
-        const fields = Object.keys(sampleRecord);
-        
-        // Add common display fields
+      case "Account":
+        entityColumns = [
+          {
+            accessorKey: "Name",
+            header: "Name",
+          },
+          {
+            accessorKey: "AccountType",
+            header: "Account Type", 
+          },
+          {
+            accessorKey: "AccountSubType",
+            header: "Account Subtype",
+          },
+          {
+            accessorKey: "AcctNum",
+            header: "Account Number",
+          },
+          {
+            accessorKey: "ParentRef.name",
+            header: "Parent Account",
+            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
+          },
+          {
+            accessorKey: "Description",
+            header: "Description",
+          },
+          {
+            accessorKey: "CurrentBalance",
+            header: "Opening Balance",
+            cell: ({ row }) => {
+              const balance = row.original.CurrentBalance;
+              return balance !== undefined ? `$${parseFloat(balance).toFixed(2)}` : "N/A";
+            },
+          },
+          {
+            accessorKey: "CurrencyRef.value",
+            header: "Currency Code",
+            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
+          },
+          {
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+          }
+        ];
+        break;
+
+      case "Employee":
         entityColumns = [
           {
             accessorKey: "DisplayName",
             header: "Name",
-            cell: ({ row }) => row.original.DisplayName || row.original.Name || row.original.FullyQualifiedName || row.original.DocNumber || "N/A",
+          },
+          {
+            accessorKey: "HiredDate",
+            header: "Hiring Date",
+            cell: ({ row }) => {
+              const date = row.original.HiredDate;
+              return date ? new Date(date).toLocaleDateString() : "N/A";
+            },
+          },
+          {
+            accessorKey: "PrimaryPhone.FreeFormNumber",
+            header: "Phone Number",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.Line1",
+            header: "Address Line 1",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.Line1") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.City",
+            header: "Address City",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.City") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.CountrySubDivisionCode",
+            header: "Address Subdivision",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.CountrySubDivisionCode") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.Country",
+            header: "Address Country",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.Country") || "N/A",
+          },
+          {
+            accessorKey: "PrimaryAddr.PostalCode",
+            header: "Postal Code",
+            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.PostalCode") || "N/A",
+          },
+          {
+            accessorKey: "Active",
+            header: "Status",
+            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
           },
         ];
-        
-        // Add date fields if they exist
-        if (fields.includes("TxnDate")) {
-          entityColumns.push({
+        break;
+
+      case "Department":
+        entityColumns = [
+          {
+            accessorKey: "Name",
+            header: "Name",
+          },
+          {
+            accessorKey: "SubDepartment",
+            header: "Is Sub-department?",
+            cell: ({ row }) => (row.original.SubDepartment ? "Yes" : "No"),
+          },
+          {
+            accessorKey: "Active",
+            header: "Active",
+            cell: ({ row }) => (row.original.Active ? "Yes" : "No"),
+          },
+        ];
+        break;
+
+      case "Class":
+        entityColumns = [
+          {
+            accessorKey: "Name",
+            header: "Name",
+          },
+          {
+            accessorKey: "SubClass",
+            header: "Is Sub-class?",
+            cell: ({ row }) => (row.original.SubClass ? "Yes" : "No"),
+          },
+          {
+            accessorKey: "Active",
+            header: "Active",
+            cell: ({ row }) => (row.original.Active ? "Yes" : "No"),
+          },
+        ];
+        break;
+
+      case "Invoice":
+        entityColumns = [
+          {
+            accessorKey: "DocNumber",
+            header: "Invoice Number",
+          },
+          {
+            accessorKey: "CustomerRef.name",
+            header: "Customer Name",
+            cell: ({ row }) => getNestedValue(row.original, "CustomerRef.name") || "N/A",
+          },
+          {
             accessorKey: "TxnDate",
-            header: formatFieldHeader("TxnDate"),
+            header: "Invoice Date",
             cell: ({ row }) => {
               const date = row.original.TxnDate;
               return date ? new Date(date).toLocaleDateString() : "N/A";
             },
-          });
-        }
-        
-        // Add amount fields if they exist
-        if (fields.includes("TotalAmt")) {
-          entityColumns.push({
+          },
+          {
+            accessorKey: "DueDate",
+            header: "Due Date",
+            cell: ({ row }) => {
+              const date = row.original.DueDate;
+              return date ? new Date(date).toLocaleDateString() : "N/A";
+            },
+          },
+          {
+            accessorKey: "EmailStatus",
+            header: "Email Sent",
+            cell: ({ row }) => row.original.EmailStatus || "Not Sent",
+          },
+          {
+            accessorKey: "BillEmail.Address",
+            header: "Email ID",
+            cell: ({ row }) => getNestedValue(row.original, "BillEmail.Address") || "N/A",
+          },
+          {
+            accessorKey: "Line[0].SalesItemLineDetail.ItemRef.name",
+            header: "Product/Service",
+            cell: ({ row }) => getNestedValue(row.original, "Line[0].SalesItemLineDetail.ItemRef.name") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Line1",
+            header: "Billing Address Line 1",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.City",
+            header: "Billing Address City",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.Country",
+            header: "Billing Address Country",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
+          },
+          {
+            accessorKey: "BillAddr.PostalCode",
+            header: "Billing Address Postal Code",
+            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
+          },
+          {
+            accessorKey: "CurrencyRef.value",
+            header: "Currency Code",
+            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
+          },
+          {
             accessorKey: "TotalAmt",
-            header: formatFieldHeader("TotalAmt"),
+            header: "Amount",
             cell: ({ row }) => {
               const amount = row.original.TotalAmt;
               return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
             },
-          });
-        }
+          },
+          {
+            accessorKey: "Balance",
+            header: "Payment Status",
+            cell: ({ row }) => {
+              const balance = row.original.Balance;
+              const total = row.original.TotalAmt;
+              
+              if (balance === 0) return "Paid";
+              if (balance === total) return "Unpaid";
+              if (balance < total && balance > 0) return "Partially Paid";
+              return "Unknown";
+            },
+          },
+        ];
+        break;
+
+      // Default case for other entity types
+      default:
+        // Get a sample record to extract all possible fields
+        const sampleRecord = filteredRecords[0];
         
-        // Add status fields if they exist
-        if (fields.includes("Active")) {
-          entityColumns.push({
-            accessorKey: "Active",
-            header: "Status",
-            cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
-          });
+        // Check if we have a sample record
+        if (sampleRecord) {
+          // Add common display fields
+          entityColumns = [
+            {
+              accessorKey: "DisplayName",
+              header: "Name",
+              cell: ({ row }) => row.original.DisplayName || row.original.Name || row.original.FullyQualifiedName || row.original.DocNumber || "N/A",
+            },
+          ];
+          
+          // Add date fields if they exist
+          if ('TxnDate' in sampleRecord) {
+            entityColumns.push({
+              accessorKey: "TxnDate",
+              header: formatFieldHeader("TxnDate"),
+              cell: ({ row }) => {
+                const date = row.original.TxnDate;
+                return date ? new Date(date).toLocaleDateString() : "N/A";
+              },
+            });
+          }
+          
+          // Add amount fields if they exist
+          if ('TotalAmt' in sampleRecord) {
+            entityColumns.push({
+              accessorKey: "TotalAmt",
+              header: formatFieldHeader("TotalAmt"),
+              cell: ({ row }) => {
+                const amount = row.original.TotalAmt;
+                return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
+              },
+            });
+          }
+          
+          // Add status fields if they exist
+          if ('Active' in sampleRecord) {
+            entityColumns.push({
+              accessorKey: "Active",
+              header: "Status",
+              cell: ({ row }) => (row.original.Active === false ? "Inactive" : "Active"),
+            });
+          }
+        } else {
+          // Fallback columns if no sample record
+          entityColumns = [
+            {
+              accessorKey: "Name",
+              header: "Name",
+            },
+            {
+              accessorKey: "Description",
+              header: "Description",
+            },
+          ];
         }
         
         break;
@@ -469,85 +715,83 @@ const Delete = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor="entity-type">Entity Type</Label>
-            <Select
-              value={selectedEntity || ""}
-              onValueChange={handleEntitySelect}
-            >
-              <SelectTrigger id="entity-type">
-                <SelectValue placeholder="Select an entity type" />
-              </SelectTrigger>
-              <SelectContent>
-                {entityOptions.map((entity) => (
-                  <SelectItem key={entity.value} value={entity.value}>
-                    {entity.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex flex-col space-y-2 flex-grow">
+              <Label htmlFor="entity-type">Entity Type</Label>
+              <Select
+                value={selectedEntity || ""}
+                onValueChange={handleEntitySelect}
+              >
+                <SelectTrigger id="entity-type">
+                  <SelectValue placeholder="Select an entity type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {entityOptions.map((entity) => (
+                    <SelectItem key={entity.value} value={entity.value}>
+                      {entity.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col space-y-2 flex-grow">
+              <Label>Date Range (Optional)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "LLL dd, y")} -{" "}
+                          {format(dateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Select date range</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+              {dateRange && dateRange.from && (
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setDateRange(undefined)}
+                  size="sm"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
 
           {selectedEntity && (
-            <>
-              <div className="flex flex-col space-y-2">
-                <Label>Date Range (Optional)</Label>
-                <div className="flex items-center space-x-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {dateRange?.from ? (
-                          dateRange.to ? (
-                            <>
-                              {format(dateRange.from, "LLL dd, y")} -{" "}
-                              {format(dateRange.to, "LLL dd, y")}
-                            </>
-                          ) : (
-                            format(dateRange.from, "LLL dd, y")
-                          )
-                        ) : (
-                          <span>Select date range</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        initialFocus
-                        mode="range"
-                        defaultMonth={dateRange?.from}
-                        selected={dateRange}
-                        onSelect={setDateRange}
-                        numberOfMonths={2}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {dateRange && dateRange.from && (
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => setDateRange(undefined)}
-                      size="sm"
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                onClick={handleFetchData}
-                disabled={isLoading}
-                className="flex items-center"
-              >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {isLoading ? "Loading Data..." : "Fetch Data"}
-              </Button>
-            </>
+            <Button
+              onClick={handleFetchData}
+              disabled={isLoading}
+              className="flex items-center"
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              {isLoading ? "Loading Data..." : "Fetch Data"}
+            </Button>
           )}
 
           {selectedEntity && !isLoading && filteredRecords.length > 0 && (
@@ -581,30 +825,34 @@ const Delete = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="flex flex-col items-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-              <p className="mt-4">Loading {selectedEntity} records...</p>
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center py-8 text-red-500">
-              <AlertCircle className="h-8 w-8" />
-              <p className="mt-4">Error: {error}</p>
-            </div>
-          ) : filteredRecords.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              {selectedEntity
-                ? "No records found. Click 'Fetch Data' to load records."
-                : "Select an entity type to get started"}
-            </div>
-          ) : (
-            <DataTable
-              columns={generateColumns()}
-              data={filteredRecords}
-              pageSize={10}
-              className="overflow-x-auto"
-            />
-          )}
+          <ScrollArea className="h-[calc(100vh-350px)]">
+            {isLoading ? (
+              <div className="flex flex-col items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="mt-4">Loading {selectedEntity} records...</p>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center py-8 text-red-500">
+                <AlertCircle className="h-8 w-8" />
+                <p className="mt-4">Error: {error}</p>
+              </div>
+            ) : filteredRecords.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                {selectedEntity
+                  ? "No records found. Click 'Fetch Data' to load records."
+                  : "Select an entity type to get started"}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <DataTable
+                  columns={generateColumns()}
+                  data={filteredRecords}
+                  pageSize={10}
+                  className="w-full"
+                />
+              </div>
+            )}
+          </ScrollArea>
         </CardContent>
         {selectedEntityIds.length > 0 && (
           <CardFooter className="flex justify-between">
