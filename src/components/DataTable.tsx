@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import {
   ColumnDef,
@@ -43,10 +44,45 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: pageSize,
   });
+
+  // Add selection column if needed
+  const allColumns = useMemo(() => {
+    if (!onToggleSelect) return columns;
+
+    const selectionColumn: ColumnDef<TData, any> = {
+      id: 'select',
+      header: ({ table }) => (
+        <Checkbox
+          checked={selectedIds.length > 0 && selectedIds.length === data.length}
+          onCheckedChange={(value) => {
+            if (onSelectAll) {
+              onSelectAll(!!value);
+            }
+          }}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => {
+        // @ts-ignore - We know Id exists on our records
+        const id = (row.original as any).Id || (row.original as any).id;
+        return (
+          <Checkbox
+            checked={selectedIds.includes(id)}
+            onCheckedChange={() => onToggleSelect(id)}
+            aria-label="Select row"
+          />
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
+    };
+
+    return [selectionColumn, ...columns];
+  }, [columns, onToggleSelect, onSelectAll, selectedIds, data.length]);
   
   const table = useReactTable({
     data,
-    columns,
+    columns: allColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,

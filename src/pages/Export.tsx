@@ -111,7 +111,7 @@ const Export = () => {
   const handleFilterChange = () => {
     if (!selectedEntity || !filterField) return;
     
-    // Update: Fix the argument type by passing a string parameter
+    // Fix: Pass only entity and filter condition to filterEntities
     filterEntities(selectedEntity, filterField, filterValue);
   };
 
@@ -149,6 +149,7 @@ const Export = () => {
       const currentDate = format(new Date(), "yyyy-MM-dd");
       
       if (exportFormat === "csv") {
+        // Use our local convertToCSV function instead of the external one
         const csv = convertToCSV(records, selectedFields);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
@@ -221,7 +222,7 @@ const Export = () => {
       const currentDate = format(new Date(), "yyyy-MM-dd");
       
       if (exportFormat === "csv") {
-        // Fix: Use the convertToCSV function that works with array data correctly
+        // Use our local convertToCSV function instead of the imported one
         const csv = convertToCSV(selectedData, selectedFields);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
