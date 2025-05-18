@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Filter, Download, FileJson, FileSpreadsheet } from "lucide-react";
-import DataTable from "@/components/DataTable";
+import { DataTable } from "@/components/DataTable";
 
 // Import sub-components
 import { EntitySelect } from "./Export/EntitySelect";
@@ -291,6 +291,24 @@ const Export = () => {
     field.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Create data table columns with custom props based on our app's data structure
+  const createTableProps = () => {
+    if (!selectedEntity || !entityState[selectedEntity]?.filteredRecords?.length) {
+      return {
+        data: [],
+        columns: []
+      };
+    }
+
+    return {
+      data: entityState[selectedEntity]?.filteredRecords || [],
+      fields: selectedFields,
+      selectedIds: selectedEntityIds,
+      onToggleSelect: toggleEntitySelection,
+      onSelectAll: (select: boolean) => selectAllEntities(select, entityState[selectedEntity]?.filteredRecords)
+    };
+  };
+
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto">
@@ -413,13 +431,7 @@ const Export = () => {
                             </div>
                           </div>
 
-                          <DataTable
-                            data={entityState[selectedEntity]?.filteredRecords || []}
-                            fields={selectedFields}
-                            selectedIds={selectedEntityIds}
-                            onToggleSelect={toggleEntitySelection}
-                            onSelectAll={(select) => selectAllEntities(select, entityState[selectedEntity]?.filteredRecords)}
-                          />
+                          <DataTable {...createTableProps()} />
                         </div>
                       )}
                     </TabsContent>
