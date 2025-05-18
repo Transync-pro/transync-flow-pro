@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -111,11 +112,11 @@ const Export = () => {
   const handleFilterChange = () => {
     if (!selectedEntity || !filterField) return;
     
-    // Fix: Pass the search term (filterValue) and the entity type
+    // Fix: Pass the search term (filterValue) as a simple string
     filterEntities(filterValue, selectedEntity);
   };
 
-  // Convert records to CSV
+  // Convert records to CSV - Fix: Make sure this function accepts records array and fields array
   const convertToCSV = (records: EntityRecord[], fields: string[]): string => {
     if (!records || records.length === 0) return "";
     
@@ -149,7 +150,7 @@ const Export = () => {
       const currentDate = format(new Date(), "yyyy-MM-dd");
       
       if (exportFormat === "csv") {
-        // Use our local convertToCSV function instead of the external one
+        // Fix: Pass the records array and selectedFields array to convertToCSV
         const csv = convertToCSV(records, selectedFields);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
@@ -222,7 +223,7 @@ const Export = () => {
       const currentDate = format(new Date(), "yyyy-MM-dd");
       
       if (exportFormat === "csv") {
-        // Use our local convertToCSV function instead of the imported one
+        // Fix: Pass the selectedData array and selectedFields array to convertToCSV
         const csv = convertToCSV(selectedData, selectedFields);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
@@ -467,3 +468,4 @@ const Export = () => {
 };
 
 export default Export;
+
