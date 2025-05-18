@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import {
   ColumnDef,
@@ -21,23 +20,21 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 interface DataTableProps<TData, TValue> {
-  columns?: ColumnDef<TData, TValue>[];
+  columns: ColumnDef<TData, TValue>[];
   data: TData[];
   pageSize?: number;
   className?: string;
   // Extended props for our custom implementation
-  fields?: string[];
   selectedIds?: string[];
   onToggleSelect?: (id: string) => void;
   onSelectAll?: (select: boolean) => void;
 }
 
 export function DataTable<TData, TValue>({
-  columns: providedColumns,
+  columns,
   data,
   pageSize = 10,
   className,
-  fields = [],
   selectedIds = [],
   onToggleSelect,
   onSelectAll,
@@ -46,68 +43,6 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: pageSize,
   });
-
-  // Generate columns based on fields if no columns were provided
-  const columns = useMemo(() => {
-    if (providedColumns) return providedColumns;
-    
-    if (!fields || fields.length === 0) return [];
-    
-    const generatedColumns: ColumnDef<TData, any>[] = [];
-    
-    // Add selection column if onToggleSelect is provided
-    if (onToggleSelect) {
-      generatedColumns.push({
-        id: 'select',
-        header: ({ table }) => (
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            onCheckedChange={(value) => {
-              if (onSelectAll) {
-                onSelectAll(!!value);
-              }
-            }}
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => {
-          // @ts-ignore - We know these properties exist even if TypeScript doesn't
-          const id = row.original.Id || row.original.id;
-          return (
-            <Checkbox
-              checked={selectedIds?.includes(id)}
-              onCheckedChange={() => onToggleSelect?.(id)}
-              aria-label="Select row"
-            />
-          );
-        },
-        enableSorting: false,
-        enableHiding: false,
-      });
-    }
-    
-    // Add field columns
-    fields.forEach(field => {
-      generatedColumns.push({
-        accessorKey: field,
-        header: field,
-        cell: ({ row }) => {
-          const value = row.getValue(field);
-          
-          // Handle different value types
-          if (value === null || value === undefined) {
-            return "-";
-          } else if (typeof value === "object") {
-            return JSON.stringify(value).substring(0, 50) + "...";
-          }
-          
-          return String(value);
-        }
-      });
-    });
-    
-    return generatedColumns;
-  }, [providedColumns, fields, selectedIds, onToggleSelect, onSelectAll]);
   
   const table = useReactTable({
     data,

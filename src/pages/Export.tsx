@@ -111,11 +111,8 @@ const Export = () => {
   const handleFilterChange = () => {
     if (!selectedEntity || !filterField) return;
     
-    // Fix: Pass only field and value to filterEntities, as the function signature requires
-    filterEntities(selectedEntity, {
-      field: filterField,
-      value: filterValue
-    });
+    // Update: Fix the argument type by passing a string parameter
+    filterEntities(selectedEntity, filterField, filterValue);
   };
 
   // Convert records to CSV
@@ -224,7 +221,7 @@ const Export = () => {
       const currentDate = format(new Date(), "yyyy-MM-dd");
       
       if (exportFormat === "csv") {
-        // Fix: Changed to use the convertToCSV function that accepts array data
+        // Fix: Use the convertToCSV function that works with array data correctly
         const csv = convertToCSV(selectedData, selectedFields);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
@@ -308,8 +305,11 @@ const Export = () => {
     }
 
     return {
+      columns: selectedFields.map(field => ({
+        accessorKey: field,
+        header: field
+      })),
       data: entityState[selectedEntity]?.filteredRecords || [],
-      fields: selectedFields,
       selectedIds: selectedEntityIds,
       onToggleSelect: toggleEntitySelection,
       onSelectAll: (select: boolean) => selectAllEntities(select, entityState[selectedEntity]?.filteredRecords)
