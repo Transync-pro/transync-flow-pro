@@ -21,9 +21,14 @@ const QuickbooksCallback = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
   const { refreshConnection } = useQuickbooks();
 
+  // Process the callback once auth is loaded and we're not in a retry loop
   useEffect(() => {
-    const handleCallback = async () => {
+    if (isAuthLoading) return;
+    
+    const processCallback = async () => {
       try {
+        setIsProcessing(true);
+        
         // Get URL parameters
         const params = new URLSearchParams(location.search);
         const code = params.get("code");
@@ -31,8 +36,15 @@ const QuickbooksCallback = () => {
         const state = params.get("state"); // This contains the userId from our auth process
         const errorParam = params.get("error");
 
+        // Log callback parameters for debugging
+        console.log("Processing callback parameters:", { 
+          code: code ? "present" : "missing", 
+          realmId, 
+          state 
+        });
+
         if (errorParam) {
-          throw new Error(`Authorization error: ${errorParam}`);
+          throw new Error(`QuickBooks authorization error: ${errorParam}`);
         }
 
         if (!code) {
@@ -43,97 +55,83 @@ const QuickbooksCallback = () => {
           throw new Error("Missing realm ID from QuickBooks");
         }
         
-        // Get current session first to ensure we have authentication
+        // Get current user
         const { data: sessionData } = await supabase.auth.getSession();
         const currentUser = sessionData?.session?.user || user;
         
-        // Check if we have a stored user ID from the connection initiation
+        // Use stored ID from connection initiation as fallback
         const storedUserId = sessionStorage.getItem("qb_connecting_user");
         
         if (!currentUser && !storedUserId) {
-          console.error("No authenticated user found and no stored user ID");
-          throw new Error("You must be signed in to complete this process");
+          throw new Error("Authentication required to complete this process");
         }
 
-        // Use state parameter as userId if available, otherwise use stored ID or current user's ID
+        // Determine which user ID to use (prioritize state parameter)
         const userId = state || storedUserId || currentUser?.id;
         
         if (!userId) {
           throw new Error("Could not determine user ID for QuickBooks connection");
         }
         
-        console.log("Processing callback with code, realmId, and userId", { code, realmId, userId });
+        console.log("Proceeding with token exchange:", { realmId, userId });
         
-        // Use the current origin for the redirect URI to ensure it matches what we used for authorization
+        // Use current origin for redirect URI
         const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
 
-        try {
-          // Call our edge function to exchange the code for tokens
-          const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
-            body: {
-              path: "token",
-              code,
-              realmId,
-              redirectUri,
-              userId
-            },
-          });
+        // Exchange code for tokens
+        const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
+          body: {
+            path: "token",
+            code,
+            realmId,
+            redirectUri,
+            userId
+          },
+        });
 
-          if (invokeError) {
-            console.error("Edge function error:", invokeError);
-            throw new Error(invokeError.message || "Failed to complete QuickBooks authentication");
-          }
-          
-          if (data?.error) {
-            console.error("Error from edge function:", data.error);
-            throw new Error(data.error);
-          }
-
-          // Clear the stored user ID as we no longer need it
-          sessionStorage.removeItem("qb_connecting_user");
-
-          // Make sure to refresh the QuickBooks connection status in our context
-          await refreshConnection();
-          
-          setSuccess(true);
-          toast({
-            title: "Connection Successful",
-            description: `Your QuickBooks account (${data.companyName || 'Unknown Company'}) has been connected successfully!`,
-          });
-
-          // Redirect to dashboard after a short delay
-          setTimeout(() => {
-            // Check for a stored redirect path
-            const redirectPath = sessionStorage.getItem('qb_redirect_after_connect');
-            if (redirectPath) {
-              sessionStorage.removeItem('qb_redirect_after_connect');
-              navigate(redirectPath);
-            } else {
-              navigate("/dashboard");
-            }
-          }, 1500);
-        } catch (err: any) {
-          // If there's an error but we haven't exceeded 3 attempts, try again
-          if (attempts < 2) {
-            console.log(`Retrying token exchange, attempt ${attempts + 1}`);
-            setAttempts(attempts + 1);
-            // Wait a short time before retrying
-            setTimeout(() => handleCallback(), 1000);
-            return;
-          }
-          
-          logError("Error processing QuickBooks callback", {
-            source: "QuickbooksCallback",
-            context: { err }
-          });
-          throw err;
+        if (invokeError) {
+          throw new Error(`Function error: ${invokeError.message}`);
         }
+        
+        if (data?.error) {
+          throw new Error(`QuickBooks API error: ${data.error}`);
+        }
+
+        // Clean up session storage
+        sessionStorage.removeItem("qb_connecting_user");
+
+        // Update connection status in context
+        await refreshConnection();
+        
+        // Mark as successful and show toast
+        setSuccess(true);
+        toast({
+          title: "QuickBooks Connected",
+          description: `Your QuickBooks account (${data.companyName || 'Unknown Company'}) has been connected successfully!`,
+        });
+
+        // Give UI time to update before redirecting
+        setTimeout(() => {
+          // Check for a stored redirect path
+          const redirectPath = sessionStorage.getItem('qb_redirect_after_connect');
+          if (redirectPath) {
+            sessionStorage.removeItem('qb_redirect_after_connect');
+            navigate(redirectPath);
+          } else {
+            navigate("/dashboard");
+          }
+        }, 1500);
       } catch (err: any) {
-        console.error("Error processing callback:", err);
-        setError(`Failed to complete QuickBooks connection: ${err.message || "Unknown error"}`);
+        logError("QuickBooks callback error", {
+          source: "QuickbooksCallback",
+          context: { error: err.message }
+        });
+        
+        setError(`Connection failed: ${err.message || "Unknown error"}`);
+        
         toast({
           title: "Connection Failed",
-          description: err.message || "Unable to connect to QuickBooks. Please try again.",
+          description: err.message || "Unable to connect to QuickBooks",
           variant: "destructive",
         });
       } finally {
@@ -142,11 +140,8 @@ const QuickbooksCallback = () => {
       }
     };
 
-    // Only proceed if we're not still loading auth state
-    if (!isAuthLoading) {
-      handleCallback();
-    }
-  }, [location, navigate, user, isAuthLoading, refreshConnection, attempts]);
+    processCallback();
+  }, [location, navigate, user, isAuthLoading, refreshConnection]);
 
   // Show loading state while checking session
   if (isCheckingSession || isAuthLoading) {
@@ -154,7 +149,7 @@ const QuickbooksCallback = () => {
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100">
         <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
           <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto" />
-          <p className="text-gray-600">Checking your session...</p>
+          <p className="text-gray-600">Verifying your session...</p>
         </div>
       </div>
     );

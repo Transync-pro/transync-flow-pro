@@ -1,407 +1,197 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
-import { convertToCSV, getEntitySchema, flattenQuickbooksData } from "@/services/quickbooksApi";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Download, FileDown, ChevronLeft, Calendar, CheckSquare } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DataTable } from "@/components/DataTable";
-import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { logError } from "@/utils/errorLogger";
-import { DateRange } from "react-day-picker";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/use-toast";
+import { Loader2, Filter, Download, FileJson, FileSpreadsheet } from "lucide-react";
+import DataTable from "@/components/DataTable";
+
+// Import sub-components
+import { EntitySelect } from "./Export/EntitySelect";
+import { ExportControls } from "./Export/ExportControls";
+import { FilterControls } from "./Export/FilterControls";
+import { FieldSelectionPanel } from "./Export/FieldSelectionPanel";
 
 const Export = () => {
   const navigate = useNavigate();
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
-  const [availableFields, setAvailableFields] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"preview" | "json">("preview");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [selectedAll, setSelectedAll] = useState(false);
-  
-  // Use the centralized QuickbooksEntities context
+  const { toast } = useToast();
+  const { isConnected, refreshConnection } = useQuickbooks();
   const { 
-    selectedEntity, 
+    selectedEntity,
     setSelectedEntity,
-    selectedDateRange,
-    setSelectedDateRange,
-    entityState,
-    fetchEntities,
-    entityOptions,
-    getNestedValue,
     selectedEntityIds,
     setSelectedEntityIds,
     toggleEntitySelection,
-    selectAllEntities
+    selectAllEntities,
+    entityState,
+    fetchEntities,
+    filterEntities,
+    entityOptions
   } = useQuickbooksEntities();
 
-  // Get current entity data
-  const currentEntityState = selectedEntity ? entityState[selectedEntity] : null;
-  const exportedData = currentEntityState?.records || [];
-  const isLoading = currentEntityState?.isLoading || false;
+  // Export settings state
+  const [isLoading, setIsLoading] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterValue, setFilterValue] = useState("");
+  const [filterField, setFilterField] = useState<string | null>(null);
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Get entity-specific fields based on the selected entity
-  const getEntityFields = (entityType: string): string[] => {
-    switch (entityType) {
-      case "Customer":
-        return [
-          "Id", "DisplayName", "CompanyName", "Title", "GivenName", "FamilyName",
-          "PrimaryEmailAddr.Address", "PrimaryPhone.FreeFormNumber",
-          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
-          "BillAddr.CountrySubDivisionCode", "CurrencyRef.value", "Active"
-        ];
-      case "Vendor":
-        return [
-          "Id", "DisplayName", "CompanyName", "Title", "GivenName", "FamilyName",
-          "PrimaryEmailAddr.Address", "PrimaryPhone.FreeFormNumber",
-          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
-          "BillAddr.CountrySubDivisionCode", "CurrencyRef.value", "Active"
-        ];
-      case "Item":
-        return [
-          "Id", "Name", "Type", "Sku", "UnitPrice", "IncomeAccountRef.name",
-          "Description", "SubItem", "SalesTaxCodeRef.name", "Active"
-        ];
-      case "Account":
-        return [
-          "Id", "Name", "AccountType", "AccountSubType", "AcctNum", "ParentRef.name",
-          "Description", "CurrentBalance", "CurrencyRef.value", "Active"
-        ];
-      case "Employee":
-        return [
-          "Id", "DisplayName", "HiredDate", "PrimaryPhone.FreeFormNumber",
-          "PrimaryAddr.Line1", "PrimaryAddr.City", "PrimaryAddr.CountrySubDivisionCode",
-          "PrimaryAddr.Country", "PrimaryAddr.PostalCode", "Active"
-        ];
-      case "Department":
-        return [
-          "Id", "Name", "SubDepartment", "ParentRef.name", "Active"
-        ];
-      case "Class":
-        return [
-          "Id", "Name", "SubClass", "ParentRef.name", "Active"
-        ];
-      case "Invoice":
-        return [
-          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "DueDate", "EmailStatus",
-          "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
-          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
-          "CurrencyRef.value", "TotalAmt", "Balance"
-        ];
-      case "Estimate":
-        return [
-          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "ExpirationDate", "EmailStatus",
-          "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
-          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
-          "CurrencyRef.value", "TotalAmt", "TxnStatus"
-        ];
-      case "CreditMemo":
-        return [
-          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "EmailStatus",
-          "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
-          "BillAddr.Line1", "BillAddr.City", "BillAddr.CountrySubDivisionCode",
-          "BillAddr.Country", "BillAddr.PostalCode", "CurrencyRef.value",
-          "TotalAmt", "CustomerMemo.value"
-        ];
-      case "SalesReceipt":
-        return [
-          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "DepositToAccountRef.name",
-          "EmailStatus", "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
-          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
-          "CurrencyRef.value", "TotalAmt", "PrivateNote"
-        ];
-      case "Payment":
-        return [
-          "Id", "PaymentRefNum", "CustomerRef.name", "TxnDate", "PaymentMethodRef.name",
-          "Line[0].LinkedTxn[0].TxnId", "DepositToAccountRef.name", "CurrencyRef.value", "TotalAmt"
-        ];
-      case "RefundReceipt":
-        return [
-          "Id", "DocNumber", "CustomerRef.name", "TxnDate", "DepositToAccountRef.name",
-          "PaymentMethodRef.name", "BillEmail.Address", "Line[0].SalesItemLineDetail.ItemRef.name",
-          "BillAddr.Line1", "BillAddr.City", "BillAddr.Country", "BillAddr.PostalCode",
-          "CurrencyRef.value", "PrivateNote", "PrintStatus"
-        ];
-      case "PurchaseOrder":
-        return [
-          "Id", "DocNumber", "VendorRef.name", "TxnDate", "APAccountRef.name",
-          "VendorAddr.Line1", "VendorAddr.City", "VendorAddr.Country", "VendorAddr.PostalCode",
-          "CurrencyRef.value", "TotalAmt"
-        ];
-      case "Bill":
-        return [
-          "Id", "DocNumber", "VendorRef.name", "TxnDate", "APAccountRef.name", "DueDate",
-          "Line[0].ItemBasedExpenseLineDetail.ItemRef.name",
-          "VendorAddr.Line1", "VendorAddr.City", "VendorAddr.Country", "VendorAddr.PostalCode",
-          "CurrencyRef.value", "TotalAmt"
-        ];
-      case "VendorCredit":
-        return [
-          "Id", "DocNumber", "VendorRef.name", "TxnDate", "APAccountRef.name",
-          "Line[0].ItemBasedExpenseLineDetail.ItemRef.name",
-          "VendorAddr.Line1", "VendorAddr.City", "VendorAddr.CountrySubDivisionCode",
-          "VendorAddr.Country", "VendorAddr.PostalCode", "CurrencyRef.value", "TotalAmt"
-        ];
-      case "Deposit":
-        return [
-          "Id", "PrivateNote", "DepositToAccountRef.name", "TxnDate",
-          "Line[0].DepositLineDetail.Entity.name", "Line[0].DepositLineDetail.PaymentMethodRef.name",
-          "CurrencyRef.value", "TotalAmt"
-        ];
-      case "Transfer":
-        return [
-          "Id", "FromAccountRef.name", "TxnDate", "ToAccountRef.name",
-          "PrivateNote", "CurrencyRef.value", "Amount"
-        ];
-      case "JournalEntry":
-        return [
-          "Id", "DocNumber", "PrivateNote", "TxnDate",
-          "Line[0].JournalEntryLineDetail.AccountRef.name", "TotalAmt", "CurrencyRef.value"
-        ];
-      default:
-        return ["Id", "Name", "DisplayName"];
-    }
-  };
-
-  // Generate columns for the data table
-  const generateColumns = (): ColumnDef<any>[] => {
-    // Add a selection column if we have data
-    const selectionColumn: ColumnDef<any>[] = exportedData.length > 0 ? [
-      {
-        id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={selectedAll}
-            onCheckedChange={(checked) => {
-              setSelectedAll(!!checked);
-              selectAllEntities(!!checked);
-            }}
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={selectedEntityIds.includes(row.original.Id)}
-            onCheckedChange={() => toggleEntitySelection(row.original.Id)}
-          />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-      }
-    ] : [];
-
-    // Create columns for selected fields
-    const dataColumns = selectedFields.map((field) => ({
-      accessorKey: field,
-      // Convert field names to user-friendly headers
-      header: formatFieldHeader(field),
-      cell: ({ row }) => {
-        const value = getNestedValue(row.original, field);
-        
-        // Format value based on its type
-        if (value === null || value === undefined) {
-          return "";
-        } else if (typeof value === "object") {
-          return JSON.stringify(value);
-        } else if (typeof value === "boolean") {
-          return value ? "Yes" : "No";
-        } else if (field.includes("Date") && typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}/)) {
-          // Format dates
-          return new Date(value).toLocaleDateString();
-        } else if ((field.includes("Amt") || field.includes("Price") || field.includes("Cost") || field.includes("Balance")) && typeof value === "number") {
-          // Format currency
-          return `$${value.toFixed(2)}`;
-        }
-        
-        return String(value);
-      },
-    }));
-
-    return [...selectionColumn, ...dataColumns];
-  };
-
-  // Format field names to user-friendly headers
-  const formatFieldHeader = (field: string): string => {
-    // Handle nested fields
-    if (field.includes('.')) {
-      const parts = field.split('.');
-      const lastPart = parts[parts.length - 1];
-      
-      // Handle array notation
-      if (lastPart.includes('[')) {
-        return formatFieldHeader(lastPart.split('[')[0]);
-      }
-      
-      return formatFieldHeader(lastPart);
-    }
-    
-    // Handle array notation without dot
-    if (field.includes('[')) {
-      return formatFieldHeader(field.split('[')[0]);
-    }
-    
-    // Format camelCase to Title Case with spaces
-    return field
-      // Insert a space before all uppercase letters
-      .replace(/([A-Z])/g, ' $1')
-      // Replace specific abbreviations
-      .replace(/\bId\b/g, 'ID')
-      .replace(/\bRef\b/g, 'Reference')
-      .replace(/\bAddr\b/g, 'Address')
-      .replace(/\bAmt\b/g, 'Amount')
-      .replace(/\bNum\b/g, 'Number')
-      .replace(/\bTxn\b/g, 'Transaction')
-      .replace(/\bAcct\b/g, 'Account')
-      // Capitalize the first letter
-      .replace(/^./, (str) => str.toUpperCase())
-      // Trim any leading/trailing spaces
-      .trim();
-  };
-
-  // Reset fields when entity changes
+  // State for selected fields for export
   useEffect(() => {
-    if (selectedEntity) {
-      // Get entity-specific fields for the selected entity
-      const entityFields = getEntityFields(selectedEntity);
-      setAvailableFields(entityFields);
-      setSelectedFields(entityFields);
-      
-      // Important: Do NOT fetch entities automatically
-      // This prevents the issue #3 - we only fetch when user explicitly requests it
+    if (selectedEntity && entityState[selectedEntity]?.records) {
+      // Default to all fields when entity changes
+      const allFields = getAvailableFields();
+      setSelectedFields(allFields);
     }
-  }, [selectedEntity]);
+  }, [selectedEntity, entityState]);
 
-  // Handle date range change
-  useEffect(() => {
-    if (dateRange) {
-      setSelectedDateRange(dateRange);
-    }
-  }, [dateRange, setSelectedDateRange]);
-
-  // Handle field selection
-  const handleFieldToggle = (field: string) => {
-    setSelectedFields((prev) =>
-      prev.includes(field)
-        ? prev.filter((f) => f !== field)
-        : [...prev, field]
-    );
+  // Get entity records with applied filters
+  const getEntityRecords = () => {
+    if (!selectedEntity || !entityState[selectedEntity]) return [];
+    
+    return entityState[selectedEntity].filteredRecords || [];
   };
 
-  // Handle entity selection with explicit fetch
-  const handleEntitySelect = (entity: string) => {
+  // Get available fields from the first record
+  const getAvailableFields = () => {
+    const records = getEntityRecords();
+    if (records.length === 0) return [];
+    
+    const firstRecord = records[0];
+    return Object.keys(firstRecord || {});
+  };
+
+  // Handle entity change
+  const handleEntityChange = (entity: string) => {
     setSelectedEntity(entity);
-    // Clear any previous data to avoid confusion
-    // Let the user explicitly request data by clicking "Fetch Data"
+    setSelectedEntityIds([]);
+    setFilterValue("");
+    setFilterField(null);
+    loadEntityData(entity);
   };
 
-  // Explicitly fetch data when requested by user
-  const handleFetchData = async () => {
+  // Load entity data
+  const loadEntityData = async (entity: string) => {
+    if (!entity) return;
+    
+    setIsLoading(true);
     try {
-      if (!selectedEntity) {
+      await fetchEntities(entity);
+    } catch (error) {
+      toast({
+        title: "Error Loading Data",
+        description: "Failed to load QuickBooks data. Please try again.",
+        variant: "destructive",
+      });
+      logError(`Error loading ${entity} data`, {
+        source: "Export",
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle filter change
+  const handleFilterChange = () => {
+    if (!selectedEntity) return;
+    
+    filterEntities(selectedEntity, filterField || "", filterValue);
+  };
+
+  // Convert records to CSV
+  const convertToCSV = (records: any[], fields: string[]) => {
+    if (!records || records.length === 0) return "";
+    
+    const header = fields.join(",");
+    const rows = records.map(record => {
+      return fields.map(field => {
+        // Handle different value types
+        const value = record[field];
+        if (value === null || value === undefined) return "";
+        if (typeof value === "object") return JSON.stringify(value).replace(/"/g, '""');
+        return `"${String(value).replace(/"/g, '""')}"`;
+      }).join(",");
+    });
+    
+    return [header, ...rows].join("\n");
+  };
+
+  // Download all records as CSV or JSON
+  const handleDownloadAll = (exportFormat: "csv" | "json") => {
+    try {
+      const records = getEntityRecords();
+      if (!records || records.length === 0) {
         toast({
-          title: "Select Entity",
-          description: "Please select an entity type first.",
+          title: "No Data to Export",
+          description: "There are no records to export.",
           variant: "destructive",
         });
         return;
       }
       
-      await fetchEntities();
-    } catch (error) {
-      logError(`Error fetching ${selectedEntity} data`, {
-        source: "Export",
-        stack: error instanceof Error ? error.stack : undefined,
-        context: { selectedEntity }
-      });
-    }
-  };
-
-  // Fixed: Use proper event parameter instead of optional data parameter
-  const downloadCSV = (e?: React.MouseEvent<HTMLButtonElement>) => {
-    const data = exportedData;
-    
-    if (!data.length || !selectedFields.length) return;
-    
-    try {
-      // Convert data to CSV
-      const csv = convertToCSV(data, selectedFields);
+      const currentDate = format(new Date(), "yyyy-MM-dd");
       
-      // Create download link
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
-        `${selectedEntity}_export_${format(new Date(), "yyyy-MM-dd")}.csv`
-      );
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Download Started",
-        description: `Your ${selectedEntity} data is being downloaded as CSV.`,
-      });
-    } catch (error) {
-      logError("Download CSV error", {
-        source: "Export",
-        stack: error instanceof Error ? error.stack : undefined,
-        context: { selectedEntity }
-      });
+      if (exportFormat === "csv") {
+        const csv = convertToCSV(records, selectedFields);
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${selectedEntity}_export_${currentDate}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Filter records to only include selected fields
+        const filteredRecords = records.map(record => {
+          const filteredRecord: Record<string, any> = {};
+          selectedFields.forEach(field => {
+            filteredRecord[field] = record[field];
+          });
+          return filteredRecord;
+        });
+        
+        const json = JSON.stringify(filteredRecords, null, 2);
+        const blob = new Blob([json], { type: "application/json;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${selectedEntity}_export_${currentDate}.json`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
       
       toast({
-        title: "Download Failed",
-        description: "Failed to generate CSV file.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Fixed: Use proper event parameter instead of optional data parameter
-  const downloadJSON = (e?: React.MouseEvent<HTMLButtonElement>) => {
-    const data = exportedData;
-    
-    if (!data.length) return;
-    
-    try {
-      // Create download link for JSON
-      const json = JSON.stringify(data, null, 2);
-      const blob = new Blob([json], { type: "application/json;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
-        `${selectedEntity}_export_${format(new Date(), "yyyy-MM-dd")}.json`
-      );
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Download Started",
-        description: `Your ${selectedEntity} data is being downloaded as JSON.`,
+        title: "Export Successful",
+        description: `Exported ${records.length} records as ${exportFormat.toUpperCase()}`,
       });
     } catch (error) {
-      logError("Download JSON error", {
+      logError(`Error exporting all records as ${exportFormat}`, {
         source: "Export",
         stack: error instanceof Error ? error.stack : undefined,
         context: { selectedEntity }
       });
       
       toast({
-        title: "Download Failed",
-        description: "Failed to generate JSON file.",
+        title: "Export Failed",
+        description: "An error occurred while exporting data.",
         variant: "destructive",
       });
     }
@@ -413,14 +203,14 @@ const Export = () => {
       if (selectedEntityIds.length === 0) {
         toast({
           title: "No Records Selected",
-          description: "Please select at least one record to export",
+          description: "Please select records to export.",
           variant: "destructive",
         });
         return;
       }
-
-      // Filter the data to only include selected records
-      const selectedData = exportedData.filter(record => 
+      
+      const records = getEntityRecords();
+      const selectedData = records.filter(record => 
         selectedEntityIds.includes(record.Id)
       );
 
@@ -442,9 +232,9 @@ const Export = () => {
         link.click();
         document.body.removeChild(link);
       } else {
-        // Use a modified version of downloadJSON that accepts the filtered data
+        // Export as JSON
         const json = JSON.stringify(selectedData, null, 2);
-        const blob = new Blob([json], { type: "application/json;charset=utf-8;" });
+        const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
@@ -468,253 +258,191 @@ const Export = () => {
         stack: error instanceof Error ? error.stack : undefined,
         context: { selectedEntity, selectedEntityIds }
       });
-      
-      toast({
-        title: "Export Failed",
-        description: `Failed to export selected records: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive",
-      });
     }
   };
 
-  // Go back to dashboard
-  const handleBackToDashboard = () => {
-    navigate('/dashboard');
+  // Handle field selection toggle
+  const handleFieldToggle = (field: string) => {
+    setSelectedFields(prev => {
+      if (prev.includes(field)) {
+        return prev.filter(f => f !== field);
+      } else {
+        return [...prev, field];
+      }
+    });
   };
 
+  // Select or deselect all fields
+  const handleSelectAllFields = (select: boolean) => {
+    if (select) {
+      setSelectedFields(getAvailableFields());
+    } else {
+      setSelectedFields([]);
+    }
+  };
+
+  // Check connection on mount
+  useEffect(() => {
+    refreshConnection();
+  }, [refreshConnection]);
+
+  // Filter fields by search query
+  const filteredFields = getAvailableFields().filter(field => 
+    field.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <Button 
-          variant="outline" 
-          onClick={handleBackToDashboard} 
-          className="flex items-center gap-2"
-        >
-          <ChevronLeft size={16} />
-          Back to Dashboard
-        </Button>
-        <h1 className="text-2xl font-semibold">Export QuickBooks Data</h1>
-      </div>
+    <DashboardLayout>
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold gradient-text">Export Data</h1>
+          <p className="text-gray-600 mt-2">
+            Export your QuickBooks data to CSV or JSON format
+          </p>
+        </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Export Settings</CardTitle>
-          <CardDescription>
-            Select the entity type and click "Fetch Data" to load records
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            <div>
-              <Label htmlFor="entity-type">Entity Type</Label>
-              <Select
-                value={selectedEntity || ""}
-                onValueChange={handleEntitySelect}
-              >
-                <SelectTrigger id="entity-type">
-                  <SelectValue placeholder="Select an entity type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {entityOptions.map((entity) => (
-                    <SelectItem key={entity.value} value={entity.value}>
-                      {entity.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Select Data to Export</CardTitle>
+              <CardDescription>
+                Choose an entity type and export format
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <EntitySelect 
+                selectedEntity={selectedEntity}
+                entityOptions={entityOptions}
+                onChange={handleEntityChange}
+              />
 
-            {selectedEntity && (
-              <>
-                <div className="flex flex-col space-y-2">
-                  <Label>Date Range (Optional)</Label>
-                  <div className="flex items-center space-x-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {dateRange?.from ? (
-                            dateRange.to ? (
-                              <>
-                                {format(dateRange.from, "LLL dd, y")} -{" "}
-                                {format(dateRange.to, "LLL dd, y")}
-                              </>
-                            ) : (
-                              format(dateRange.from, "LLL dd, y")
-                            )
-                          ) : (
-                            <span>Select date range</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          initialFocus
-                          mode="range"
-                          defaultMonth={dateRange?.from}
-                          selected={dateRange}
-                          onSelect={setDateRange}
-                          numberOfMonths={2}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    {dateRange && dateRange.from && (
+              {selectedEntity && (
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row justify-between gap-4">
+                    <div className="flex items-center space-x-2">
                       <Button 
-                        variant="ghost" 
-                        onClick={() => setDateRange(undefined)}
-                        size="sm"
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowFilter(!showFilter)}
                       >
-                        Clear
+                        <Filter className="h-4 w-4 mr-2" />
+                        {showFilter ? "Hide Filter" : "Show Filter"}
                       </Button>
-                    )}
-                  </div>
-                </div>
+                    </div>
 
-                <Button
-                  onClick={handleFetchData}
-                  disabled={isLoading}
-                  className="flex items-center"
-                >
-                  {isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  {isLoading ? "Loading Data..." : "Fetch Data"}
-                </Button>
-
-                {exportedData.length > 0 && (
-                  <div>
-                    <Label>Select Fields to Export</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-2">
-                      {availableFields.map((field) => (
-                        <div
-                          key={field}
-                          className="flex items-center space-x-2"
-                        >
-                          <Checkbox
-                            id={`field-${field}`}
-                            checked={selectedFields.includes(field)}
-                            onCheckedChange={() => handleFieldToggle(field)}
-                          />
-                          <Label
-                            htmlFor={`field-${field}`}
-                            className="text-sm cursor-pointer"
-                          >
-                            {field}
-                          </Label>
-                        </div>
-                      ))}
+                    <div className="space-x-2 flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadAll("csv")}
+                        disabled={isLoading || !entityState[selectedEntity]?.records?.length}
+                      >
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Export All as CSV
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadAll("json")}
+                        disabled={isLoading || !entityState[selectedEntity]?.records?.length}
+                      >
+                        <FileJson className="h-4 w-4 mr-2" />
+                        Export All as JSON
+                      </Button>
                     </div>
                   </div>
-                )}
 
-                {exportedData.length > 0 && (
-                  <div>
-                    <Label>Preview Mode</Label>
-                    <Tabs
-                      value={viewMode}
-                      onValueChange={(v) => setViewMode(v as "preview" | "json")}
-                      className="mt-2"
-                    >
-                      <TabsList>
-                        <TabsTrigger value="preview">Table Preview</TabsTrigger>
-                        <TabsTrigger value="json">JSON View</TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+                  {showFilter && (
+                    <FilterControls 
+                      filterField={filterField}
+                      filterValue={filterValue}
+                      availableFields={getAvailableFields()}
+                      setFilterField={setFilterField}
+                      setFilterValue={setFilterValue}
+                      onApplyFilter={handleFilterChange}
+                    />
+                  )}
 
-      {selectedEntity && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>
-              {selectedEntity} Data Preview
-              {exportedData.length > 0 && ` (${exportedData.length} records)`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex flex-col items-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                <p className="mt-4">Loading {selectedEntity} data...</p>
-              </div>
-            ) : exportedData.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No {selectedEntity} data found. Click "Fetch Data" above to load records.
-              </div>
-            ) : viewMode === "preview" ? (
-              <div className="overflow-x-auto">
-                <DataTable
-                  columns={generateColumns()}
-                  data={exportedData}
-                  pageSize={10}
-                  className="w-full"
-                />
-              </div>
-            ) : (
-              <pre className="bg-gray-100 p-4 rounded-md overflow-auto max-h-96">
-                {JSON.stringify(exportedData, null, 2)}
-              </pre>
-            )}
-          </CardContent>
-          {exportedData.length > 0 && (
-            <CardFooter className="flex justify-end space-x-2">
-              <div className="mr-auto">
-                {selectedEntityIds.length > 0 && (
-                  <span className="text-sm text-muted-foreground">
-                    {selectedEntityIds.length} record{selectedEntityIds.length !== 1 ? 's' : ''} selected
-                  </span>
-                )}
-              </div>
-              {selectedEntityIds.length > 0 ? (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handleExportSelected("json")}
-                    className="flex items-center"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Export Selected as JSON
-                  </Button>
-                  <Button
-                    onClick={handleExportSelected("csv")}
-                    className="flex items-center"
-                  >
-                    <FileDown className="mr-2 h-4 w-4" />
-                    Export Selected as CSV
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={downloadJSON}
-                    className="flex items-center"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Export All as JSON
-                  </Button>
-                  <Button
-                    onClick={downloadCSV}
-                    className="flex items-center"
-                  >
-                    <FileDown className="mr-2 h-4 w-4" />
-                    Export All as CSV
-                  </Button>
-                </>
+                  <Tabs defaultValue="data">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="data">Data Preview</TabsTrigger>
+                      <TabsTrigger value="fields">Field Selection</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="data">
+                      {isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                          <p className="mt-2 text-sm text-gray-500">Loading data...</p>
+                        </div>
+                      ) : !entityState[selectedEntity]?.records?.length ? (
+                        <div className="text-center py-12 border rounded-md">
+                          <p className="text-gray-500">No data available for this entity type.</p>
+                          <Button className="mt-4" onClick={() => loadEntityData(selectedEntity)}>
+                            Load Data
+                          </Button>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
+                            <div>
+                              <p className="text-sm text-gray-500">
+                                {entityState[selectedEntity]?.filteredRecords?.length || 0} records found
+                              </p>
+                            </div>
+                            <div className="space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleExportSelected("csv")}
+                                disabled={selectedEntityIds.length === 0}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Export Selected as CSV
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleExportSelected("json")}
+                                disabled={selectedEntityIds.length === 0}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Export Selected as JSON
+                              </Button>
+                            </div>
+                          </div>
+
+                          <DataTable
+                            data={entityState[selectedEntity]?.filteredRecords || []}
+                            fields={selectedFields}
+                            selectedIds={selectedEntityIds}
+                            onToggleSelect={toggleEntitySelection}
+                            onSelectAll={(select) => selectAllEntities(select, entityState[selectedEntity]?.filteredRecords)}
+                          />
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    <TabsContent value="fields">
+                      <FieldSelectionPanel 
+                        availableFields={getAvailableFields()}
+                        selectedFields={selectedFields}
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        onFieldToggle={handleFieldToggle}
+                        onSelectAll={handleSelectAllFields}
+                        filteredFields={filteredFields}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </div>
               )}
-            </CardFooter>
-          )}
-        </Card>
-      )}
-    </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </DashboardLayout>
   );
 };
 

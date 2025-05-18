@@ -68,6 +68,13 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     refreshConnection
   };
 
+  console.log('QuickBooks context state:', { 
+    isConnected, 
+    isLoading,
+    realmId: realmId ? 'present' : 'null',
+    companyName 
+  });
+
   return (
     <QuickbooksContext.Provider value={value}>
       {children}

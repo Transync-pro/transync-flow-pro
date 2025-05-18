@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { QuickbooksConnection } from "./types";
 import { User } from "@supabase/supabase-js";
@@ -13,28 +13,22 @@ export const useQBConnectionStatus = (user: User | null) => {
   const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
   const checkInProgress = useRef<boolean>(false);
   const lastCheckTime = useRef<number>(0);
-  const failedChecks = useRef<number>(0);
-  const MAX_FAILED_CHECKS = 3;
-  const MIN_CHECK_INTERVAL = 5000; // 5 seconds
-  const BACKOFF_TIME = 30000; // 30 seconds
 
-  useEffect(() => {
-    if (user) {
-      checkConnectionStatus();
-    } else {
+  // Check connection status
+  const checkConnectionStatus = useCallback(async () => {
+    if (!user) {
       resetConnectionState();
       setIsLoading(false);
+      return;
     }
-  }, [user]);
-
-  const checkConnectionStatus = async () => {
-    if (!user) return;
     
-    // Prevent concurrent checks and throttle frequent checks
+    // Prevent concurrent checks
     if (checkInProgress.current) return;
     
+    // Don't check too frequently
     const now = Date.now();
-    if (now - lastCheckTime.current < MIN_CHECK_INTERVAL) {
+    const throttleTime = 2000; // 2 seconds
+    if (now - lastCheckTime.current < throttleTime) {
       return;
     }
     
@@ -43,52 +37,35 @@ export const useQBConnectionStatus = (user: User | null) => {
     lastCheckTime.current = now;
     
     try {
-      // Check if we already have a connection in state
-      if (connection && isConnected) {
-        checkInProgress.current = false;
-        setIsLoading(false);
-        return;
-      }
+      console.log('Checking QuickBooks connection for user:', user.id);
       
-      // Query the QuickBooks connections table for this user
+      // Query the QuickBooks connections table
       const { data, error } = await supabase
         .from('quickbooks_connections')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid 406 errors
+        .maybeSingle();
       
-      // PGRST116 is expected when no rows are returned
       if (error && error.code !== 'PGRST116') {
-        console.log("Error checking QuickBooks connection:", error);
-        
-        // Increment failed check counter
-        failedChecks.current += 1;
-        
-        if (failedChecks.current >= MAX_FAILED_CHECKS) {
-          // After multiple failures, back off for a longer period
-          lastCheckTime.current = now + BACKOFF_TIME;
-          console.log(`Backing off connection checks for ${BACKOFF_TIME/1000} seconds after multiple failures`);
-        }
-        
-        // Only reset connection if we've had multiple failures
-        if (failedChecks.current >= MAX_FAILED_CHECKS) {
-          resetConnectionState();
-        }
+        console.error("Error checking QuickBooks connection:", error);
+        resetConnectionState();
         return;
       }
       
-      // Reset failed checks counter on success
-      failedChecks.current = 0;
-      
       if (data) {
-        // Ensure we cast the data to our expected type with optional company_name
-        const connection = data as QuickbooksConnection;
-        setConnection(connection);
+        // Connection found
+        const qbConnection = data as QuickbooksConnection;
+        setConnection(qbConnection);
         setIsConnected(true);
-        setRealmId(connection.realm_id);
-        // Handle potentially missing company_name safely
-        setCompanyName(connection.company_name || null);
+        setRealmId(qbConnection.realm_id);
+        setCompanyName(qbConnection.company_name || null);
+        console.log('QuickBooks connection found:', { 
+          realmId: qbConnection.realm_id,
+          companyName: qbConnection.company_name
+        });
       } else {
+        // No connection found
+        console.log('No QuickBooks connection found for user:', user.id);
         resetConnectionState();
       }
     } catch (error: any) {
@@ -98,33 +75,32 @@ export const useQBConnectionStatus = (user: User | null) => {
         context: { error }
       });
       
-      // Increment failed check counter
-      failedChecks.current += 1;
-      
-      // Only reset connection if we've had multiple failures
-      if (failedChecks.current >= MAX_FAILED_CHECKS) {
-        resetConnectionState();
-      }
+      resetConnectionState();
     } finally {
       setIsLoading(false);
       checkInProgress.current = false;
     }
-  };
+  }, [user]);
 
-  const resetConnectionState = () => {
+  // Reset connection state
+  const resetConnectionState = useCallback(() => {
     setIsConnected(false);
     setRealmId(null);
     setCompanyName(null);
     setConnection(null);
-  };
+  }, []);
 
-  const refreshConnection = async () => {
-    // Reset the failed checks counter to ensure we try again
-    failedChecks.current = 0;
-    // Reset the last check time to ensure we check immediately
+  // Check connection on mount and when user changes
+  useEffect(() => {
+    checkConnectionStatus();
+  }, [user, checkConnectionStatus]);
+
+  // Public refresh method
+  const refreshConnection = useCallback(async () => {
+    // Reset throttling to ensure immediate check
     lastCheckTime.current = 0;
     await checkConnectionStatus();
-  };
+  }, [checkConnectionStatus]);
 
   return {
     isConnected,

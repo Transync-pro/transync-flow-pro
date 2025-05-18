@@ -21,74 +21,77 @@ const RouteGuard = ({
   isPublicOnly = false
 }: RouteGuardProps) => {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { isConnected, isLoading: isQbLoading, refreshConnection } = useQuickbooks();
+  const { isConnected, refreshConnection } = useQuickbooks();
   const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const location = useLocation();
   const checkInProgress = useRef(false);
-  const lastCheckTime = useRef(0);
-  const MIN_CHECK_INTERVAL = 1000; // 1 second
-  
-  // Check if the current route is the QuickBooks callback route
+  const checkCompleted = useRef(false);
+
+  // Flag special routes
   const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
+  const isDisconnectedRoute = location.pathname === "/disconnected";
   
   // Direct database check for QuickBooks connection
   const checkQbConnectionDirectly = useCallback(async () => {
-    if (!user || checkInProgress.current) {
-      return false;
+    // Skip check if already completed or in progress
+    if (checkCompleted.current || checkInProgress.current || !user) {
+      return hasQbConnection;
     }
     
-    // Throttle checks
-    const now = Date.now();
-    if (now - lastCheckTime.current < MIN_CHECK_INTERVAL) {
-      return hasQbConnection; // Return current state if checking too frequently
-    }
-
-    // Set flag to prevent concurrent checks
+    // Prevent concurrent checks
     checkInProgress.current = true;
-    lastCheckTime.current = now;
 
     try {
-      // Query the database directly to check connection status
+      // Log the check for debugging
+      console.log('RouteGuard: Checking QB connection for user', user.id);
+      
+      // Query the database directly
       const { data, error } = await supabase
         .from('quickbooks_connections')
         .select('id')
         .eq('user_id', user.id)
-        .maybeSingle(); // Use maybeSingle() instead of single() to avoid 406 errors
+        .maybeSingle();
       
-      const hasConnection = !error && !!data;
+      const connectionExists = !error && !!data;
       
-      console.log('RouteGuard: Direct QB connection check result:', hasConnection);
+      console.log('RouteGuard: QB connection check result:', connectionExists);
       
-      // Update state based on what we found
-      setHasQbConnection(hasConnection);
+      // Update state based on database check
+      setHasQbConnection(connectionExists);
       
-      // If we found a connection but isConnected is false, refresh connection in the context
-      if (hasConnection && !isConnected) {
+      // If we found a connection but the context doesn't know yet, refresh it
+      if (connectionExists && !isConnected) {
         await refreshConnection();
       }
       
-      return hasConnection;
+      // Mark check as completed - we only need to do this once per component mount
+      checkCompleted.current = true;
+      
+      return connectionExists;
     } catch (error: any) {
-      logError("Error checking QB connection directly", {
+      logError("Error checking QB connection", {
         source: "RouteGuard",
         stack: error instanceof Error ? error.stack : undefined,
         context: { userId: user.id }
       });
-      return hasQbConnection; // Return current state on error
+      return false;
     } finally {
       checkInProgress.current = false;
     }
   }, [user, isConnected, refreshConnection, hasQbConnection]);
 
-  // Initial check on mount and when dependencies change
+  // Check access on mount and when dependencies change
   useEffect(() => {
+    // Reset completed flag on dependency changes
+    checkCompleted.current = false;
+    
     const checkAccess = async () => {
       // Wait for auth to load first
       if (isAuthLoading) return;
       
-      // If we don't need QuickBooks or we're on the callback route, we can finish checking immediately
-      if (!requiresQuickbooks || isQbCallbackRoute) {
+      // Skip QB check for special routes
+      if (isQbCallbackRoute || isDisconnectedRoute) {
         setIsChecking(false);
         return;
       }
@@ -104,9 +107,9 @@ const RouteGuard = ({
     };
     
     checkAccess();
-  }, [isAuthLoading, requiresQuickbooks, user, checkQbConnectionDirectly, isQbCallbackRoute]);
+  }, [isAuthLoading, requiresQuickbooks, user, checkQbConnectionDirectly, isQbCallbackRoute, isDisconnectedRoute]);
 
-  // Show loading state while checking session
+  // Show loading state while checking
   if (isChecking) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
@@ -116,22 +119,27 @@ const RouteGuard = ({
     );
   }
 
-  // Redirect authenticated users away from public-only pages (login, signup, etc.)
+  // Redirect authenticated users away from public-only pages
   if (isPublicOnly && user) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Redirect unauthenticated users from protected pages to login
+  // Redirect unauthenticated users to login
   if (requiresAuth && !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Don't redirect from the callback route - this is critical to let the callback complete
+  // Special case: don't redirect from the callback route
   if (isQbCallbackRoute) {
     return <>{children}</>;
   }
+  
+  // Special case: don't redirect from the disconnected route
+  if (isDisconnectedRoute) {
+    return <>{children}</>;
+  }
 
-  // If QuickBooks is required and the user doesn't have a connection, redirect to disconnected page
+  // If QuickBooks is required and not connected, redirect to disconnected page
   if (requiresQuickbooks && user && !hasQbConnection && !isQbCallbackRoute) {
     console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
     // Store the current location to redirect back after connecting
