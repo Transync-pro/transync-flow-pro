@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -112,15 +111,18 @@ const Export = () => {
   const handleFilterChange = () => {
     if (!selectedEntity || !filterField) return;
     
-    // Fixed: Pass only two arguments to filterEntities
-    filterEntities(selectedEntity, filterField, filterValue);
+    // Fix: Pass only field and value to filterEntities, as the function signature requires
+    filterEntities(selectedEntity, {
+      field: filterField,
+      value: filterValue
+    });
   };
 
   // Convert records to CSV
   const convertToCSV = (records: EntityRecord[], fields: string[]) => {
     if (!records || records.length === 0) return "";
     
-    const header = fields.join(",");
+    const header = fields.join(',');
     const rows = records.map(record => {
       return fields.map(field => {
         // Handle different value types
@@ -222,7 +224,7 @@ const Export = () => {
       const currentDate = format(new Date(), "yyyy-MM-dd");
       
       if (exportFormat === "csv") {
-        // Use a modified version of downloadCSV that accepts the filtered data
+        // Fix: Changed to use the convertToCSV function that accepts array data
         const csv = convertToCSV(selectedData, selectedFields);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
@@ -301,7 +303,7 @@ const Export = () => {
     if (!selectedEntity || !entityState[selectedEntity]?.filteredRecords?.length) {
       return {
         data: [],
-        columns: [] // Keep columns as an empty array for compatibility
+        columns: []
       };
     }
 
