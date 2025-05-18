@@ -15,6 +15,19 @@ export interface EntityState {
   error: string | null;
 }
 
+// Adding the missing EntityOption interface
+export interface EntityOption {
+  value: string;
+  label: string;
+}
+
+// Adding the missing EntityColumnConfig interface
+export interface EntityColumnConfig {
+  field: string;
+  header: string;
+  accessor?: (record: any) => any;
+}
+
 // Adding the missing QuickbooksConnection interface
 export interface QuickbooksConnection {
   id: string;

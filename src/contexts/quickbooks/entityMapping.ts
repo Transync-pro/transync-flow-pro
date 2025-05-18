@@ -1,4 +1,3 @@
-
 import { EntityOption, EntityColumnConfig } from "./types";
 
 export const getEntityOptions = (): EntityOption[] => {
@@ -191,7 +190,7 @@ export const getEntityColumns = (entityType: string): EntityColumnConfig[] => {
       { field: "BillEmail.Address", header: "Email Id" },
       { field: "Line[0].SalesItemLineDetail.ItemRef.name", header: "Product/Service" },
       { field: "BillAddr.Line1", header: "Address Line 1" },
-      { field: "BillAddr.City", header: "Address City" },
+      { field: "BillAddr.City", header: "Billing Address City" },
       { field: "BillAddr.CountrySubDivisionCode", header: "Address Subdivision" },
       { field: "BillAddr.Country", header: "Address Country" },
       { field: "BillAddr.PostalCode", header: "Address Postal Code" },
