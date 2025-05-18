@@ -111,9 +111,8 @@ const Export = () => {
   const handleFilterChange = () => {
     if (!selectedEntity || !filterField) return;
     
-    // Fix: Pass condition object instead of separate parameters
-    const condition = { field: filterField, value: filterValue };
-    filterEntities(selectedEntity, condition);
+    // Fix: Pass the search term (filterValue) and the entity type
+    filterEntities(filterValue, selectedEntity);
   };
 
   // Convert records to CSV
