@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -409,7 +408,7 @@ const Export = () => {
   };
 
   // Handle export of selected records
-  const handleExportSelected = (format: "csv" | "json") => (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleExportSelected = (exportFormat: "csv" | "json") => (e: React.MouseEvent<HTMLButtonElement>) => {
     try {
       if (selectedEntityIds.length === 0) {
         toast({
@@ -425,7 +424,9 @@ const Export = () => {
         selectedEntityIds.includes(record.Id)
       );
 
-      if (format === "csv") {
+      const currentDate = format(new Date(), "yyyy-MM-dd");
+      
+      if (exportFormat === "csv") {
         // Use a modified version of downloadCSV that accepts the filtered data
         const csv = convertToCSV(selectedData, selectedFields);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -434,7 +435,7 @@ const Export = () => {
         link.setAttribute("href", url);
         link.setAttribute(
           "download",
-          `${selectedEntity}_selected_export_${format(new Date(), "yyyy-MM-dd")}.csv`
+          `${selectedEntity}_selected_export_${currentDate}.csv`
         );
         link.style.visibility = "hidden";
         document.body.appendChild(link);
@@ -449,7 +450,7 @@ const Export = () => {
         link.setAttribute("href", url);
         link.setAttribute(
           "download",
-          `${selectedEntity}_selected_export_${format(new Date(), "yyyy-MM-dd")}.json`
+          `${selectedEntity}_selected_export_${currentDate}.json`
         );
         link.style.visibility = "hidden";
         document.body.appendChild(link);
@@ -459,10 +460,10 @@ const Export = () => {
 
       toast({
         title: "Export Successful",
-        description: `Exported ${selectedEntityIds.length} selected records as ${format.toUpperCase()}`,
+        description: `Exported ${selectedEntityIds.length} selected records as ${exportFormat.toUpperCase()}`,
       });
     } catch (error) {
-      logError(`Error exporting selected records as ${format}`, {
+      logError(`Error exporting selected records as ${exportFormat}`, {
         source: "Export",
         stack: error instanceof Error ? error.stack : undefined,
         context: { selectedEntity, selectedEntityIds }
