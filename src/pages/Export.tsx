@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -30,6 +31,8 @@ const Export = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
+  const [selectedRecords, setSelectedRecords] = useState<Record<string, boolean>>({});
+  const [selectAllRecords, setSelectAllRecords] = useState(false);
   
   const {
     selectedEntity,
@@ -64,11 +67,20 @@ const Export = () => {
     setSelectedFields([]);
     setSelectAllFields(false);
     setPageIndex(0);
+    setSelectedRecords({});
+    setSelectAllRecords(false);
   }, [selectedEntity, entityState]);
 
   // Get entity records with applied filters
   const getEntityRecords = (): EntityRecord[] => {
     if (!selectedEntity || !entityState[selectedEntity]) return [];
+    
+    // If there are selected records, only return those
+    if (Object.keys(selectedRecords).length > 0) {
+      return entityState[selectedEntity].filteredRecords.filter(record => 
+        record.Id && selectedRecords[record.Id]
+      );
+    }
     
     return entityState[selectedEntity].filteredRecords || [];
   };
@@ -89,6 +101,8 @@ const Export = () => {
     setSelectAllFields(false);
     setSearchTerm("");
     setPageIndex(0);
+    setSelectedRecords({});
+    setSelectAllRecords(false);
   };
 
   // Explicitly fetch data when requested by user
@@ -133,6 +147,33 @@ const Export = () => {
       setSelectedFields([]);
     }
   };
+
+  // Handle record selection
+  const toggleRecordSelection = (recordId: string) => {
+    setSelectedRecords(prev => ({
+      ...prev,
+      [recordId]: !prev[recordId]
+    }));
+  };
+
+  // Handle select all records on current page
+  const toggleSelectAllRecords = () => {
+    const newSelectAll = !selectAllRecords;
+    setSelectAllRecords(newSelectAll);
+    
+    const newSelectedRecords = { ...selectedRecords };
+    
+    paginatedRecords.forEach(record => {
+      if (record.Id) {
+        newSelectedRecords[record.Id] = newSelectAll;
+      }
+    });
+    
+    setSelectedRecords(newSelectedRecords);
+  };
+
+  // Count selected records
+  const selectedRecordsCount = Object.values(selectedRecords).filter(Boolean).length;
 
   // Export data to CSV
   const handleExport = () => {
@@ -191,8 +232,29 @@ const Export = () => {
       return [];
     }
 
-    // Add S. No. column as first column
+    // Add checkbox column as first column
     const columns: ColumnDef<any>[] = [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={selectAllRecords}
+            onCheckedChange={toggleSelectAllRecords}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => {
+          const recordId = row.original.Id;
+          return recordId ? (
+            <Checkbox
+              checked={!!selectedRecords[recordId]}
+              onCheckedChange={() => toggleRecordSelection(recordId)}
+              aria-label="Select row"
+            />
+          ) : null;
+        },
+        size: 40,
+      },
       {
         accessorFn: (_, index) => pageIndex * pageSize + index + 1,
         header: "S. No.",
@@ -397,6 +459,13 @@ const Export = () => {
                 <span className="text-sm text-muted-foreground">.csv</span>
               </div>
             </div>
+            
+            {selectedRecordsCount > 0 && (
+              <div className="bg-muted p-2 rounded-md text-sm">
+                <p>{selectedRecordsCount} record(s) selected for export</p>
+              </div>
+            )}
+            
             {filteredRecords.length > 0 && (
               <Button
                 className="w-full flex items-center justify-center gap-2"
@@ -404,7 +473,9 @@ const Export = () => {
                 disabled={selectedFields.length === 0}
               >
                 <Download className="h-4 w-4" />
-                Export to CSV
+                {selectedRecordsCount > 0 
+                  ? `Export ${selectedRecordsCount} Selected Record${selectedRecordsCount > 1 ? 's' : ''}`
+                  : 'Export All Records'}
               </Button>
             )}
             
@@ -447,11 +518,12 @@ const Export = () => {
           <CardTitle>
             {selectedEntity || "Entity"} Records
             {filteredRecords.length > 0 && ` (${filteredRecords.length})`}
+            {selectedRecordsCount > 0 && ` • ${selectedRecordsCount} selected`}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {/* Modified to show more results without scrolling */}
-          <div className="overflow-auto">
+          <div className="overflow-x-auto">
             {isLoading ? (
               <div className="flex flex-col items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -468,7 +540,7 @@ const Export = () => {
                   : "Select an entity type to get started"}
               </div>
             ) : (
-              <div className="w-full overflow-x-auto">
+              <div className="min-h-[400px]">
                 <DataTable
                   columns={generateColumns()}
                   data={paginatedRecords}

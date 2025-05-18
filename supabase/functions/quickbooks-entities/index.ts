@@ -92,8 +92,8 @@ const fetchEntities = async (
       if (entityType === "Check") {
         queryString = `SELECT * FROM Purchase WHERE PaymentType = 'Check' MAXRESULTS 1000`;
       } else if (entityType === "CreditCardCredit") {
-        // This is the correct way to query credit card credits
-        queryString = `SELECT * FROM Purchase WHERE PaymentType = 'CreditCard' MAXRESULTS 1000`;
+        // Use correct query for credit card credits - Credit is not a queryable property
+        queryString = `SELECT * FROM Purchase WHERE PaymentType = 'CreditCard' AND TotalAmt < 0 MAXRESULTS 1000`;
       } else {
         queryString = `SELECT * FROM ${entityType} MAXRESULTS 1000`;
       }
@@ -102,7 +102,11 @@ const fetchEntities = async (
       if (entityType === "Check" && !queryString.includes("PaymentType = 'Check'")) {
         queryString = queryString.replace("FROM Purchase", "FROM Purchase WHERE PaymentType = 'Check'");
       } else if (entityType === "CreditCardCredit" && !queryString.includes("PaymentType = 'CreditCard'")) {
-        queryString = queryString.replace("FROM Purchase", "FROM Purchase WHERE PaymentType = 'CreditCard'");
+        // Adjust user-provided query for Credit Card Credits
+        queryString = queryString.replace(
+          "FROM Purchase", 
+          "FROM Purchase WHERE PaymentType = 'CreditCard' AND TotalAmt < 0"
+        );
       }
     }
     
