@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -20,9 +19,7 @@ import { DataTable } from "@/components/DataTable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
-
-// Type for entity records 
-type EntityRecord = Record<string, any>;
+import { EntityRecord } from "@/contexts/quickbooks/types"; 
 
 const Export = () => {
   const navigate = useNavigate();
@@ -69,7 +66,7 @@ const Export = () => {
   }, [selectedEntity, entityState]);
 
   // Get entity records with applied filters
-  const getEntityRecords = () => {
+  const getEntityRecords = (): EntityRecord[] => {
     if (!selectedEntity || !entityState[selectedEntity]) return [];
     
     return entityState[selectedEntity].filteredRecords || [];
@@ -621,8 +618,6 @@ const Export = () => {
         ];
         break;
 
-      // Add additional entity types here with their specific columns
-
       default:
         // Generic column setup for other entity types
         const sampleRecord = getEntityRecords()[0] || {};
@@ -633,7 +628,7 @@ const Export = () => {
         ];
         
         // Add date fields if they exist
-        if (sampleRecord.TxnDate) {
+        if ('TxnDate' in sampleRecord) {
           entityColumns.push({
             accessorKey: "TxnDate",
             header: "Date",
@@ -642,7 +637,7 @@ const Export = () => {
         }
         
         // Add amount fields if they exist
-        if (sampleRecord.TotalAmt) {
+        if ('TotalAmt' in sampleRecord) {
           entityColumns.push({
             accessorKey: "TotalAmt",
             header: "Amount",
