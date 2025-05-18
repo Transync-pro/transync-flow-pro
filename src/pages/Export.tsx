@@ -24,6 +24,9 @@ import { ExportControls } from "./Export/ExportControls";
 import { FilterControls } from "./Export/FilterControls";
 import { FieldSelectionPanel } from "./Export/FieldSelectionPanel";
 
+// Type for entity records 
+type EntityRecord = Record<string, any>;
+
 const Export = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -107,13 +110,14 @@ const Export = () => {
 
   // Handle filter change
   const handleFilterChange = () => {
-    if (!selectedEntity) return;
+    if (!selectedEntity || !filterField) return;
     
-    filterEntities(selectedEntity, filterField || "", filterValue);
+    // Fixed: Pass only two arguments to filterEntities
+    filterEntities(selectedEntity, filterField, filterValue);
   };
 
   // Convert records to CSV
-  const convertToCSV = (records: any[], fields: string[]) => {
+  const convertToCSV = (records: EntityRecord[], fields: string[]) => {
     if (!records || records.length === 0) return "";
     
     const header = fields.join(",");
@@ -210,6 +214,7 @@ const Export = () => {
       }
       
       const records = getEntityRecords();
+      // TypeScript fix: Convert to expected type
       const selectedData = records.filter(record => 
         selectedEntityIds.includes(record.Id)
       );
@@ -291,12 +296,12 @@ const Export = () => {
     field.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Create data table columns with custom props based on our app's data structure
+  // Create data table props based on our app's data structure
   const createTableProps = () => {
     if (!selectedEntity || !entityState[selectedEntity]?.filteredRecords?.length) {
       return {
         data: [],
-        columns: []
+        columns: [] // Keep columns as an empty array for compatibility
       };
     }
 
