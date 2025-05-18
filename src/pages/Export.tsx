@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -323,6 +324,7 @@ const Export = () => {
     }
   };
 
+  // Fixed: Use proper event parameter instead of optional data parameter
   const downloadCSV = (e?: React.MouseEvent<HTMLButtonElement>) => {
     const data = exportedData;
     
@@ -365,6 +367,7 @@ const Export = () => {
     }
   };
 
+  // Fixed: Use proper event parameter instead of optional data parameter
   const downloadJSON = (e?: React.MouseEvent<HTMLButtonElement>) => {
     const data = exportedData;
     
@@ -651,6 +654,7 @@ const Export = () => {
                   columns={generateColumns()}
                   data={exportedData}
                   pageSize={10}
+                  className="w-full"
                 />
               </div>
             ) : (
