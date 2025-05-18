@@ -20,6 +20,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
 import { EntityRecord } from "@/contexts/quickbooks/types";
 import { convertToCSV } from "@/services/quickbooksApi/entities";
+import { getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
+import { Pagination } from "@/components/ui/pagination";
 
 const Export = () => {
   const navigate = useNavigate();
@@ -28,6 +30,8 @@ const Export = () => {
   const [fileName, setFileName] = useState("export");
   const [selectAllFields, setSelectAllFields] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [pageSize, setPageSize] = useState(10);
+  const [pageIndex, setPageIndex] = useState(0);
   
   const {
     selectedEntity,
@@ -38,13 +42,17 @@ const Export = () => {
     fetchEntities,
     filterEntities,
     entityOptions,
-    getNestedValue
+    getNestedValue: contextGetNestedValue
   } = useQuickbooksEntities();
 
   const currentEntityState = selectedEntity ? entityState[selectedEntity] : null;
   const filteredRecords = currentEntityState?.filteredRecords || [];
   const isLoading = currentEntityState?.isLoading || false;
   const error = currentEntityState?.error || null;
+
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredRecords.length / pageSize);
+  const paginatedRecords = filteredRecords.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
   // Handle date range change
   useEffect(() => {
@@ -57,6 +65,7 @@ const Export = () => {
   useEffect(() => {
     setSelectedFields([]);
     setSelectAllFields(false);
+    setPageIndex(0);
   }, [selectedEntity, entityState]);
 
   // Get entity records with applied filters
@@ -68,37 +77,11 @@ const Export = () => {
 
   // Get available fields for the current entity
   const getAvailableFields = (): string[] => {
-    const records = getEntityRecords();
+    if (!selectedEntity) return [];
     
-    if (records.length === 0) return [];
-    
-    // Sample the first record to get fields
-    const sampleRecord = records[0];
-    if (!sampleRecord) return [];
-    
-    const extractFields = (obj: any, prefix = ""): string[] => {
-      if (!obj || typeof obj !== 'object') return [];
-      
-      return Object.keys(obj).reduce((fields: string[], key) => {
-        const value = obj[key];
-        const fullPath = prefix ? `${prefix}.${key}` : key;
-        
-        // Skip metadata fields
-        if (fullPath.startsWith('MetaData')) return fields;
-        
-        // Add the current field
-        fields.push(fullPath);
-        
-        // Recursively add nested fields for objects (but not arrays)
-        if (value && typeof value === 'object' && !Array.isArray(value)) {
-          fields = [...fields, ...extractFields(value, fullPath)];
-        }
-        
-        return fields;
-      }, []);
-    };
-    
-    return extractFields(sampleRecord);
+    // Use the predefined entity columns from our mapping
+    const columnConfigs = getEntityColumns(selectedEntity);
+    return columnConfigs.map(config => config.field);
   };
 
   // Handle entity selection with explicit fetch
@@ -107,6 +90,7 @@ const Export = () => {
     setSelectedFields([]);
     setSelectAllFields(false);
     setSearchTerm("");
+    setPageIndex(0);
   };
 
   // Explicitly fetch data when requested by user
@@ -128,6 +112,7 @@ const Export = () => {
   const handleSearch = () => {
     if (!selectedEntity) return;
     filterEntities(searchTerm);
+    setPageIndex(0);
   };
 
   // Handle field selection
@@ -246,475 +231,65 @@ const Export = () => {
         .trim();
     };
 
-    // Entity-specific columns based on the entity type
-    let entityColumns: ColumnDef<any>[] = [];
+    // Add S. No. column as first column
+    const columns: ColumnDef<any>[] = [
+      {
+        accessorFn: (_, index) => pageIndex * pageSize + index + 1,
+        header: "S. No.",
+        size: 60,
+      }
+    ];
 
-    switch (selectedEntity) {
-      case "Customer":
-        entityColumns = [
-          {
-            accessorKey: "Id",
-            header: "ID",
-          },
-          {
-            accessorKey: "DisplayName",
-            header: "Display Name",
-          },
-          {
-            accessorKey: "CompanyName",
-            header: "Company Name",
-          },
-          {
-            accessorKey: "Title",
-            header: "Title",
-          },
-          {
-            accessorKey: "GivenName",
-            header: "First Name",
-          },
-          {
-            accessorKey: "FamilyName",
-            header: "Last Name",
-          },
-          {
-            accessorKey: "PrimaryEmailAddr.Address",
-            header: "Email",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryEmailAddr.Address") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryPhone.FreeFormNumber",
-            header: "Phone",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Line1",
-            header: "Billing Address Line 1",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.City",
-            header: "Billing Address City",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Country",
-            header: "Billing Address Country",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.PostalCode",
-            header: "Billing Address Postal Code",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.CountrySubDivisionCode",
-            header: "Billing Address Subdivision",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.CountrySubDivisionCode") || "N/A",
-          },
-          {
-            accessorKey: "CurrencyRef.value",
-            header: "Currency Code",
-            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
-          },
-        ];
-        break;
+    // Get column definitions from our entity mapping
+    const entityColumnConfigs = getEntityColumns(selectedEntity);
+    
+    // Convert the column configs to table columns
+    const entityColumns: ColumnDef<any>[] = entityColumnConfigs.map(config => {
+      return {
+        accessorKey: config.field,
+        header: config.header,
+        cell: ({ row }) => {
+          const value = config.accessor 
+            ? config.accessor(row.original)
+            : getNestedValue(row.original, config.field);
+          
+          // Format dates
+          if (typeof value === 'string' && 
+              (config.field.includes('Date') || config.field.includes('Expiration') || config.field.includes('Time'))) {
+            try {
+              return new Date(value).toLocaleDateString();
+            } catch (e) {
+              return value || "N/A";
+            }
+          }
+          
+          // Format currency amounts
+          if ((typeof value === 'number' || !isNaN(parseFloat(value))) && 
+              (config.field.includes('Amt') || config.field.includes('Balance') || 
+               config.field.includes('Price') || config.field.includes('Amount'))) {
+            try {
+              return `$${parseFloat(value).toFixed(2)}`;
+            } catch (e) {
+              return value || "N/A";
+            }
+          }
+          
+          // Boolean values
+          if (typeof value === 'boolean') {
+            return value ? "Yes" : "No";
+          }
+          
+          return value || "N/A";
+        },
+      };
+    });
 
-      case "Vendor":
-        entityColumns = [
-          {
-            accessorKey: "Id",
-            header: "ID",
-          },
-          {
-            accessorKey: "DisplayName",
-            header: "Display Name",
-          },
-          {
-            accessorKey: "CompanyName",
-            header: "Company Name",
-          },
-          {
-            accessorKey: "Title",
-            header: "Title",
-          },
-          {
-            accessorKey: "GivenName",
-            header: "First Name",
-          },
-          {
-            accessorKey: "FamilyName",
-            header: "Last Name",
-          },
-          {
-            accessorKey: "PrimaryEmailAddr.Address",
-            header: "Email",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryEmailAddr.Address") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryPhone.FreeFormNumber",
-            header: "Phone",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Line1",
-            header: "Billing Address Line 1",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.City",
-            header: "Billing Address City",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Country",
-            header: "Billing Address Country",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.PostalCode",
-            header: "Billing Address Postal Code",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.CountrySubDivisionCode",
-            header: "Billing Address Subdivision",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.CountrySubDivisionCode") || "N/A",
-          },
-          {
-            accessorKey: "CurrencyRef.value",
-            header: "Currency Code",
-            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
-          },
-        ];
-        break;
+    return [...columns, ...entityColumns];
+  };
 
-      case "Item":
-        entityColumns = [
-          {
-            accessorKey: "Id",
-            header: "ID",
-          },
-          {
-            accessorKey: "Name",
-            header: "Name",
-          },
-          {
-            accessorKey: "Type",
-            header: "Type",
-          },
-          {
-            accessorKey: "Sku",
-            header: "SKU",
-          },
-          {
-            accessorKey: "UnitPrice",
-            header: "Price",
-            cell: ({ row }) => {
-              const price = row.original.UnitPrice;
-              return price ? `$${parseFloat(price).toFixed(2)}` : "N/A";
-            },
-          },
-          {
-            accessorKey: "IncomeAccountRef.name",
-            header: "Income Account",
-            cell: ({ row }) => getNestedValue(row.original, "IncomeAccountRef.name") || "N/A",
-          },
-          {
-            accessorKey: "Description",
-            header: "Description",
-          },
-          {
-            accessorKey: "ParentRef.name",
-            header: "Category",
-            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
-          },
-          {
-            accessorKey: "SalesTaxCodeRef.name",
-            header: "Sales Tax",
-            cell: ({ row }) => getNestedValue(row.original, "SalesTaxCodeRef.name") || "N/A",
-          },
-        ];
-        break;
-
-      case "Account":
-        entityColumns = [
-          {
-            accessorKey: "Id",
-            header: "ID",
-          },
-          {
-            accessorKey: "Name",
-            header: "Name",
-          },
-          {
-            accessorKey: "AccountType",
-            header: "Account Type",
-          },
-          {
-            accessorKey: "AccountSubType",
-            header: "Account Subtype",
-          },
-          {
-            accessorKey: "AcctNum",
-            header: "Account Number",
-          },
-          {
-            accessorKey: "ParentRef.name",
-            header: "Parent Account",
-            cell: ({ row }) => getNestedValue(row.original, "ParentRef.name") || "N/A",
-          },
-          {
-            accessorKey: "Description",
-            header: "Description",
-          },
-          {
-            accessorKey: "CurrentBalance",
-            header: "Opening Balance",
-            cell: ({ row }) => {
-              const balance = row.original.CurrentBalance;
-              return balance !== undefined ? `$${parseFloat(balance).toFixed(2)}` : "N/A";
-            },
-          },
-          {
-            accessorKey: "CurrencyRef.value",
-            header: "Currency Code",
-            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
-          },
-        ];
-        break;
-
-      case "Employee":
-        entityColumns = [
-          {
-            accessorKey: "Id",
-            header: "ID",
-          },
-          {
-            accessorKey: "DisplayName",
-            header: "Name",
-          },
-          {
-            accessorKey: "HiredDate",
-            header: "Hiring Date",
-            cell: ({ row }) => {
-              const date = row.original.HiredDate;
-              return date ? new Date(date).toLocaleDateString() : "N/A";
-            },
-          },
-          {
-            accessorKey: "PrimaryPhone.FreeFormNumber",
-            header: "Phone Number",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryPhone.FreeFormNumber") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.Line1",
-            header: "Address Line 1",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.Line1") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.City",
-            header: "Address City",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.City") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.CountrySubDivisionCode",
-            header: "Address Subdivision",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.CountrySubDivisionCode") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.Country",
-            header: "Address Country",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.Country") || "N/A",
-          },
-          {
-            accessorKey: "PrimaryAddr.PostalCode",
-            header: "Postal Code",
-            cell: ({ row }) => getNestedValue(row.original, "PrimaryAddr.PostalCode") || "N/A",
-          },
-        ];
-        break;
-
-      case "Department":
-        entityColumns = [
-          {
-            accessorKey: "Id",
-            header: "ID",
-          },
-          {
-            accessorKey: "Name",
-            header: "Name",
-          },
-          {
-            accessorKey: "SubDepartment",
-            header: "Is Sub-department?",
-            cell: ({ row }) => (row.original.SubDepartment ? "Yes" : "No"),
-          },
-          {
-            accessorKey: "Active",
-            header: "Active",
-            cell: ({ row }) => (row.original.Active ? "Yes" : "No"),
-          },
-        ];
-        break;
-
-      case "Class":
-        entityColumns = [
-          {
-            accessorKey: "Id",
-            header: "ID",
-          },
-          {
-            accessorKey: "Name",
-            header: "Name",
-          },
-          {
-            accessorKey: "SubClass",
-            header: "Is Sub-class?",
-            cell: ({ row }) => (row.original.SubClass ? "Yes" : "No"),
-          },
-          {
-            accessorKey: "Active",
-            header: "Active",
-            cell: ({ row }) => (row.original.Active ? "Yes" : "No"),
-          },
-        ];
-        break;
-
-      case "Invoice":
-        entityColumns = [
-          {
-            accessorKey: "Id",
-            header: "ID",
-          },
-          {
-            accessorKey: "DocNumber",
-            header: "Invoice Number",
-          },
-          {
-            accessorKey: "CustomerRef.name",
-            header: "Customer Name",
-            cell: ({ row }) => getNestedValue(row.original, "CustomerRef.name") || "N/A",
-          },
-          {
-            accessorKey: "TxnDate",
-            header: "Invoice Date",
-            cell: ({ row }) => {
-              const date = row.original.TxnDate;
-              return date ? new Date(date).toLocaleDateString() : "N/A";
-            },
-          },
-          {
-            accessorKey: "DueDate",
-            header: "Due Date",
-            cell: ({ row }) => {
-              const date = row.original.DueDate;
-              return date ? new Date(date).toLocaleDateString() : "N/A";
-            },
-          },
-          {
-            accessorKey: "EmailStatus",
-            header: "Email Sent",
-            cell: ({ row }) => row.original.EmailStatus || "Not Sent",
-          },
-          {
-            accessorKey: "BillEmail.Address",
-            header: "Email ID",
-            cell: ({ row }) => getNestedValue(row.original, "BillEmail.Address") || "N/A",
-          },
-          {
-            accessorKey: "Line[0].SalesItemLineDetail.ItemRef.name",
-            header: "Product/Service",
-            cell: ({ row }) => getNestedValue(row.original, "Line[0].SalesItemLineDetail.ItemRef.name") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Line1",
-            header: "Billing Address Line 1",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Line1") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.City",
-            header: "Billing Address City",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.City") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.Country",
-            header: "Billing Address Country",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.Country") || "N/A",
-          },
-          {
-            accessorKey: "BillAddr.PostalCode",
-            header: "Billing Address Postal Code",
-            cell: ({ row }) => getNestedValue(row.original, "BillAddr.PostalCode") || "N/A",
-          },
-          {
-            accessorKey: "CurrencyRef.value",
-            header: "Currency Code",
-            cell: ({ row }) => getNestedValue(row.original, "CurrencyRef.value") || "N/A",
-          },
-          {
-            accessorKey: "TotalAmt",
-            header: "Amount",
-            cell: ({ row }) => {
-              const amount = row.original.TotalAmt;
-              return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
-            },
-          },
-          {
-            accessorKey: "Balance",
-            header: "Payment Status",
-            cell: ({ row }) => {
-              const balance = row.original.Balance;
-              const total = row.original.TotalAmt;
-              
-              if (balance === 0) return "Paid";
-              if (balance === total) return "Unpaid";
-              if (balance < total && balance > 0) return "Partially Paid";
-              return "Unknown";
-            },
-          },
-        ];
-        break;
-
-      default:
-        // Generic column setup for other entity types
-        const sampleRecord = getEntityRecords()[0] || {};
-        entityColumns = [
-          {
-            accessorKey: "Id",
-            header: "ID",
-          },
-          {
-            accessorKey: "Name",
-            header: "Name",
-            cell: ({ row }) => row.original.Name || row.original.DisplayName || row.original.DocNumber || "N/A",
-          },
-        ];
-        
-        // Add date fields if they exist
-        if ('TxnDate' in sampleRecord) {
-          entityColumns.push({
-            accessorKey: "TxnDate",
-            header: "Date",
-            cell: ({ row }) => row.original.TxnDate ? new Date(row.original.TxnDate).toLocaleDateString() : "N/A",
-          });
-        }
-        
-        // Add amount fields if they exist
-        if ('TotalAmt' in sampleRecord) {
-          entityColumns.push({
-            accessorKey: "TotalAmt",
-            header: "Amount",
-            cell: ({ row }) => {
-              const amount = row.original.TotalAmt;
-              return amount !== undefined ? `$${parseFloat(amount).toFixed(2)}` : "N/A";
-            },
-          });
-        }
-        
-        break;
-    }
-
-    return entityColumns;
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    setPageIndex(newPage);
   };
 
   return (
@@ -794,6 +369,15 @@ const Export = () => {
                     />
                   </PopoverContent>
                 </Popover>
+                {dateRange && dateRange.from && (
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => setDateRange(undefined)}
+                    size="sm"
+                  >
+                    Clear
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -855,111 +439,152 @@ const Export = () => {
             </div>
             {filteredRecords.length > 0 && (
               <Button
-                className="w-full flex items-center justify-center"
+                className="w-full flex items-center justify-center gap-2"
                 onClick={handleExport}
                 disabled={selectedFields.length === 0}
               >
-                <Download className="mr-2 h-4 w-4" />
+                <Download className="h-4 w-4" />
                 Export to CSV
               </Button>
             )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>
-              {selectedEntity || "Entity"} Records
-              {filteredRecords.length > 0 && ` (${filteredRecords.length})`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              {isLoading ? (
-                <div className="flex flex-col items-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                  <p className="mt-4">Loading {selectedEntity} records...</p>
-                </div>
-              ) : error ? (
-                <div className="flex flex-col items-center py-8 text-red-500">
-                  <p className="mt-4">Error: {error}</p>
-                </div>
-              ) : filteredRecords.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  {selectedEntity
-                    ? "No records found. Click 'Fetch Data' to load records."
-                    : "Select an entity type to get started"}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <ScrollArea className="h-[calc(100vh-450px)]">
-                    <div className="min-w-max overflow-x-auto">
-                      <DataTable
-                        columns={generateColumns()}
-                        data={filteredRecords}
-                        pageSize={10}
-                        className="w-full"
-                      />
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Field Selection</CardTitle>
-            <CardDescription>
-              Choose fields to include in export
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {filteredRecords.length > 0 ? (
-              <>
-                <div className="flex items-center space-x-2 py-2">
+            
+            {getAvailableFields().length > 0 && (
+              <div className="mt-4">
+                <div className="flex items-center space-x-2 mb-2">
                   <Checkbox 
-                    id="select-all-fields"
+                    id="select-all-fields" 
                     checked={selectAllFields}
                     onCheckedChange={handleSelectAllFields}
                   />
-                  <Label htmlFor="select-all-fields">Select All</Label>
+                  <Label htmlFor="select-all-fields">Select All Fields</Label>
                 </div>
-                <ScrollArea className="h-[calc(100vh-450px)] pr-4">
-                  <div className="space-y-2 py-2">
+                <ScrollArea className="h-[200px] border rounded p-2">
+                  <div className="space-y-2">
                     {getAvailableFields().map((field) => (
                       <div key={field} className="flex items-center space-x-2">
-                        <Checkbox
+                        <Checkbox 
                           id={`field-${field}`}
                           checked={selectedFields.includes(field)}
                           onCheckedChange={() => toggleFieldSelection(field)}
                         />
-                        <Label 
-                          htmlFor={`field-${field}`}
-                          className="text-sm truncate"
-                          title={field}
-                        >
-                          {field}
+                        <Label htmlFor={`field-${field}`} className="text-sm">
+                          {field.includes('.') || field.includes('[') 
+                            ? field 
+                            : field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                         </Label>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
-                <div className="pt-4 text-sm text-muted-foreground">
-                  {selectedFields.length} of {getAvailableFields().length} fields selected
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                Fetch data to select fields
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {selectedEntity || "Entity"} Records
+            {filteredRecords.length > 0 && ` (${filteredRecords.length})`}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[calc(100vh-550px)]">
+            {isLoading ? (
+              <div className="flex flex-col items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="mt-4">Loading {selectedEntity} records...</p>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center py-8 text-red-500">
+                <p className="mt-4">Error: {error}</p>
+              </div>
+            ) : filteredRecords.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                {selectedEntity
+                  ? "No records found. Click 'Fetch Data' to load records."
+                  : "Select an entity type to get started"}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <DataTable
+                  columns={generateColumns()}
+                  data={paginatedRecords}
+                  pageCount={totalPages}
+                  className="w-full"
+                />
+              </div>
+            )}
+          </ScrollArea>
+          {filteredRecords.length > 0 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-gray-500">
+                Showing {pageIndex * pageSize + 1} to{" "}
+                {Math.min((pageIndex + 1) * pageSize, filteredRecords.length)} of{" "}
+                {filteredRecords.length} records
+              </div>
+              <div className="flex items-center space-x-2">
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(value) => {
+                    setPageSize(Number(value));
+                    setPageIndex(0);
+                  }}
+                >
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue placeholder="Page size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 / page</SelectItem>
+                    <SelectItem value="25">25 / page</SelectItem>
+                    <SelectItem value="50">50 / page</SelectItem>
+                    <SelectItem value="100">100 / page</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(0)}
+                    disabled={pageIndex === 0}
+                  >
+                    <span>{'<<'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(pageIndex - 1)}
+                    disabled={pageIndex === 0}
+                  >
+                    <span>{'<'}</span>
+                  </Button>
+                  <span className="text-sm">
+                    Page {pageIndex + 1} of {Math.max(1, totalPages)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(pageIndex + 1)}
+                    disabled={pageIndex === totalPages - 1}
+                  >
+                    <span>{'>'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(totalPages - 1)}
+                    disabled={pageIndex === totalPages - 1}
+                  >
+                    <span>{'>>'}</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

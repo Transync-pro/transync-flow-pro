@@ -86,7 +86,18 @@ const fetchEntities = async (
 ) => {
   try {
     const apiUrl = `${getQBApiBaseUrl()}/v3/company/${realmId}/query`;
-    const queryString = query || `SELECT * FROM ${entityType} MAXRESULTS 1000`;
+    
+    // Handle special entity types that are actually Purchases with filters
+    let queryString = query;
+    if (!queryString) {
+      if (entityType === "Check") {
+        queryString = `SELECT * FROM Purchase WHERE PaymentType = 'Check' MAXRESULTS 1000`;
+      } else if (entityType === "CreditCardCredit") {
+        queryString = `SELECT * FROM Purchase WHERE PaymentType = 'CreditCard' AND Credit = true MAXRESULTS 1000`;
+      } else {
+        queryString = `SELECT * FROM ${entityType} MAXRESULTS 1000`;
+      }
+    }
     
     console.log(`Fetching ${entityType} with query: ${queryString}`);
     
@@ -320,6 +331,8 @@ serve(async (req) => {
     }
 
     let result;
+    // For special entity types, we need to map them to the actual API entity types
+    const actualEntityType = entityType === "Check" || entityType === "CreditCardCredit" ? "Purchase" : entityType;
     
     switch (operation) {
       case 'fetch':
@@ -330,9 +343,16 @@ serve(async (req) => {
           params.query
         );
         
-        await logOperation(userId, 'fetch', entityType, 'success', {
-          count: result.QueryResponse?.[entityType]?.length || 0
-        });
+        // For special entity types, modify the response to make it look like it came from the expected entity
+        if (entityType === "Check" || entityType === "CreditCardCredit") {
+          await logOperation(userId, 'fetch', entityType, 'success', {
+            count: result.QueryResponse?.Purchase?.length || 0
+          });
+        } else {
+          await logOperation(userId, 'fetch', entityType, 'success', {
+            count: result.QueryResponse?.[entityType]?.length || 0
+          });
+        }
         break;
         
       case 'create':
@@ -343,12 +363,12 @@ serve(async (req) => {
         result = await createEntity(
           connection.access_token,
           connection.realm_id,
-          entityType,
+          actualEntityType,
           params.data
         );
         
         await logOperation(userId, 'create', entityType, 'success', {
-          id: result[entityType]?.Id,
+          id: result[actualEntityType]?.Id,
           data: result
         });
         break;
@@ -361,7 +381,7 @@ serve(async (req) => {
         result = await updateEntity(
           connection.access_token,
           connection.realm_id,
-          entityType,
+          actualEntityType,
           params.id,
           params.data,
           params.syncToken

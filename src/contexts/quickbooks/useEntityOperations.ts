@@ -63,14 +63,53 @@ export const useEntityOperations = (
         const toDate = format(selectedDateRange.to, "yyyy-MM-dd");
         
         // Different entities may have different date fields
-        const dateField = typeToFetch === "Invoice" || typeToFetch === "Bill" 
-          ? "TxnDate" 
-          : "MetaData.CreateTime";
+        let dateField;
+        switch(typeToFetch) {
+          case "Invoice":
+          case "Bill":
+          case "CreditMemo":
+          case "Estimate":
+          case "SalesReceipt":
+          case "Payment":
+          case "RefundReceipt":
+          case "PurchaseOrder":
+          case "VendorCredit":
+          case "Deposit":
+          case "Transfer":
+          case "JournalEntry":
+            dateField = "TxnDate";
+            break;
+          case "Customer":
+          case "Vendor":
+          case "Item":
+          case "Account":
+          case "Employee":
+          case "Department":
+          case "Class":
+            dateField = "MetaData.CreateTime";
+            break;
+          default:
+            dateField = "MetaData.CreateTime";
+        }
         
-        query = `SELECT * FROM ${typeToFetch} WHERE ${dateField} >= '${fromDate}' AND ${dateField} <= '${toDate}' MAXRESULTS 1000`;
+        // For special entity types that are actually Purchase entity with filters
+        if (typeToFetch === "Check") {
+          query = `SELECT * FROM Purchase WHERE TxnDate >= '${fromDate}' AND TxnDate <= '${toDate}' AND PaymentType = 'Check' MAXRESULTS 1000`;
+        } else if (typeToFetch === "CreditCardCredit") {
+          query = `SELECT * FROM Purchase WHERE TxnDate >= '${fromDate}' AND TxnDate <= '${toDate}' AND PaymentType = 'CreditCard' AND Credit = true MAXRESULTS 1000`;
+        } else {
+          query = `SELECT * FROM ${typeToFetch} WHERE ${dateField} >= '${fromDate}' AND ${dateField} <= '${toDate}' MAXRESULTS 1000`;
+        }
+      } else {
+        // For special entity types that are actually Purchase entity with filters
+        if (typeToFetch === "Check") {
+          query = `SELECT * FROM Purchase WHERE PaymentType = 'Check' MAXRESULTS 1000`;
+        } else if (typeToFetch === "CreditCardCredit") {
+          query = `SELECT * FROM Purchase WHERE PaymentType = 'CreditCard' AND Credit = true MAXRESULTS 1000`;
+        }
       }
       
-      console.log(`Calling quickbooks-entities edge function to fetch ${typeToFetch} entities`);
+      console.log(`Calling quickbooks-entities edge function to fetch ${typeToFetch} entities with query: ${query || 'default'}`);
       
       // Call our edge function to fetch entities
       const { data, error } = await supabase.functions.invoke("quickbooks-entities", {
@@ -91,7 +130,15 @@ export const useEntityOperations = (
       }
       
       // Extract the entities from the response
-      const fetchedEntities = data.data?.QueryResponse?.[typeToFetch] || [];
+      let fetchedEntities = [];
+      
+      // Handle special cases for entities that are actually filtered Purchases
+      if (typeToFetch === "Check" || typeToFetch === "CreditCardCredit") {
+        fetchedEntities = data.data?.QueryResponse?.Purchase || [];
+      } else {
+        fetchedEntities = data.data?.QueryResponse?.[typeToFetch] || [];
+      }
+      
       console.log(`Fetched ${fetchedEntities.length} ${typeToFetch} entities`);
       
       // Update entity state with fetched data

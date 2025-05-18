@@ -218,7 +218,9 @@ export const QB_ENTITIES = {
   BILL_PAYMENT: "BillPayment",
   DEPOSIT: "Deposit", // Bank Deposits
   TRANSFER: "Transfer",
-  JOURNAL_ENTRY: "JournalEntry"
+  JOURNAL_ENTRY: "JournalEntry",
+  CHECK: "Purchase", // Checks (using Purchase with special filter)
+  CREDIT_CARD_CREDIT: "Purchase" // Credit Card Credits (using Purchase with special filter)
 };
 
 // Utils for CSV export
