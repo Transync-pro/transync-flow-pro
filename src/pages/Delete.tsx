@@ -382,7 +382,7 @@ const Delete = () => {
                 <DataTable
                   columns={generateColumns()}
                   data={paginatedRecords}
-                  pageCount={totalPages}
+                  pageSize={pageSize}
                   className="w-full"
                 />
               </div>

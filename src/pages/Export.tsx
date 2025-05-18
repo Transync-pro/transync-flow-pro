@@ -511,7 +511,7 @@ const Export = () => {
                 <DataTable
                   columns={generateColumns()}
                   data={paginatedRecords}
-                  pageCount={totalPages}
+                  pageSize={pageSize}
                   className="w-full"
                 />
               </div>
@@ -543,43 +543,11 @@ const Export = () => {
                   </SelectContent>
                 </Select>
                 
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handlePageChange(0)}
-                    disabled={pageIndex === 0}
-                  >
-                    <span>{'<<'}</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handlePageChange(pageIndex - 1)}
-                    disabled={pageIndex === 0}
-                  >
-                    <span>{'<'}</span>
-                  </Button>
-                  <span className="text-sm">
-                    Page {pageIndex + 1} of {Math.max(1, totalPages)}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handlePageChange(pageIndex + 1)}
-                    disabled={pageIndex === totalPages - 1}
-                  >
-                    <span>{'>'}</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handlePageChange(totalPages - 1)}
-                    disabled={pageIndex === totalPages - 1}
-                  >
-                    <span>{'>>'}</span>
-                  </Button>
-                </div>
+                <Pagination
+                  currentPage={pageIndex}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
               </div>
             </div>
           )}
