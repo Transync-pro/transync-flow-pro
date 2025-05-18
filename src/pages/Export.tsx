@@ -323,10 +323,8 @@ const Export = () => {
     }
   };
 
-  const downloadCSV = (data?: any[]) => {
-    if (!data) {
-      data = exportedData;
-    }
+  const downloadCSV = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    const data = exportedData;
     
     if (!data.length || !selectedFields.length) return;
     
@@ -367,10 +365,8 @@ const Export = () => {
     }
   };
 
-  const downloadJSON = (data?: any[]) => {
-    if (!data) {
-      data = exportedData;
-    }
+  const downloadJSON = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    const data = exportedData;
     
     if (!data.length) return;
     
@@ -410,7 +406,7 @@ const Export = () => {
   };
 
   // Handle export of selected records
-  const handleExportSelected = (format: "csv" | "json") => {
+  const handleExportSelected = (format: "csv" | "json") => (e: React.MouseEvent<HTMLButtonElement>) => {
     try {
       if (selectedEntityIds.length === 0) {
         toast({
@@ -427,9 +423,35 @@ const Export = () => {
       );
 
       if (format === "csv") {
-        downloadCSV(selectedData);
+        // Use a modified version of downloadCSV that accepts the filtered data
+        const csv = convertToCSV(selectedData, selectedFields);
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute(
+          "download",
+          `${selectedEntity}_selected_export_${format(new Date(), "yyyy-MM-dd")}.csv`
+        );
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       } else {
-        downloadJSON(selectedData);
+        // Use a modified version of downloadJSON that accepts the filtered data
+        const json = JSON.stringify(selectedData, null, 2);
+        const blob = new Blob([json], { type: "application/json;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute(
+          "download",
+          `${selectedEntity}_selected_export_${format(new Date(), "yyyy-MM-dd")}.json`
+        );
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
 
       toast({
@@ -650,14 +672,14 @@ const Export = () => {
                 <>
                   <Button
                     variant="outline"
-                    onClick={() => handleExportSelected("json")}
+                    onClick={handleExportSelected("json")}
                     className="flex items-center"
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Export Selected as JSON
                   </Button>
                   <Button
-                    onClick={() => handleExportSelected("csv")}
+                    onClick={handleExportSelected("csv")}
                     className="flex items-center"
                   >
                     <FileDown className="mr-2 h-4 w-4" />

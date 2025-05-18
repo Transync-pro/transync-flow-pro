@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   ColumnDef,
@@ -16,17 +17,20 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   pageSize?: number;
+  className?: string;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   pageSize = 10,
+  className,
 }: DataTableProps<TData, TValue>) {
   const [pagination, setPagination] = useState({
     pageIndex: 0,
@@ -45,7 +49,7 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div>
+    <div className={cn(className)}>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
