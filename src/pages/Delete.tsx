@@ -360,7 +360,8 @@ const Delete = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[calc(100vh-350px)]">
+          {/* Modified to show more results without scrolling */}
+          <div className="overflow-auto">
             {isLoading ? (
               <div className="flex flex-col items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -378,7 +379,7 @@ const Delete = () => {
                   : "Select an entity type to get started"}
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="w-full overflow-x-auto">
                 <DataTable
                   columns={generateColumns()}
                   data={paginatedRecords}
@@ -387,7 +388,7 @@ const Delete = () => {
                 />
               </div>
             )}
-          </ScrollArea>
+          </div>
           {filteredRecords.length > 0 && (
             <>
               <div className="flex items-center justify-between mt-4">

@@ -1,7 +1,5 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -192,44 +190,6 @@ const Export = () => {
     if (!selectedEntity || !filteredRecords.length) {
       return [];
     }
-
-    // Format field names to user-friendly headers
-    const formatFieldHeader = (field: string): string => {
-      // Handle nested fields
-      if (field.includes('.')) {
-        const parts = field.split('.');
-        const lastPart = parts[parts.length - 1];
-        
-        // Handle array notation
-        if (lastPart.includes('[')) {
-          return formatFieldHeader(lastPart.split('[')[0]);
-        }
-        
-        return formatFieldHeader(lastPart);
-      }
-      
-      // Handle array notation without dot
-      if (field.includes('[')) {
-        return formatFieldHeader(field.split('[')[0]);
-      }
-      
-      // Format camelCase to Title Case with spaces
-      return field
-        // Insert a space before all uppercase letters
-        .replace(/([A-Z])/g, ' $1')
-        // Replace specific abbreviations
-        .replace(/\bId\b/g, 'ID')
-        .replace(/\bRef\b/g, 'Reference')
-        .replace(/\bAddr\b/g, 'Address')
-        .replace(/\bAmt\b/g, 'Amount')
-        .replace(/\bNum\b/g, 'Number')
-        .replace(/\bTxn\b/g, 'Transaction')
-        .replace(/\bAcct\b/g, 'Account')
-        // Capitalize the first letter
-        .replace(/^./, (str) => str.toUpperCase())
-        // Trim any leading/trailing spaces
-        .trim();
-    };
 
     // Add S. No. column as first column
     const columns: ColumnDef<any>[] = [
@@ -490,7 +450,8 @@ const Export = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[calc(100vh-550px)]">
+          {/* Modified to show more results without scrolling */}
+          <div className="overflow-auto">
             {isLoading ? (
               <div className="flex flex-col items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -507,7 +468,7 @@ const Export = () => {
                   : "Select an entity type to get started"}
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="w-full overflow-x-auto">
                 <DataTable
                   columns={generateColumns()}
                   data={paginatedRecords}
@@ -516,7 +477,7 @@ const Export = () => {
                 />
               </div>
             )}
-          </ScrollArea>
+          </div>
           {filteredRecords.length > 0 && (
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-gray-500">

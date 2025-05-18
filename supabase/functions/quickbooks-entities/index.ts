@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
 
@@ -93,9 +92,17 @@ const fetchEntities = async (
       if (entityType === "Check") {
         queryString = `SELECT * FROM Purchase WHERE PaymentType = 'Check' MAXRESULTS 1000`;
       } else if (entityType === "CreditCardCredit") {
-        queryString = `SELECT * FROM Purchase WHERE PaymentType = 'CreditCard' AND Credit = true MAXRESULTS 1000`;
+        // This is the correct way to query credit card credits
+        queryString = `SELECT * FROM Purchase WHERE PaymentType = 'CreditCard' MAXRESULTS 1000`;
       } else {
         queryString = `SELECT * FROM ${entityType} MAXRESULTS 1000`;
+      }
+    } else {
+      // Adjust query for special entity types
+      if (entityType === "Check" && !queryString.includes("PaymentType = 'Check'")) {
+        queryString = queryString.replace("FROM Purchase", "FROM Purchase WHERE PaymentType = 'Check'");
+      } else if (entityType === "CreditCardCredit" && !queryString.includes("PaymentType = 'CreditCard'")) {
+        queryString = queryString.replace("FROM Purchase", "FROM Purchase WHERE PaymentType = 'CreditCard'");
       }
     }
     
@@ -131,15 +138,25 @@ const deleteEntity = async (
 ) => {
   try {
     // First, get the entity to retrieve its SyncToken
-    const query = `SELECT * FROM ${entityType} WHERE Id = '${entityId}'`;
-    const entityData = await fetchEntities(accessToken, realmId, entityType, query);
+    let query;
+    if (entityType === "Check") {
+      query = `SELECT * FROM Purchase WHERE Id = '${entityId}' AND PaymentType = 'Check'`;
+    } else if (entityType === "CreditCardCredit") {
+      query = `SELECT * FROM Purchase WHERE Id = '${entityId}' AND PaymentType = 'CreditCard'`;
+    } else {
+      query = `SELECT * FROM ${entityType} WHERE Id = '${entityId}'`;
+    }
     
-    if (!entityData.QueryResponse || !entityData.QueryResponse[entityType] || 
-        entityData.QueryResponse[entityType].length === 0) {
+    const entityData = await fetchEntities(accessToken, realmId, entityType === "Check" || entityType === "CreditCardCredit" ? "Purchase" : entityType, query);
+    
+    const actualEntityType = entityType === "Check" || entityType === "CreditCardCredit" ? "Purchase" : entityType;
+    
+    if (!entityData.QueryResponse || !entityData.QueryResponse[actualEntityType] || 
+        entityData.QueryResponse[actualEntityType].length === 0) {
       throw new Error(`Entity ${entityType} with ID ${entityId} not found`);
     }
     
-    const entity = entityData.QueryResponse[entityType][0];
+    const entity = entityData.QueryResponse[actualEntityType][0];
     const syncToken = entity.SyncToken;
     
     // Different entities have different deletion methods
@@ -158,6 +175,16 @@ const deleteEntity = async (
     else if (['Customer', 'Vendor', 'Employee', 'Item'].includes(entityType)) {
       // For these entity types, we set Active=false to "delete" them
       endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
+      payload = {
+        Id: entityId,
+        SyncToken: syncToken,
+        Active: false,
+        sparse: true
+      };
+    }
+    else if (entityType === "Check" || entityType === "CreditCardCredit") {
+      // For checks and credit card credits, use Purchase endpoint
+      endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/purchase`;
       payload = {
         Id: entityId,
         SyncToken: syncToken,
@@ -240,7 +267,9 @@ const updateEntity = async (
   syncToken: string
 ) => {
   try {
-    const apiUrl = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
+    // For special entity types, use the Purchase endpoint
+    const actualEntityType = entityType === "Check" || entityType === "CreditCardCredit" ? "purchase" : entityType.toLowerCase();
+    const apiUrl = `${getQBApiBaseUrl()}/v3/company/${realmId}/${actualEntityType}`;
     
     console.log(`Updating ${entityType} with ID ${entityId}`);
     
@@ -345,9 +374,29 @@ serve(async (req) => {
         
         // For special entity types, modify the response to make it look like it came from the expected entity
         if (entityType === "Check" || entityType === "CreditCardCredit") {
+          // Map Credit Card Credits and Checks to their respective structures
+          // but keep the original Purchase data structure
           await logOperation(userId, 'fetch', entityType, 'success', {
             count: result.QueryResponse?.Purchase?.length || 0
           });
+          
+          // Return the result with the proper entity name
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              data: {
+                ...result,
+                QueryResponse: {
+                  ...result.QueryResponse,
+                  // Add the entity type key with the Purchase data
+                  [entityType]: result.QueryResponse?.Purchase || []
+                }
+              } 
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
         } else {
           await logOperation(userId, 'fetch', entityType, 'success', {
             count: result.QueryResponse?.[entityType]?.length || 0
