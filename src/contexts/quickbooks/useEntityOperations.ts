@@ -1,8 +1,10 @@
+
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { EntityState, DateRange, DeleteProgress } from "./types";
+import { logOperation } from "@/utils/operationLogger";
 
 export const useEntityOperations = (
   userId: string | undefined, 
@@ -122,6 +124,17 @@ export const useEntityOperations = (
       
       console.log(`Fetched ${fetchedEntities.length} ${typeToFetch} entities`);
       
+      // Log the operation in our database
+      await logOperation({
+        operationType: 'fetch',
+        entityType: typeToFetch,
+        status: 'success',
+        details: {
+          count: fetchedEntities.length,
+          query: query
+        }
+      });
+      
       // Update entity state with fetched data
       setEntityState(prev => ({
         ...prev,
@@ -149,6 +162,16 @@ export const useEntityOperations = (
       }
     } catch (error: any) {
       console.error(`Error fetching ${typeToFetch} entities:`, error);
+      
+      // Log the error
+      await logOperation({
+        operationType: 'fetch',
+        entityType: typeToFetch || 'unknown',
+        status: 'error',
+        details: {
+          error: error.message
+        }
+      });
       
       // Update entity state with error
       setEntityState(prev => ({
@@ -227,6 +250,18 @@ export const useEntityOperations = (
         throw new Error(`Error from function: ${data.error}`);
       }
       
+      // Log the deletion operation
+      await logOperation({
+        operationType: 'delete',
+        entityType: typeToDelete,
+        recordId: entityId,
+        status: 'success',
+        details: {
+          entityId,
+          action: 'delete'
+        }
+      });
+      
       // Show success message
       toast({
         title: "Entity Deleted",
@@ -236,6 +271,19 @@ export const useEntityOperations = (
       return true;
     } catch (error: any) {
       console.error(`Error deleting ${typeToDelete}:`, error);
+      
+      // Log the failed deletion
+      await logOperation({
+        operationType: 'delete',
+        entityType: typeToDelete,
+        recordId: entityId,
+        status: 'error',
+        details: {
+          entityId,
+          error: error.message
+        }
+      });
+      
       toast({
         title: "Deletion Failed",
         description: error.message,
@@ -260,6 +308,17 @@ export const useEntityOperations = (
     });
     
     try {
+      // Log the bulk deletion start
+      await logOperation({
+        operationType: 'delete',
+        entityType: typeToDelete,
+        status: 'pending',
+        details: {
+          count: entityIds.length,
+          operation: 'bulk-delete'
+        }
+      });
+      
       for (let i = 0; i < entityIds.length; i++) {
         const id = entityIds[i];
         try {
@@ -298,11 +357,35 @@ export const useEntityOperations = (
         }
       }
       
+      // Log the bulk deletion completion
+      await logOperation({
+        operationType: 'delete',
+        entityType: typeToDelete,
+        status: entityIds.length === deleteProgress.success ? 'success' : 'partial',
+        details: {
+          total: entityIds.length,
+          success: deleteProgress.success,
+          failed: deleteProgress.failed
+        }
+      });
+      
       // Refresh the entities after bulk deletion
       await fetchEntities(typeToDelete);
       
     } catch (error: any) {
       console.error("Error in bulk deletion:", error);
+      
+      // Log the bulk deletion error
+      await logOperation({
+        operationType: 'delete',
+        entityType: typeToDelete || 'unknown',
+        status: 'error',
+        details: {
+          error: error.message,
+          operation: 'bulk-delete'
+        }
+      });
+      
       toast({
         title: "Bulk Deletion Error",
         description: error.message,

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { logOperation } from "@/utils/operationLogger";
 
 // QuickBooks API base URL (for sandbox or production)
 export const API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com";
@@ -57,9 +58,30 @@ export const queryQuickbooksData = async (
     }
     
     const data = await response.json();
+    
+    // Log the operation
+    await logOperation({
+      operationType: 'export', 
+      entityType: entity,
+      status: 'success',
+      details: { 
+        query,
+        count: data?.QueryResponse?.[entity]?.length || 0
+      }
+    });
+    
     return data;
   } catch (error) {
     console.error("Error querying QuickBooks data:", error);
+    
+    // Log error
+    await logOperation({
+      operationType: 'export',
+      entityType: entity,
+      status: 'error',
+      details: { error: error.message }
+    });
+    
     throw error;
   }
 };
@@ -86,9 +108,28 @@ export const createQuickbooksEntity = async (
     }
     
     const data = await response.json();
+    
+    // Log the operation
+    await logOperation({
+      operationType: 'import',
+      entityType: entity,
+      recordId: data[entity]?.Id,
+      status: 'success',
+      details: { action: 'create', entity: data[entity] }
+    });
+    
     return data;
   } catch (error) {
     console.error(`Error creating ${entity}:`, error);
+    
+    // Log error
+    await logOperation({
+      operationType: 'import',
+      entityType: entity,
+      status: 'error',
+      details: { action: 'create', error: error.message }
+    });
+    
     throw error;
   }
 };
@@ -120,9 +161,29 @@ export const updateQuickbooksEntity = async (
     }
     
     const data = await response.json();
+    
+    // Log the operation
+    await logOperation({
+      operationType: 'import',
+      entityType: entity,
+      recordId: entityId,
+      status: 'success',
+      details: { action: 'update', entity: data[entity] }
+    });
+    
     return data;
   } catch (error) {
     console.error(`Error updating ${entity}:`, error);
+    
+    // Log error
+    await logOperation({
+      operationType: 'import',
+      entityType: entity,
+      recordId: entityId,
+      status: 'error',
+      details: { action: 'update', error: error.message }
+    });
+    
     throw error;
   }
 };
@@ -183,32 +244,22 @@ export const deleteQuickbooksEntity = async (
   }
 };
 
-// Function to log operations in Supabase
+// Function to log operations in Supabase - updated to use centralized logger
 export const logOperation = async (options: {
   operationType: 'import' | 'export' | 'delete';
   entityType: string;
-  recordId: string | null;
+  recordId?: string | null;
   status: 'success' | 'error' | 'pending' | 'partial';
   details?: any;
 }) => {
-  try {
-    const { data: user } = await supabase.auth.getUser();
-    
-    if (!user.user) {
-      throw new Error("User not authenticated");
-    }
-    
-    await supabase.from("operation_logs").insert({
-      user_id: user.user.id,
-      operation_type: options.operationType,
-      entity_type: options.entityType,
-      record_id: options.recordId,
-      status: options.status,
-      details: options.details
-    });
-  } catch (error) {
-    console.error("Error logging operation:", error);
-  }
+  // Use our centralized logger
+  return logOperation({
+    operationType: options.operationType,
+    entityType: options.entityType,
+    recordId: options.recordId || null,
+    status: options.status,
+    details: options.details || {}
+  });
 };
 
 // Function to get entity schema/fields

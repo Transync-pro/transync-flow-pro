@@ -31,46 +31,21 @@ interface StatsCard {
 }
 
 // Recent activity data
-const recentActivities = [
-  {
-    id: "ACT-3984",
-    name: "Customer Export",
-    type: "export",
-    status: "completed",
-    records: "234 records",
-    date: "Today at 10:24 AM",
-  },
-  {
-    id: "ACT-3983",
-    name: "Transaction Export",
-    type: "export",
-    status: "completed",
-    records: "1,523 records",
-    date: "Yesterday at 4:12 PM",
-  },
-  {
-    id: "ACT-3982",
-    name: "Inactive Vendors",
-    type: "delete",
-    status: "completed",
-    records: "48 records",
-    date: "May 11, 2025 at 2:45 PM",
-  },
-  {
-    id: "ACT-3981",
-    name: "Monthly Invoices",
-    type: "export",
-    status: "completed",
-    records: "875 records",
-    date: "May 10, 2025 at 9:30 AM",
-  },
-];
+interface Activity {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  records: string;
+  date: string;
+}
 
 const DashboardHome = () => {
   const { isConnected, isLoading: isQbLoading, connect, companyName } = useQuickbooks();
   const navigate = useNavigate();
   const [statsData, setStatsData] = useState<StatsCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
 
   // Fetch operation stats from the database
   useEffect(() => {
@@ -89,6 +64,47 @@ const DashboardHome = () => {
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
         
+        // Fetch recent activities
+        const { data: recentLogsData, error: recentError } = await supabase
+          .from('operation_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(4);
+          
+        if (!recentError && recentLogsData) {
+          const activities = recentLogsData.map(log => {
+            let recordsCount = '';
+            if (log.details && log.details.count) {
+              recordsCount = `${log.details.count} records`;
+            } else {
+              recordsCount = log.record_id ? '1 record' : '';
+            }
+            
+            const date = new Date(log.created_at);
+            const formattedDate = new Intl.DateTimeFormat('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            }).format(date);
+            
+            return {
+              id: log.id,
+              name: `${log.entity_type} ${log.operation_type.charAt(0).toUpperCase() + log.operation_type.slice(1)}`,
+              type: log.operation_type,
+              status: log.status,
+              records: recordsCount,
+              date: formattedDate
+            };
+          });
+          
+          setRecentActivities(activities);
+        }
+        
+        // Fetch operation logs for statistics
         const { data: operationLogs, error } = await supabase
           .from('operation_logs')
           .select('*')
@@ -103,17 +119,59 @@ const DashboardHome = () => {
         // Calculate stats from operation logs
         const exports = operationLogs.filter(log => log.operation_type === 'export');
         const deletions = operationLogs.filter(log => log.operation_type === 'delete');
-        const successfulExports = exports.filter(log => log.status === 'success');
+        const totalOperations = operationLogs.length;
+        
+        // For fetch and export operations, determine success rate
+        const dataOperations = operationLogs.filter(log => 
+          log.operation_type === 'export' || log.operation_type === 'fetch'
+        );
+        const successfulOperations = dataOperations.filter(log => log.status === 'success');
         
         // Calculate the export success rate
-        const successRate = exports.length > 0 
-          ? ((successfulExports.length / exports.length) * 100).toFixed(1)
+        const successRate = dataOperations.length > 0 
+          ? ((successfulOperations.length / dataOperations.length) * 100).toFixed(1)
           : '100.0';
         
-        // Calculate trends (simple mock for now - in real app would compare to previous month)
-        const exportsTrend = '+12%';
-        const deletionsTrend = exports.length > 0 ? '-5%' : '0%'; 
-        const successRateTrend = '+0.8%';
+        // Get previous month statistics for trend comparison
+        const startOfPrevMonth = new Date(startOfMonth);
+        startOfPrevMonth.setMonth(startOfPrevMonth.getMonth() - 1);
+        const endOfPrevMonth = new Date(startOfMonth);
+        endOfPrevMonth.setDate(endOfPrevMonth.getDate() - 1);
+        
+        const { data: prevMonthLogs } = await supabase
+          .from('operation_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('created_at', startOfPrevMonth.toISOString())
+          .lte('created_at', endOfPrevMonth.toISOString());
+        
+        const prevExports = prevMonthLogs?.filter(log => log.operation_type === 'export').length || 0;
+        const prevDeletions = prevMonthLogs?.filter(log => log.operation_type === 'delete').length || 0;
+        const prevDataOps = prevMonthLogs?.filter(log => 
+          log.operation_type === 'export' || log.operation_type === 'fetch'
+        ).length || 0;
+        const prevSuccessOps = prevMonthLogs?.filter(log => 
+          (log.operation_type === 'export' || log.operation_type === 'fetch') && 
+          log.status === 'success'
+        ).length || 0;
+        
+        const prevSuccessRate = prevDataOps > 0 ? (prevSuccessOps / prevDataOps) * 100 : 100;
+        
+        // Calculate trends
+        const exportsTrendValue = prevExports > 0 
+          ? (((exports.length - prevExports) / prevExports) * 100).toFixed(0)
+          : '+100';
+        const exportsTrend = exports.length >= prevExports ? `+${exportsTrendValue}%` : `${exportsTrendValue}%`;
+        
+        const deletionsTrendValue = prevDeletions > 0
+          ? (((deletions.length - prevDeletions) / prevDeletions) * 100).toFixed(0)
+          : '+100';
+        const deletionsTrend = deletions.length >= prevDeletions ? `+${deletionsTrendValue}%` : `${deletionsTrendValue}%`;
+        
+        const successRateTrendValue = prevSuccessRate > 0
+          ? ((parseFloat(successRate) - prevSuccessRate)).toFixed(1)
+          : '+0.0';
+        const successRateTrend = parseFloat(successRate) >= prevSuccessRate ? `+${successRateTrendValue}%` : `${successRateTrendValue}%`;
         
         // Update stats cards with real data
         setStatsData([
@@ -121,8 +179,8 @@ const DashboardHome = () => {
             title: "Data Exports",
             value: exports.length.toString(),
             description: "Records exported this month",
-            trend: exportsTrend,
-            trendDirection: "up",
+            trend: exports.length >= prevExports ? exportsTrend : exportsTrend,
+            trendDirection: exports.length >= prevExports ? "up" : "down",
             icon: ArrowUp,
             iconBackground: "bg-green-100",
             iconColor: "text-green-600"
@@ -131,8 +189,8 @@ const DashboardHome = () => {
             title: "Data Deletions",
             value: deletions.length.toString(),
             description: "Records deleted this month",
-            trend: deletionsTrend,
-            trendDirection: "down",
+            trend: deletions.length >= prevDeletions ? deletionsTrend : deletionsTrend,
+            trendDirection: deletions.length >= prevDeletions ? "up" : "down",
             icon: Trash2,
             iconBackground: "bg-red-100",
             iconColor: "text-red-600"
@@ -141,8 +199,8 @@ const DashboardHome = () => {
             title: "Export Success Rate",
             value: `${successRate}%`,
             description: "Average success rate",
-            trend: successRateTrend,
-            trendDirection: "up",
+            trend: parseFloat(successRate) >= prevSuccessRate ? successRateTrend : successRateTrend,
+            trendDirection: parseFloat(successRate) >= prevSuccessRate ? "up" : "down",
             icon: Check,
             iconBackground: "bg-blue-100",
             iconColor: "text-blue-600"
@@ -268,24 +326,27 @@ const DashboardHome = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {recentActivities.map((activity) => (
+              {recentActivities.length > 0 ? recentActivities.map((activity) => (
                 <div key={activity.id} className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0 last:pb-0">
                   <div className="flex items-center">
                     <div className={`p-2 rounded-full mr-3 ${
-                      activity.type === "export" ? "bg-green-100" : "bg-red-100"
+                      activity.type === "export" ? "bg-green-100" : 
+                      activity.type === "delete" ? "bg-red-100" : 
+                      "bg-blue-100"
                     }`}>
                       {activity.type === "export" ? 
                         <ArrowUp size={18} className="text-green-600" /> : 
-                        <Trash2 size={18} className="text-red-600" />
+                        activity.type === "delete" ?
+                        <Trash2 size={18} className="text-red-600" /> :
+                        <Database size={18} className="text-blue-600" />
                       }
                     </div>
                     <div>
                       <div className="font-medium">{activity.name}</div>
                       <div className="text-xs text-gray-500 flex items-center">
-                        <span className="mr-2">{activity.id}</span>
                         <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                          activity.status === "completed" ? "bg-green-500" : 
-                          activity.status === "running" ? "bg-yellow-500" : 
+                          activity.status === "success" ? "bg-green-500" : 
+                          activity.status === "pending" ? "bg-yellow-500" : 
                           "bg-red-500"
                         }`}></span>
                         <span className="capitalize">{activity.status}</span>
@@ -297,7 +358,15 @@ const DashboardHome = () => {
                     <div className="text-xs text-gray-500">{activity.date}</div>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="col-span-2 flex flex-col items-center justify-center py-6 text-center">
+                  <Database className="h-10 w-10 text-gray-300 mb-3" />
+                  <p className="text-gray-500 text-sm">No recent activities recorded</p>
+                  <p className="text-gray-400 text-xs mt-1">
+                    Activities will appear here as you use the application
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
