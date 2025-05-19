@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
@@ -14,6 +13,8 @@ import {
 } from "lucide-react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
+import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
+import { useEffect, useState } from "react";
 
 // Updated with more detailed activity data
 const statsCards = [
@@ -95,8 +96,8 @@ const recentActivities = [
   },
 ];
 
-// Activity trends data for charts
-const activityTrends = [
+// Activity trends data for charts - will be replaced with real data
+const initialActivityTrends = [
   { month: "Jan", exports: 4200, deletions: 350 },
   { month: "Feb", exports: 5800, deletions: 420 },
   { month: "Mar", exports: 6500, deletions: 390 },
@@ -106,7 +107,84 @@ const activityTrends = [
 
 const DashboardHome = () => {
   const { isConnected, isLoading: isQbLoading, connect, companyName } = useQuickbooks();
+  const { entityState, fetchEntities } = useQuickbooksEntities();
   const navigate = useNavigate();
+  
+  // State for dashboard data
+  const [dashboardData, setDashboardData] = useState({
+    statsCards: statsCards,
+    recentActivities: recentActivities,
+    activityTrends: initialActivityTrends
+  });
+
+  // Fetch real data when connected
+  useEffect(() => {
+    if (isConnected) {
+      // Fetch some common entity types for dashboard stats
+      fetchEntities("Invoice");
+      fetchEntities("Customer");
+      fetchEntities("Vendor");
+    }
+  }, [isConnected, fetchEntities]);
+
+  // Update dashboard data when entity state changes
+  useEffect(() => {
+    if (isConnected && entityState) {
+      // Update stats based on real data
+      const updatedStatsCards = [...statsCards];
+      
+      // Update data exports count if we have invoice data
+      if (entityState.Invoice?.records) {
+        const invoiceCount = entityState.Invoice.records.length;
+        updatedStatsCards[0] = {
+          ...updatedStatsCards[0],
+          value: invoiceCount.toLocaleString(),
+          description: "Invoices in QuickBooks"
+        };
+      }
+      
+      // Update customer/vendor counts
+      if (entityState.Customer?.records) {
+        updatedStatsCards[2] = {
+          ...updatedStatsCards[2],
+          value: entityState.Customer.records.length.toLocaleString(),
+          description: "Active customers"
+        };
+      }
+      
+      if (entityState.Vendor?.records) {
+        updatedStatsCards[3] = {
+          ...updatedStatsCards[3],
+          value: entityState.Vendor.records.length.toLocaleString(),
+          description: "Active vendors"
+        };
+      }
+      
+      // Update recent activities if we have invoice data
+      let updatedActivities = [...recentActivities];
+      if (entityState.Invoice?.records && entityState.Invoice.records.length > 0) {
+        // Get the 4 most recent invoices
+        const recentInvoices = [...entityState.Invoice.records]
+          .sort((a, b) => new Date(b.MetaData.LastUpdatedTime).getTime() - new Date(a.MetaData.LastUpdatedTime).getTime())
+          .slice(0, 4);
+          
+        updatedActivities = recentInvoices.map((invoice, index) => ({
+          id: invoice.Id || `INV-${index}`,
+          name: invoice.DocNumber ? `Invoice #${invoice.DocNumber}` : "Invoice",
+          type: "export",
+          status: "completed",
+          records: invoice.Line ? `${invoice.Line.length} line items` : "Invoice data",
+          date: new Date(invoice.MetaData.LastUpdatedTime).toLocaleString()
+        }));
+      }
+      
+      setDashboardData({
+        statsCards: updatedStatsCards,
+        recentActivities: updatedActivities,
+        activityTrends: initialActivityTrends
+      });
+    }
+  }, [isConnected, entityState]);
 
   if (isQbLoading) {
     return (
@@ -158,7 +236,7 @@ const DashboardHome = () => {
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statsCards.map((card, index) => (
+        {dashboardData.statsCards.map((card, index) => (
           <Card key={index} className="border border-gray-200 hover:border-purple-200 transition-all hover:shadow-md">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-500">{card.title}</CardTitle>
@@ -192,18 +270,18 @@ const DashboardHome = () => {
             <CardDescription>Your data activity over the last 5 months</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[240px] flex items-end justify-between gap-2 p-2">
-              {activityTrends.map((month, i) => (
+            <div className="h-[240px] flex items-end justify-between gap-2 p-2 overflow-hidden">
+              {dashboardData.activityTrends.map((month, i) => (
                 <div key={i} className="flex flex-col items-center">
                   <div className="flex flex-col gap-1 items-center">
                     <div 
                       className="w-10 bg-green-500 rounded-t transition-all hover:bg-green-600"
-                      style={{ height: `${Math.min((month.exports/12000) * 200, 200)}px` }}
+                      style={{ height: `${Math.min((month.exports/12000) * 180, 180)}px` }}
                       title={`${month.exports} exports`}
                     ></div>
                     <div 
                       className="w-10 bg-red-400 rounded-t transition-all hover:bg-red-500"
-                      style={{ height: `${Math.min((month.deletions/1000) * 200, 200)}px` }}
+                      style={{ height: `${Math.min((month.deletions/1000) * 180, 180)}px` }}
                       title={`${month.deletions} deletions`}
                     ></div>
                   </div>
@@ -236,7 +314,7 @@ const DashboardHome = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivities.map((activity) => (
+              {dashboardData.recentActivities.map((activity) => (
                 <div key={activity.id} className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0 last:pb-0">
                   <div className="flex items-center">
                     <div className={`p-2 rounded-full mr-3 ${
