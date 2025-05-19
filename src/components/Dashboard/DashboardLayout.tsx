@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -136,12 +135,8 @@ const QuickbooksConnectionButton = () => {
   const handleDisconnect = async () => {
     try {
       await disconnect();
-      // Explicitly redirect to the disconnected page after disconnecting
+      // Explicitly navigate to disconnected page after disconnection
       navigate("/disconnected", { replace: true });
-      toast({
-        title: "Disconnected from QuickBooks",
-        description: "Your QuickBooks account has been disconnected successfully."
-      });
     } catch (error) {
       console.error("Error disconnecting from QuickBooks:", error);
       toast({

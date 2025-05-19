@@ -34,28 +34,22 @@ const Disconnected = () => {
         if (!isMounted) return;
         
         if (hasConnection) {
-          console.log("Direct DB check found a connection, refreshing state");
-          await refreshConnection();
-          
+          console.log("Direct DB check found a connection, redirecting to dashboard");
           // Show success message
           toast({
             title: "QuickBooks Connected",
             description: "Your QuickBooks account is connected. Redirecting to dashboard...",
           });
           
-          // Redirect after short delay to allow toast to be seen
-          setTimeout(() => {
-            if (isMounted) {
-              handleRedirectAfterConnect();
-            }
-          }, 500);
+          // Redirect immediately to dashboard
+          navigate('/dashboard', { replace: true });
+        } else {
+          // Connection not found, allow display of the connect button
+          setIsCheckingConnection(false);
         }
       } catch (error) {
         console.error("Error checking direct connection:", error);
-      } finally {
-        if (isMounted) {
-          setIsCheckingConnection(false);
-        }
+        setIsCheckingConnection(false);
       }
     };
     
@@ -64,14 +58,7 @@ const Disconnected = () => {
     return () => {
       isMounted = false;
     };
-  }, [user, refreshConnection]);
-  
-  // Check if we should redirect after connecting
-  useEffect(() => {
-    if (isConnected && !isCheckingConnection && !isReconnecting) {
-      handleRedirectAfterConnect();
-    }
-  }, [isConnected, isCheckingConnection, isReconnecting]);
+  }, [user, navigate]);
   
   // Handle redirection after connecting
   const handleRedirectAfterConnect = () => {
@@ -105,7 +92,7 @@ const Disconnected = () => {
   };
 
   // If we're checking connection or connected, show loading state
-  if (isCheckingConnection || isConnected) {
+  if (isCheckingConnection) {
     return (
       <PageLayout>
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
@@ -113,7 +100,7 @@ const Disconnected = () => {
             <CardContent className="pt-6">
               <Loader2 className="mx-auto h-12 w-12 animate-spin text-blue-500" />
               <p className="mt-4 text-gray-600">
-                {isConnected ? "Connection detected, redirecting..." : "Checking connection status..."}
+                Checking connection status...
               </p>
             </CardContent>
           </Card>

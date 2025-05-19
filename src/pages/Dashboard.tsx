@@ -11,21 +11,21 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { isConnected, companyName, refreshConnection } = useQuickbooks();
   
-  // Check QuickBooks connection on mount
-  useEffect(() => {
-    refreshConnection();
-  }, [refreshConnection]);
-  
-  // Handle disconnection case
+  // Check QuickBooks connection on mount - but only once
   useEffect(() => {
     const checkConnection = async () => {
-      if (!isConnected) {
-        // If not connected, redirect to disconnected page
-        navigate('/disconnected', { replace: true });
-      }
+      await refreshConnection();
     };
     
     checkConnection();
+  }, [refreshConnection]);
+  
+  // Handle disconnection case - redirect to disconnected page if not connected
+  useEffect(() => {
+    if (isConnected === false) { // Only redirect if we're definitely not connected (not during loading)
+      console.log("Dashboard detected disconnected state, redirecting to /disconnected");
+      navigate('/disconnected', { replace: true });
+    }
   }, [isConnected, navigate]);
   
   // Show welcome message when connected
@@ -37,6 +37,11 @@ const Dashboard = () => {
       });
     }
   }, [isConnected, companyName, toast]);
+  
+  // Only render the dashboard if connected
+  if (!isConnected) {
+    return null; // Will redirect via the effect
+  }
   
   return (
     <DashboardLayout>

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,13 +15,12 @@ const QuickbooksCallback = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [attempts, setAttempts] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
   const { refreshConnection } = useQuickbooks();
 
-  // Process the callback once auth is loaded and we're not in a retry loop
+  // Process the callback once auth is loaded
   useEffect(() => {
     if (isAuthLoading) return;
     
@@ -109,11 +109,8 @@ const QuickbooksCallback = () => {
           description: `Your QuickBooks account (${data.companyName || 'Unknown Company'}) has been connected successfully!`,
         });
 
-        // Give UI time to update before redirecting
-        setTimeout(() => {
-          // Always redirect to dashboard after successful connection
-          navigate("/dashboard", { replace: true });
-        }, 1500);
+        // Redirect to dashboard immediately with replace to avoid back navigation
+        navigate("/dashboard", { replace: true });
       } catch (err: any) {
         logError("QuickBooks callback error", {
           source: "QuickbooksCallback",
@@ -127,8 +124,8 @@ const QuickbooksCallback = () => {
           description: err.message || "Unable to connect to QuickBooks",
           variant: "destructive",
         });
-      } finally {
         setIsProcessing(false);
+      } finally {
         setIsCheckingSession(false);
       }
     };
@@ -142,7 +139,9 @@ const QuickbooksCallback = () => {
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100">
         <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
           <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto" />
-          <p className="text-gray-600">Verifying your session...</p>
+          <p className="mt-4 text-gray-600">
+            Verifying your session...
+          </p>
         </div>
       </div>
     );

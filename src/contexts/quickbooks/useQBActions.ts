@@ -2,6 +2,7 @@
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
+import { clearConnectionCache } from "@/services/quickbooksApi/connections";
 
 export const useQBActions = (
   user: User | null,
@@ -90,6 +91,9 @@ export const useQBActions = (
         console.warn("Warning from revoke endpoint:", data.error);
         // We continue anyway since we want to remove the connection from our database
       }
+      
+      // Clear connection cache to ensure future checks reflect the disconnection
+      clearConnectionCache(user.id);
       
       console.log("QuickBooks disconnection process completed, refreshing connection status...");
       
