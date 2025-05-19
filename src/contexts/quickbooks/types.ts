@@ -1,4 +1,3 @@
-
 import { DateRange } from "react-day-picker";
 import { DeleteProgress } from "./useEntityOperations";
 import { User } from "@supabase/supabase-js";
@@ -17,8 +16,9 @@ export interface EntityState {
 
 // Adding the missing EntityOption interface
 export interface EntityOption {
-  value: string;
   label: string;
+  value: string;
+  group?: string;
 }
 
 // Adding the missing EntityColumnConfig interface

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
 
@@ -92,7 +93,7 @@ const fetchEntities = async (
       if (entityType === "Check") {
         queryString = `SELECT * FROM Purchase WHERE PaymentType = 'Check' MAXRESULTS 1000`;
       } else if (entityType === "CreditCardCredit") {
-        // Use correct query for credit card credits - Credit is not a queryable property
+        // Fix: Credit is not a queryable property, use TotalAmt < 0 instead
         queryString = `SELECT * FROM Purchase WHERE PaymentType = 'CreditCard' AND TotalAmt < 0 MAXRESULTS 1000`;
       } else {
         queryString = `SELECT * FROM ${entityType} MAXRESULTS 1000`;
@@ -102,7 +103,7 @@ const fetchEntities = async (
       if (entityType === "Check" && !queryString.includes("PaymentType = 'Check'")) {
         queryString = queryString.replace("FROM Purchase", "FROM Purchase WHERE PaymentType = 'Check'");
       } else if (entityType === "CreditCardCredit" && !queryString.includes("PaymentType = 'CreditCard'")) {
-        // Adjust user-provided query for Credit Card Credits
+        // Fix: Adjust user-provided query for Credit Card Credits
         queryString = queryString.replace(
           "FROM Purchase", 
           "FROM Purchase WHERE PaymentType = 'CreditCard' AND TotalAmt < 0"
@@ -146,7 +147,7 @@ const deleteEntity = async (
     if (entityType === "Check") {
       query = `SELECT * FROM Purchase WHERE Id = '${entityId}' AND PaymentType = 'Check'`;
     } else if (entityType === "CreditCardCredit") {
-      query = `SELECT * FROM Purchase WHERE Id = '${entityId}' AND PaymentType = 'CreditCard'`;
+      query = `SELECT * FROM Purchase WHERE Id = '${entityId}' AND PaymentType = 'CreditCard' AND TotalAmt < 0`;
     } else {
       query = `SELECT * FROM ${entityType} WHERE Id = '${entityId}'`;
     }
