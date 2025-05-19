@@ -8,7 +8,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
 import { toast } from "@/components/ui/use-toast";
-import Navbar from "@/components/Navbar";
 
 const Disconnected = () => {
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -126,55 +125,41 @@ const Disconnected = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <Navbar />
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        {isCheckingConnection || isConnected ? (
-          <Card className="w-full max-w-md text-center">
-            <CardContent className="pt-6">
-              <Loader2 className="mx-auto h-12 w-12 animate-spin text-blue-500" />
-              <p className="mt-4 text-gray-600">
-                {isConnected ? "Connection detected, redirecting..." : "Checking connection status..."}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="w-full max-w-md text-center">
-            <CardHeader>
-              <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-2" />
-              <CardTitle className="text-2xl">QuickBooks Connection Required</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                You need to connect to QuickBooks to access this feature. Please connect your QuickBooks account to continue.
-              </p>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-2">
-              <Button
-                className="w-full bg-transyncpro-button hover:bg-transyncpro-button/90"
-                onClick={handleConnect}
-                disabled={isLoading || isReconnecting}
-              >
-                {isLoading || isReconnecting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isLoading ? "Checking connection..." : "Connecting..."}
-                  </>
-                ) : (
-                  "Connect to QuickBooks"
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full mt-2"
-                onClick={handleBackToHome}
-              >
-                Back to Home
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+      <Card className="w-full max-w-md text-center">
+        <CardHeader>
+          <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-2" />
+          <CardTitle className="text-2xl">QuickBooks Connection Required</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-600 mb-4">
+            You need to connect to QuickBooks to access this feature. Please connect your QuickBooks account to continue.
+          </p>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-2">
+          <Button
+            className="w-full bg-transyncpro-button hover:bg-transyncpro-button/90"
+            onClick={handleConnect}
+            disabled={isLoading || isReconnecting}
+          >
+            {isLoading || isReconnecting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isLoading ? "Checking connection..." : "Connecting..."}
+              </>
+            ) : (
+              "Connect to QuickBooks"
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full mt-2"
+            onClick={handleBackToHome}
+          >
+            Back to Home
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 };
