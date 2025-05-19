@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { QuickbooksConnection } from "./types";
 import { User } from "@supabase/supabase-js";
 import { logError } from "@/utils/errorLogger";
+import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
 
 export const useQBConnectionStatus = (user: User | null) => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -13,6 +14,7 @@ export const useQBConnectionStatus = (user: User | null) => {
   const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
   const checkInProgress = useRef<boolean>(false);
   const lastCheckTime = useRef<number>(0);
+  const maxConsecutiveChecks = useRef<number>(0);
   const connectionCache = useRef<{
     userId: string | null;
     data: QuickbooksConnection | null;
@@ -23,7 +25,7 @@ export const useQBConnectionStatus = (user: User | null) => {
     timestamp: 0
   });
 
-  // Check connection status with caching
+  // Check connection status with enhanced caching and throttling
   const checkConnectionStatus = useCallback(async (force = false) => {
     if (!user) {
       resetConnectionState();
@@ -34,17 +36,40 @@ export const useQBConnectionStatus = (user: User | null) => {
     // Prevent concurrent checks
     if (checkInProgress.current) return;
     
+    // Circuit breaker to prevent excessive checks
+    maxConsecutiveChecks.current += 1;
+    if (maxConsecutiveChecks.current > 5) {
+      console.log('Circuit breaker triggered: too many consecutive connection checks');
+      setIsLoading(false);
+      return;
+    }
+    
     // Don't check too frequently unless forced
     const now = Date.now();
-    const throttleTime = force ? 0 : 10000; // Increased to 10 seconds throttle unless forced
+    const throttleTime = force ? 0 : 30000; // 30 seconds throttle unless forced
     if (now - lastCheckTime.current < throttleTime) {
       return;
+    }
+    
+    // Use the optimized existence check first
+    if (!force) {
+      try {
+        const exists = await checkQBConnectionExists(user.id);
+        if (!exists) {
+          resetConnectionState();
+          setIsLoading(false);
+          return;
+        }
+      } catch (error) {
+        // If existence check fails, continue to full check
+        console.error("Error in quick connection check:", error);
+      }
     }
     
     // Check cache first (only if not forced)
     if (!force && 
         connectionCache.current.userId === user.id && 
-        connectionCache.current.timestamp > now - 60000) { // Extended to 60 second cache
+        connectionCache.current.timestamp > now - 120000) { // Extended to 2 minute cache
       
       if (connectionCache.current.data) {
         // Use cached data
@@ -101,6 +126,9 @@ export const useQBConnectionStatus = (user: User | null) => {
         setRealmId(qbConnection.realm_id);
         setCompanyName(qbConnection.company_name || null);
         
+        // Reset the circuit breaker since we've found a connection
+        maxConsecutiveChecks.current = 0;
+        
         // Only log on forced checks
         if (force) {
           console.log('QuickBooks connection found:', { 
@@ -139,6 +167,9 @@ export const useQBConnectionStatus = (user: User | null) => {
 
   // Check connection on mount and when user changes - with reduced frequency
   useEffect(() => {
+    // Reset circuit breaker when user changes
+    maxConsecutiveChecks.current = 0;
+    
     // Reset cache when user changes
     if (connectionCache.current.userId !== user?.id) {
       connectionCache.current = {
@@ -159,8 +190,9 @@ export const useQBConnectionStatus = (user: User | null) => {
 
   // Public refresh method - force a check
   const refreshConnection = useCallback(async () => {
-    // Reset throttling to ensure immediate check
+    // Reset throttling and circuit breaker to ensure immediate check
     lastCheckTime.current = 0;
+    maxConsecutiveChecks.current = 0;
     await checkConnectionStatus(true);
   }, [checkConnectionStatus]);
 

@@ -12,9 +12,10 @@ interface QuickbooksConnection {
   company_name?: string;
 }
 
-// Improved connection cache with longer TTL
+// Enhanced connection cache with optimized TTL
 const connectionCache = new Map<string, {data: QuickbooksConnection | null, timestamp: number}>();
-const CACHE_TTL = 60000; // Extended to 60 seconds for better performance
+const CACHE_TTL = 120000; // Extended to 2 minutes for better performance
+const EXISTENCE_CACHE_TTL = 300000; // 5 minutes for existence checks
 
 // Get the current user's QuickBooks connection with enhanced caching
 export const getQBConnection = async (): Promise<QuickbooksConnection | null> => {
@@ -79,14 +80,14 @@ export async function updateConnectionTokens(
   }
 }
 
-// Optimized connection check for RouteGuard - simpler and faster
+// Highly optimized connection check for RouteGuard - simpler and faster
 export const checkQBConnectionExists = async (userId: string): Promise<boolean> => {
   if (!userId) return false;
   
   // Check cache first with longer TTL for existence checks
   const now = Date.now();
   const cached = connectionCache.get(userId);
-  if (cached && (now - cached.timestamp < CACHE_TTL)) {
+  if (cached && (now - cached.timestamp < EXISTENCE_CACHE_TTL)) {
     return cached.data !== null;
   }
   
