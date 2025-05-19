@@ -28,7 +28,7 @@ export const logOperation = async ({
       return;
     }
     
-    // Make sure operationType is one of the valid types
+    // Validate operation type to match database constraint
     if (!['export', 'import', 'delete', 'fetch'].includes(operationType)) {
       console.error(`Invalid operation type: ${operationType}. Must be one of: export, import, delete, fetch`);
       return;

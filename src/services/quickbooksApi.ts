@@ -60,7 +60,7 @@ export const queryQuickbooksData = async (
     
     const data = await response.json();
     
-    // Log the operation
+    // Log the operation with correct type
     await logOperationUtil({
       operationType: 'fetch',
       entityType: entity,
@@ -110,7 +110,7 @@ export const createQuickbooksEntity = async (
     
     const data = await response.json();
     
-    // Log the operation
+    // Log the operation with correct type
     await logOperationUtil({
       operationType: 'import',
       entityType: entity,
@@ -163,7 +163,7 @@ export const updateQuickbooksEntity = async (
     
     const data = await response.json();
     
-    // Log the operation
+    // Log the operation with correct type
     await logOperationUtil({
       operationType: 'import',
       entityType: entity,
@@ -219,7 +219,7 @@ export const deleteQuickbooksEntity = async (
     
     const data = await response.json();
     
-    // Log successful operation
+    // Log successful operation with correct type
     await logOperationUtil({
       operationType: 'delete',
       entityType: entity,
@@ -232,7 +232,7 @@ export const deleteQuickbooksEntity = async (
   } catch (error) {
     console.error(`Error deleting ${entity}:`, error);
     
-    // Log failed operation
+    // Log failed operation with correct type
     await logOperationUtil({
       operationType: 'delete',
       entityType: entity,
@@ -245,7 +245,7 @@ export const deleteQuickbooksEntity = async (
   }
 };
 
-// Function to log operations in Supabase - renamed to avoid conflict
+// This function is renamed to avoid conflict with the imported logOperation
 export const trackOperation = async (options: {
   operationType: 'import' | 'export' | 'delete' | 'fetch';
   entityType: string;

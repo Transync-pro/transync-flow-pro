@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
+import { logOperation } from "@/utils/operationLogger";
 
 // Generic type for QuickBooks entity operation responses
 type QBEntityResponse<T = any> = {
@@ -31,6 +32,17 @@ export const fetchQuickbooksEntities = async <T = any>(
 
     if (error) throw new Error(error.message);
     if (data.error) throw new Error(data.error);
+    
+    // Log the successful fetch operation
+    await logOperation({
+      operationType: 'fetch',
+      entityType,
+      status: 'success',
+      details: { 
+        query: customQuery,
+        count: data?.data?.QueryResponse?.[entityType]?.length || 0
+      }
+    });
 
     return {
       success: true,
@@ -38,6 +50,15 @@ export const fetchQuickbooksEntities = async <T = any>(
     };
   } catch (error: any) {
     console.error(`Error fetching ${entityType}:`, error);
+    
+    // Log the failed fetch operation
+    await logOperation({
+      operationType: 'fetch',
+      entityType,
+      status: 'error',
+      details: { error: error.message || "An unknown error occurred" }
+    });
+    
     toast({
       title: `Failed to fetch ${entityType}`,
       description: error.message || "An unknown error occurred",
@@ -73,6 +94,15 @@ export const createQuickbooksEntity = async <T = any>(
 
     if (error) throw new Error(error.message);
     if (data.error) throw new Error(data.error);
+    
+    // Log the successful creation
+    await logOperation({
+      operationType: 'import',
+      entityType,
+      recordId: data?.data?.[entityType]?.Id,
+      status: 'success',
+      details: { action: 'create', entity: data?.data?.[entityType] }
+    });
 
     toast({
       title: "Created Successfully",
@@ -85,6 +115,15 @@ export const createQuickbooksEntity = async <T = any>(
     };
   } catch (error: any) {
     console.error(`Error creating ${entityType}:`, error);
+    
+    // Log the failed creation
+    await logOperation({
+      operationType: 'import',
+      entityType,
+      status: 'error',
+      details: { action: 'create', error: error.message || "An unknown error occurred" }
+    });
+    
     toast({
       title: `Failed to create ${entityType}`,
       description: error.message || "An unknown error occurred",
@@ -124,6 +163,15 @@ export const updateQuickbooksEntity = async <T = any>(
 
     if (error) throw new Error(error.message);
     if (data.error) throw new Error(data.error);
+    
+    // Log the successful update
+    await logOperation({
+      operationType: 'import',
+      entityType,
+      recordId: entityId,
+      status: 'success',
+      details: { action: 'update', entity: data?.data?.[entityType] }
+    });
 
     toast({
       title: "Updated Successfully",
@@ -136,6 +184,16 @@ export const updateQuickbooksEntity = async <T = any>(
     };
   } catch (error: any) {
     console.error(`Error updating ${entityType}:`, error);
+    
+    // Log the failed update
+    await logOperation({
+      operationType: 'import',
+      entityType,
+      recordId: entityId,
+      status: 'error',
+      details: { action: 'update', error: error.message || "An unknown error occurred" }
+    });
+    
     toast({
       title: `Failed to update ${entityType}`,
       description: error.message || "An unknown error occurred",
@@ -171,6 +229,15 @@ export const deleteQuickbooksEntity = async <T = any>(
 
     if (error) throw new Error(error.message);
     if (data.error) throw new Error(data.error);
+    
+    // Log the successful deletion
+    await logOperation({
+      operationType: 'delete',
+      entityType,
+      recordId: entityId,
+      status: 'success',
+      details: { action: 'delete', entity: data?.data?.[entityType] }
+    });
 
     toast({
       title: "Deleted Successfully",
@@ -183,6 +250,16 @@ export const deleteQuickbooksEntity = async <T = any>(
     };
   } catch (error: any) {
     console.error(`Error deleting ${entityType}:`, error);
+    
+    // Log the failed deletion
+    await logOperation({
+      operationType: 'delete',
+      entityType,
+      recordId: entityId,
+      status: 'error',
+      details: { action: 'delete', error: error.message || "An unknown error occurred" }
+    });
+    
     toast({
       title: `Failed to delete ${entityType}`,
       description: error.message || "An unknown error occurred",
