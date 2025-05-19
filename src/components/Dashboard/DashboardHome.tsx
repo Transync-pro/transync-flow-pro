@@ -198,12 +198,12 @@ const DashboardHome = () => {
                   <div className="flex flex-col gap-1 items-center">
                     <div 
                       className="w-10 bg-green-500 rounded-t transition-all hover:bg-green-600"
-                      style={{ height: `${(month.exports/12000) * 200}px` }}
+                      style={{ height: `${Math.min((month.exports/12000) * 200, 200)}px` }}
                       title={`${month.exports} exports`}
                     ></div>
                     <div 
                       className="w-10 bg-red-400 rounded-t transition-all hover:bg-red-500"
-                      style={{ height: `${(month.deletions/1000) * 200}px` }}
+                      style={{ height: `${Math.min((month.deletions/1000) * 200, 200)}px` }}
                       title={`${month.deletions} deletions`}
                     ></div>
                   </div>
