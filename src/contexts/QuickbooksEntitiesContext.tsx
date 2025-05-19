@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { toast } from "@/components/ui/use-toast";
-import { EntityState, QuickbooksEntitiesContextType } from "./quickbooks/types";
+import { EntityState, QuickbooksEntitiesContextType, DateRange } from "./quickbooks/types";
 import { getEntityOptions } from "./quickbooks/entityMapping";
 import { useEntityOperations } from "./quickbooks/useEntityOperations";
 import { useEntitySelection } from "./quickbooks/useEntitySelection";
@@ -38,7 +38,7 @@ export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ 
     fetchEntities,
     filterEntities,
     deleteEntity,
-    deleteSelectedEntities,
+    deleteSelectedEntities: baseDeleteSelectedEntities,
     isDeleting,
     deleteProgress
   } = useEntityOperations(
@@ -61,14 +61,34 @@ export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ 
   // This addresses Issue #1 and Issue #2 by not loading entities automatically on login
   
   // Wrapper for selectAllEntities that uses the current entity's filtered records
-  const selectAllEntitiesWrapper = (select: boolean, entityType?: string) => {
-    const typeToSelect = entityType || selectedEntity;
+  const selectAllEntitiesWrapper = (select: boolean, entities?: any[]) => {
+    if (entities) {
+      baseSelectAllEntities(select, entities);
+      return;
+    }
+    
+    const typeToSelect = selectedEntity;
     if (!typeToSelect) return;
     
     const currentState = entityState[typeToSelect];
     if (!currentState || !currentState.filteredRecords) return;
     
     baseSelectAllEntities(select, currentState.filteredRecords);
+  };
+  
+  // Wrapper for deleteSelectedEntities to match the expected signature
+  const deleteSelectedEntitiesWrapper = async (entityIds?: string[]): Promise<{ success: number; failed: number }> => {
+    const idsToDelete = entityIds || selectedEntityIds;
+    if (!idsToDelete.length || !selectedEntity) {
+      return { success: 0, failed: 0 };
+    }
+    
+    await baseDeleteSelectedEntities(idsToDelete);
+    
+    return {
+      success: deleteProgress.success,
+      failed: deleteProgress.failed
+    };
   };
   
   const contextValue: QuickbooksEntitiesContextType = {
@@ -80,12 +100,12 @@ export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ 
     fetchEntities,
     filterEntities,
     deleteEntity,
-    deleteSelectedEntities,
+    deleteSelectedEntities: deleteSelectedEntitiesWrapper,
     selectedEntityIds,
     setSelectedEntityIds,
     toggleEntitySelection,
     selectAllEntities: selectAllEntitiesWrapper,
-    deleteProgress,
+    deleteProgress: deleteProgress.current, // Convert DeleteProgress to number
     isDeleting,
     entityOptions,
     getNestedValue

@@ -16,7 +16,7 @@ import { logError } from "@/utils/errorLogger";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { DateRange } from "react-day-picker";
+import { DateRange as ReactDayPickerDateRange } from "react-day-picker";
 import { Pagination } from "@/components/ui/pagination";
 import { getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
@@ -26,7 +26,7 @@ const Delete = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedAll, setSelectedAll] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [dateRange, setDateRange] = useState<ReactDayPickerDateRange | undefined>();
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   
@@ -61,8 +61,8 @@ const Delete = () => {
 
   // Handle date range change
   useEffect(() => {
-    if (dateRange) {
-      setSelectedDateRange(dateRange);
+    if (dateRange?.from && dateRange?.to) {
+      setSelectedDateRange({ from: dateRange.from, to: dateRange.to });
     }
   }, [dateRange, setSelectedDateRange]);
 
@@ -103,7 +103,7 @@ const Delete = () => {
   // Handle checkbox select all
   const handleSelectAll = (checked: boolean) => {
     setSelectedAll(checked);
-    selectAllEntities(checked);
+    selectAllEntities(checked, paginatedRecords);
   };
 
   // Handle delete confirmation
@@ -361,7 +361,6 @@ const Delete = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Modified to show more results without scrolling */}
             <div className="overflow-auto">
               {isLoading ? (
                 <div className="flex flex-col items-center py-8">

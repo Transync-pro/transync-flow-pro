@@ -1,3 +1,4 @@
+
 import { User } from "@supabase/supabase-js";
 
 export interface QuickbooksConnection {
@@ -59,14 +60,19 @@ export interface EntityState {
   lastUpdated: Date | null;
 }
 
-export interface LogOperationParams {
-  operationType: 'import' | 'export' | 'delete';
-  entityType: string;
-  recordId: string | null;
-  status: 'success' | 'error' | 'pending' | 'partial';
-  details?: any;
+export interface DeleteProgress {
+  total: number;
+  current: number;
+  success: number;
+  failed: number;
+  details: Array<{
+    id: string;
+    status: string;
+    error?: string;
+  }>;
 }
 
+// Fix DateRange interface to match react-day-picker's DateRange
 export interface DateRange {
   from: Date | null;
   to: Date | null;
@@ -77,6 +83,28 @@ export interface EntityOption {
   label: string;
   description?: string;
   icon?: React.ReactNode;
+  group?: string; // Add group property that was missing
+}
+
+// Add EntityColumnConfig interface
+export interface EntityColumnConfig {
+  field: string;
+  header: string;
+  accessor?: (record: any) => any;
+}
+
+// Add EntityRecord interface
+export interface EntityRecord {
+  Id?: string;
+  [key: string]: any;
+}
+
+export interface LogOperationParams {
+  operationType: 'import' | 'export' | 'delete';
+  entityType: string;
+  recordId: string | null;
+  status: 'success' | 'error' | 'pending' | 'partial';
+  details?: any;
 }
 
 export interface QuickbooksEntitiesContextType {
@@ -86,9 +114,9 @@ export interface QuickbooksEntitiesContextType {
   setSelectedDateRange: (range: DateRange) => void;
   entityState: Record<string, EntityState>;
   fetchEntities: (entityType?: string) => Promise<void>;
-  filterEntities: (entityType: string, searchTerm: string) => void;
+  filterEntities: (searchTerm: string, entityType?: string) => void;
   deleteEntity: (entityType: string, entityId: string) => Promise<boolean>;
-  deleteSelectedEntities: () => Promise<{ success: number; failed: number }>;
+  deleteSelectedEntities: (entityIds?: string[]) => Promise<{ success: number; failed: number }>;
   selectedEntityIds: string[];
   setSelectedEntityIds: (ids: string[]) => void;
   toggleEntitySelection: (id: string) => void;

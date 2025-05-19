@@ -15,9 +15,8 @@ import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { DateRange } from "react-day-picker";
+import { DateRange as ReactDayPickerDateRange } from "react-day-picker";
 import { EntityRecord } from "@/contexts/quickbooks/types";
-import { convertToCSV } from "@/services/quickbooksApi/entities";
 import { getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
 import { Pagination } from "@/components/ui/pagination";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
@@ -28,7 +27,7 @@ const Export = () => {
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fileName, setFileName] = useState("export");
   const [selectAllFields, setSelectAllFields] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [dateRange, setDateRange] = useState<ReactDayPickerDateRange | undefined>();
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedRecords, setSelectedRecords] = useState<Record<string, boolean>>({});
@@ -57,8 +56,8 @@ const Export = () => {
 
   // Handle date range change
   useEffect(() => {
-    if (dateRange) {
-      setSelectedDateRange(dateRange);
+    if (dateRange?.from && dateRange?.to) {
+      setSelectedDateRange({ from: dateRange.from, to: dateRange.to });
     }
   }, [dateRange, setSelectedDateRange]);
 
@@ -198,7 +197,26 @@ const Export = () => {
       }
       
       // Generate CSV
-      const csv = convertToCSV(records, selectedFields);
+      const headers = selectedFields.map(field => {
+        const displayName = field.replace(/([A-Z])/g, ' $1')
+                               .replace(/^./, str => str.toUpperCase())
+                               .trim();
+        return displayName;
+      });
+      
+      let csv = headers.join(',') + '\n';
+      
+      records.forEach(record => {
+        const values = selectedFields.map(field => {
+          const value = getNestedValue(record, field);
+          // Format value for CSV
+          if (value === null || value === undefined) return '';
+          if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`;
+          if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+          return value;
+        });
+        csv += values.join(',') + '\n';
+      });
       
       // Create download link
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -215,7 +233,6 @@ const Export = () => {
         title: "Export Successful",
         description: `${records.length} records exported to CSV`,
       });
-      
     } catch (error: any) {
       console.error("Export error:", error);
       toast({
@@ -523,7 +540,6 @@ const Export = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Modified to show more results without scrolling */}
             <div className="overflow-x-auto">
               {isLoading ? (
                 <div className="flex flex-col items-center py-8">

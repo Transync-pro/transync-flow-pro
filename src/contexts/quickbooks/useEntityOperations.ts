@@ -3,30 +3,12 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
-
-export interface EntityState {
-  records: any[];
-  filteredRecords: any[];
-  isLoading: boolean;
-  error: string | null;
-}
-
-export interface DeleteProgress {
-  total: number;
-  current: number;
-  success: number;
-  failed: number;
-  details: Array<{
-    id: string;
-    status: string;
-    error?: string;
-  }>;
-}
+import { EntityState, DateRange, DeleteProgress } from "./types";
 
 export const useEntityOperations = (
   userId: string | undefined, 
   selectedEntity: string | null,
-  selectedDateRange: { from?: Date; to?: Date } | undefined,
+  selectedDateRange: DateRange,
   entityState: Record<string, EntityState>,
   setEntityState: React.Dispatch<React.SetStateAction<Record<string, EntityState>>>
 ) => {
@@ -52,6 +34,10 @@ export const useEntityOperations = (
         ...(prev[typeToFetch] || {}),
         isLoading: true,
         error: null,
+        records: prev[typeToFetch]?.records || [],
+        filteredRecords: prev[typeToFetch]?.filteredRecords || [],
+        totalCount: prev[typeToFetch]?.totalCount || 0,
+        lastUpdated: prev[typeToFetch]?.lastUpdated || null
       } as EntityState
     }));
     
@@ -144,7 +130,9 @@ export const useEntityOperations = (
           records: fetchedEntities,
           filteredRecords: fetchedEntities,
           isLoading: false,
-          error: null
+          error: null,
+          totalCount: fetchedEntities.length,
+          lastUpdated: new Date()
         }
       }));
       
@@ -169,7 +157,11 @@ export const useEntityOperations = (
         [typeToFetch]: {
           ...(prev[typeToFetch] || {}),
           isLoading: false,
-          error: error.message
+          error: error.message,
+          records: prev[typeToFetch]?.records || [],
+          filteredRecords: prev[typeToFetch]?.filteredRecords || [],
+          totalCount: prev[typeToFetch]?.totalCount || 0,
+          lastUpdated: prev[typeToFetch]?.lastUpdated || null
         } as EntityState
       }));
       
@@ -211,7 +203,7 @@ export const useEntityOperations = (
   }, [entityState, selectedEntity, setEntityState]);
   
   // Function to delete a single entity
-  const deleteEntity = useCallback(async (entityId: string, entityType?: string): Promise<boolean> => {
+  const deleteEntity = useCallback(async (entityType: string, entityId: string): Promise<boolean> => {
     const typeToDelete = entityType || selectedEntity;
     if (!typeToDelete || !userId) return false;
     
@@ -272,7 +264,7 @@ export const useEntityOperations = (
       for (let i = 0; i < entityIds.length; i++) {
         const id = entityIds[i];
         try {
-          const success = await deleteEntity(id, typeToDelete);
+          const success = await deleteEntity(typeToDelete, id);
           
           if (success) {
             setDeleteProgress(prev => ({

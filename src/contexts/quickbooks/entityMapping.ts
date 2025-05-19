@@ -1,4 +1,3 @@
-
 import { getNestedValue } from "./entityUtils";
 import { EntityOption, EntityColumnConfig } from "./types";
 
@@ -6,28 +5,28 @@ import { EntityOption, EntityColumnConfig } from "./types";
 export const getEntityOptions = (): EntityOption[] => {
   return [
     // Customers & Sales
-    { value: "Customer", label: "Customers", group: "Customers & Sales" },
-    { value: "Invoice", label: "Invoices", group: "Customers & Sales" },
-    { value: "Payment", label: "Payments", group: "Customers & Sales" },
-    { value: "SalesReceipt", label: "Sales Receipts", group: "Customers & Sales" },
-    { value: "CreditMemo", label: "Credit Memos", group: "Customers & Sales" },
-    { value: "RefundReceipt", label: "Refund Receipts", group: "Customers & Sales" },
-    { value: "Estimate", label: "Estimates", group: "Customers & Sales" },
+    { value: "Customer", label: "Customers" },
+    { value: "Invoice", label: "Invoices" },
+    { value: "Payment", label: "Payments" },
+    { value: "SalesReceipt", label: "Sales Receipts" },
+    { value: "CreditMemo", label: "Credit Memos" },
+    { value: "RefundReceipt", label: "Refund Receipts" },
+    { value: "Estimate", label: "Estimates" },
     
     // Vendors & Expenses
-    { value: "Vendor", label: "Vendors", group: "Vendors & Expenses" },
-    { value: "Bill", label: "Bills", group: "Vendors & Expenses" },
-    { value: "Purchase", label: "Purchases", group: "Vendors & Expenses" },
-    { value: "Check", label: "Checks", group: "Vendors & Expenses" },
-    { value: "VendorCredit", label: "Vendor Credits", group: "Vendors & Expenses" },
+    { value: "Vendor", label: "Vendors" },
+    { value: "Bill", label: "Bills" },
+    { value: "Purchase", label: "Purchases" },
+    { value: "Check", label: "Checks" },
+    { value: "VendorCredit", label: "Vendor Credits" },
     
     // Products & Services
-    { value: "Item", label: "Products & Services", group: "Products & Services" },
+    { value: "Item", label: "Products & Services" },
     
     // Accounting
-    { value: "Account", label: "Chart of Accounts", group: "Accounting" },
-    { value: "JournalEntry", label: "Journal Entries", group: "Accounting" },
-    { value: "Transfer", label: "Transfers", group: "Accounting" },
+    { value: "Account", label: "Chart of Accounts" },
+    { value: "JournalEntry", label: "Journal Entries" },
+    { value: "Transfer", label: "Transfers" },
   ];
 };
 

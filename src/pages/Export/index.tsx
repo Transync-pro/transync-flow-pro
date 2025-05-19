@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -7,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ChevronLeft } from "lucide-react";
 import { EntityRecord } from "@/contexts/quickbooks/types";
-import { DateRange } from "react-day-picker";
+import { DateRange as ReactDayPickerDateRange } from "react-day-picker";
 
 // Import components
 import { EntitySelect } from "./EntitySelect";
@@ -22,7 +21,7 @@ const Export = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fileName, setFileName] = useState("export");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<ReactDayPickerDateRange | undefined>(undefined);
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedRecords, setSelectedRecords] = useState<Record<string, boolean>>({});
@@ -51,8 +50,8 @@ const Export = () => {
 
   // Handle date range change
   useEffect(() => {
-    if (dateRange) {
-      setSelectedDateRange(dateRange);
+    if (dateRange?.from && dateRange?.to) {
+      setSelectedDateRange({ from: dateRange.from, to: dateRange.to });
     }
   }, [dateRange, setSelectedDateRange]);
 
