@@ -20,6 +20,7 @@ import Dashboard from "./pages/Dashboard";
 import Import from "./pages/Import";
 import Export from "./pages/Export";
 import Delete from "./pages/Delete";
+import History from "./pages/History"; // Import new History page
 import Profile from "./pages/Profile";
 import QuickbooksCallback from "./pages/QuickbooksCallback";
 import QuickbooksConnectPage from "./components/QuickbooksConnectPage";
@@ -156,6 +157,11 @@ const App = () => {
                   <Route path="/dashboard/delete" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
                       <Delete />
+                    </RouteGuard>
+                  } />
+                  <Route path="/dashboard/history" element={
+                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                      <History />
                     </RouteGuard>
                   } />
                   

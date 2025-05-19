@@ -76,9 +76,9 @@ const DashboardHome = () => {
             let recordsCount = '';
             // Fix the type checking with proper handling
             if (log.details && typeof log.details === 'object') {
-              // Check if details is an object with a count property
-              const details = log.details as { count?: number };
-              if (details.count !== undefined) {
+              // Check if details contains a count property
+              const details = log.details as Record<string, any>;
+              if (typeof details.count !== 'undefined') {
                 recordsCount = `${details.count} records`;
               } else {
                 recordsCount = log.record_id ? '1 record' : '';

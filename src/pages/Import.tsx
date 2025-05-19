@@ -1,69 +1,53 @@
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarClock, Clock, Construction } from "lucide-react";
-import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChevronLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Import = () => {
+  const navigate = useNavigate();
+  
   return (
-    <DashboardLayout>
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-semibold mb-4">Import Data to QuickBooks</h1>
-        
-        <Card className="border-2 border-dashed border-purple-200 bg-purple-50 overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-purple-100 to-blue-50">
-            <CardTitle className="text-xl text-center text-purple-800 flex items-center justify-center">
-              <Construction className="mr-2 h-6 w-6" />
-              Coming Soon
-            </CardTitle>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/dashboard')} 
+          className="flex items-center gap-2"
+        >
+          <ChevronLeft size={16} />
+          Back to Dashboard
+        </Button>
+        <h1 className="text-2xl font-semibold">Import Data</h1>
+      </div>
+
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Import QuickBooks Data</CardTitle>
+            <CardDescription>
+              This feature allows you to import data into QuickBooks.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6 pb-8 px-6">
-            <div className="text-center space-y-4">
-              <p className="text-purple-700 font-medium">
-                Our import functionality is currently under development.
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <img src="/placeholder.svg" alt="Import" className="w-24 h-24 mb-4" />
+              <h3 className="text-lg font-medium mb-2">Coming Soon</h3>
+              <p className="text-gray-500 max-w-md">
+                We're working on implementing data import capabilities. This feature 
+                will allow you to upload spreadsheets and CSVs to create or update 
+                records in your QuickBooks account.
               </p>
-              <p className="text-gray-600">
-                Soon you'll be able to easily import data from various sources directly into QuickBooks, 
-                including CSV files, Excel spreadsheets, and third-party applications.
-              </p>
-              
-              <div className="max-w-lg mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                <div className="bg-white p-4 rounded-lg shadow-sm border border-purple-100 flex items-center">
-                  <div className="rounded-full bg-purple-100 p-2 mr-3">
-                    <CalendarClock className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-medium text-purple-800">Expected Release</h3>
-                    <p className="text-sm text-gray-500">Q3 2025</p>
-                  </div>
-                </div>
-                
-                <div className="bg-white p-4 rounded-lg shadow-sm border border-purple-100 flex items-center">
-                  <div className="rounded-full bg-purple-100 p-2 mr-3">
-                    <Clock className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-medium text-purple-800">Early Access</h3>
-                    <p className="text-sm text-gray-500">Join waitlist for beta access</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-6 bg-white p-4 rounded-lg shadow-sm border border-purple-100">
-                <h3 className="font-medium mb-2 text-purple-800">Planned Features</h3>
-                <ul className="text-sm text-gray-600 text-left space-y-1 list-disc list-inside">
-                  <li>Drag-and-drop CSV file import</li>
-                  <li>Smart field mapping with AI assistance</li>
-                  <li>Data validation and error handling</li>
-                  <li>Batch imports with scheduling</li>
-                  <li>Import templates for recurring tasks</li>
-                </ul>
-              </div>
             </div>
           </CardContent>
+          <CardFooter className="flex justify-center border-t pt-4">
+            <p className="text-sm text-gray-500">
+              Check back soon for updates on this feature!
+            </p>
+          </CardFooter>
         </Card>
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 

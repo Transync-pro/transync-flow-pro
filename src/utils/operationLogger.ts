@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
+// The operation types should match exactly what's defined in the database constraint
 export type OperationType = 'export' | 'import' | 'delete' | 'fetch';
 
 /**
@@ -24,6 +25,12 @@ export const logOperation = async ({
     
     if (!user?.user) {
       console.warn("Cannot log operation: User not authenticated");
+      return;
+    }
+    
+    // Make sure operationType is one of the valid types
+    if (!['export', 'import', 'delete', 'fetch'].includes(operationType)) {
+      console.error(`Invalid operation type: ${operationType}. Must be one of: export, import, delete, fetch`);
       return;
     }
     
