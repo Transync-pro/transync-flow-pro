@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import DashboardHome from "@/components/Dashboard/DashboardHome";
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -41,7 +42,7 @@ const Dashboard = () => {
         </div>
         
         <div className="dashboard-content">
-          {/* This will be filled by DashboardHome component that is rendered inside DashboardLayout */}
+          <DashboardHome />
         </div>
       </div>
     </DashboardLayout>

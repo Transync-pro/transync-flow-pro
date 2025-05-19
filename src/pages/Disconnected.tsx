@@ -1,166 +1,110 @@
 
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { CheckCircle, Loader2 } from "lucide-react";
-import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
-import { toast } from "@/components/ui/use-toast";
+import PageLayout from "@/components/PageLayout";
+import { LogOut, AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 const Disconnected = () => {
-  const [isReconnecting, setIsReconnecting] = useState(false);
-  const [isCheckingConnection, setIsCheckingConnection] = useState(true);
-  const { connect, isConnected, isLoading, refreshConnection } = useQuickbooks();
-  const { user } = useAuth();
+  const { isConnected, isLoading, connect, disconnect, error } = useQuickbooks();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  
-  // Direct check for QuickBooks connection on mount with optimized approach
+  const { toast } = useToast();
+  const [connectClicked, setConnectClicked] = useState(false);
+
   useEffect(() => {
-    let isMounted = true;
-    
-    const checkDirectConnection = async () => {
-      if (!user) {
-        setIsCheckingConnection(false);
-        return;
-      }
-      
-      try {
-        // Immediate check using the optimized function
-        const hasConnection = await checkQBConnectionExists(user.id);
-        
-        if (!isMounted) return;
-        
-        if (hasConnection) {
-          console.log("Direct DB check found a connection, refreshing state");
-          await refreshConnection();
-          
-          // Show success message
-          toast({
-            title: "QuickBooks Connected",
-            description: "Your QuickBooks account is connected. Redirecting to dashboard...",
-          });
-          
-          // Redirect after short delay to allow toast to be seen
-          setTimeout(() => {
-            if (isMounted) {
-              handleRedirectAfterConnect();
-            }
-          }, 500);
-        }
-      } catch (error) {
-        console.error("Error checking direct connection:", error);
-      } finally {
-        if (isMounted) {
-          setIsCheckingConnection(false);
-        }
-      }
-    };
-    
-    checkDirectConnection();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [user, refreshConnection]);
-  
-  // Check if we should redirect after connecting
-  useEffect(() => {
-    if (isConnected && !isCheckingConnection && !isReconnecting) {
-      handleRedirectAfterConnect();
+    // If already connected, redirect to dashboard
+    if (isConnected && !connectClicked) {
+      navigate('/dashboard');
     }
-  }, [isConnected, isCheckingConnection, isReconnecting]);
-  
-  // Handle redirection after connecting
-  const handleRedirectAfterConnect = () => {
-    const redirectPath = sessionStorage.getItem('qb_redirect_after_connect');
-    if (redirectPath) {
-      sessionStorage.removeItem('qb_redirect_after_connect');
-      navigate(redirectPath, { replace: true });
-    } else {
-      navigate('/dashboard', { replace: true });
-    }
-  };
-  
-  // Handle connection
+  }, [isConnected, navigate, connectClicked]);
+
   const handleConnect = async () => {
+    setConnectClicked(true);
     try {
-      setIsReconnecting(true);
-      
-      if (!user) {
-        navigate('/login', { state: { redirectAfter: '/connect-quickbooks' } });
-        return;
-      }
-      
       await connect();
-      // The connect function will handle the redirection to QuickBooks auth
-    } catch (error) {
-      console.error("Error connecting to QuickBooks:", error);
-      setIsReconnecting(false);
+    } catch (err) {
+      console.error("Connection error:", err);
+      setConnectClicked(false);
     }
   };
 
-  // Handle back button
-  const handleBackToHome = () => {
-    // Clear any stored redirect path
-    sessionStorage.removeItem('qb_redirect_after_connect');
-    navigate("/");
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/');
+      toast({
+        title: "Signed out successfully",
+        description: "You have been signed out of your account."
+      });
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast({
+        title: "Error signing out",
+        description: "There was a problem signing you out.",
+        variant: "destructive"
+      });
+    }
   };
-
-  // If we're checking connection or connected, show loading state
-  if (isCheckingConnection || isConnected) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="pt-6">
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-blue-500" />
-            <p className="mt-4 text-gray-600">
-              {isConnected ? "Connection detected, redirecting..." : "Checking connection status..."}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md text-center">
-        <CardHeader>
-          <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-2" />
-          <CardTitle className="text-2xl">QuickBooks Connection Required</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600 mb-4">
-            You need to connect to QuickBooks to access this feature. Please connect your QuickBooks account to continue.
-          </p>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-2">
-          <Button
-            className="w-full bg-transyncpro-button hover:bg-transyncpro-button/90"
-            onClick={handleConnect}
-            disabled={isLoading || isReconnecting}
-          >
-            {isLoading || isReconnecting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isLoading ? "Checking connection..." : "Connecting..."}
-              </>
-            ) : (
-              "Connect to QuickBooks"
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full mt-2"
-            onClick={handleBackToHome}
-          >
-            Back to Home
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+    <PageLayout>
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold gradient-text">QuickBooks Connection</h1>
+            <Button variant="outline" onClick={handleSignOut} className="flex items-center gap-2">
+              <LogOut size={16} />
+              Sign Out
+            </Button>
+          </div>
+
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle>Connect to QuickBooks</CardTitle>
+              <CardDescription>
+                TransyncPro needs to connect to your QuickBooks account to function properly.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {error && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-800 flex items-start">
+                  <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Connection Error</p>
+                    <p className="text-sm">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-6 text-center">
+                <img 
+                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Intuit_QuickBooks_logo.svg/1200px-Intuit_QuickBooks_logo.svg.png" 
+                  alt="QuickBooks Logo" 
+                  className="h-16 mx-auto mb-4"
+                />
+                <p className="mb-4">
+                  You need to connect TransyncPro to your QuickBooks account to continue. This will allow TransyncPro to access your QuickBooks data securely.
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-center">
+              <Button 
+                onClick={handleConnect} 
+                disabled={isLoading || connectClicked}
+                className="bg-transyncpro-button hover:bg-transyncpro-button/90 text-white px-8"
+              >
+                {isLoading || connectClicked ? "Connecting..." : "Connect to QuickBooks"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    </PageLayout>
   );
 };
 

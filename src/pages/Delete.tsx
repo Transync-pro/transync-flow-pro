@@ -1,4 +1,4 @@
-
+import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -21,7 +21,7 @@ import { DateRange } from "react-day-picker";
 import { Pagination } from "@/components/ui/pagination";
 import { getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
 
-const Delete = () => {
+const DeleteContent = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -448,6 +448,14 @@ const Delete = () => {
         )}
       </Card>
     </div>
+  );
+};
+
+const Delete = () => {
+  return (
+    <DashboardLayout>
+      <DeleteContent />
+    </DashboardLayout>
   );
 };
 
