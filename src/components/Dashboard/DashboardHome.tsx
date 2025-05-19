@@ -1,3 +1,6 @@
+<think>
+
+</think>
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -75,8 +78,15 @@ const DashboardHome = () => {
         if (!recentError && recentLogsData) {
           const activities = recentLogsData.map(log => {
             let recordsCount = '';
-            if (log.details && log.details.count) {
-              recordsCount = `${log.details.count} records`;
+            // Fix the type checking with proper handling
+            if (log.details && typeof log.details === 'object') {
+              // Check if details is an object with a count property
+              const details = log.details as { count?: number };
+              if (details.count !== undefined) {
+                recordsCount = `${details.count} records`;
+              } else {
+                recordsCount = log.record_id ? '1 record' : '';
+              }
             } else {
               recordsCount = log.record_id ? '1 record' : '';
             }

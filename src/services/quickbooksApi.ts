@@ -1,5 +1,6 @@
+
 import { supabase } from "@/integrations/supabase/client";
-import { logOperation } from "@/utils/operationLogger";
+import { logOperation as logUserOperation } from "@/utils/operationLogger";
 
 // QuickBooks API base URL (for sandbox or production)
 export const API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com";
@@ -60,7 +61,7 @@ export const queryQuickbooksData = async (
     const data = await response.json();
     
     // Log the operation
-    await logOperation({
+    await logUserOperation({
       operationType: 'export', 
       entityType: entity,
       status: 'success',
@@ -75,7 +76,7 @@ export const queryQuickbooksData = async (
     console.error("Error querying QuickBooks data:", error);
     
     // Log error
-    await logOperation({
+    await logUserOperation({
       operationType: 'export',
       entityType: entity,
       status: 'error',
@@ -110,7 +111,7 @@ export const createQuickbooksEntity = async (
     const data = await response.json();
     
     // Log the operation
-    await logOperation({
+    await logUserOperation({
       operationType: 'import',
       entityType: entity,
       recordId: data[entity]?.Id,
@@ -123,7 +124,7 @@ export const createQuickbooksEntity = async (
     console.error(`Error creating ${entity}:`, error);
     
     // Log error
-    await logOperation({
+    await logUserOperation({
       operationType: 'import',
       entityType: entity,
       status: 'error',
@@ -163,7 +164,7 @@ export const updateQuickbooksEntity = async (
     const data = await response.json();
     
     // Log the operation
-    await logOperation({
+    await logUserOperation({
       operationType: 'import',
       entityType: entity,
       recordId: entityId,
@@ -176,7 +177,7 @@ export const updateQuickbooksEntity = async (
     console.error(`Error updating ${entity}:`, error);
     
     // Log error
-    await logOperation({
+    await logUserOperation({
       operationType: 'import',
       entityType: entity,
       recordId: entityId,
@@ -219,7 +220,7 @@ export const deleteQuickbooksEntity = async (
     const data = await response.json();
     
     // Log successful operation
-    await logOperation({
+    await logUserOperation({
       operationType: 'delete',
       entityType: entity,
       recordId: entityId,
@@ -232,7 +233,7 @@ export const deleteQuickbooksEntity = async (
     console.error(`Error deleting ${entity}:`, error);
     
     // Log failed operation
-    await logOperation({
+    await logUserOperation({
       operationType: 'delete',
       entityType: entity,
       recordId: entityId,
@@ -244,8 +245,8 @@ export const deleteQuickbooksEntity = async (
   }
 };
 
-// Function to log operations in Supabase - updated to use centralized logger
-export const logOperation = async (options: {
+// Function to log operations in Supabase - renamed to avoid conflict
+export const trackOperation = async (options: {
   operationType: 'import' | 'export' | 'delete';
   entityType: string;
   recordId?: string | null;
@@ -253,7 +254,7 @@ export const logOperation = async (options: {
   details?: any;
 }) => {
   // Use our centralized logger
-  return logOperation({
+  return logUserOperation({
     operationType: options.operationType,
     entityType: options.entityType,
     recordId: options.recordId || null,
