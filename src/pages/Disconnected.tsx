@@ -7,52 +7,79 @@ import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
+import { toast } from "@/components/ui/use-toast";
 
 const Disconnected = () => {
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(true);
   const { connect, isConnected, isLoading, refreshConnection } = useQuickbooks();
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Direct check for QuickBooks connection on mount
+  // Direct check for QuickBooks connection on mount with optimized approach
   useEffect(() => {
+    let isMounted = true;
+    
     const checkDirectConnection = async () => {
-      if (!user || isConnected) return;
+      if (!user) {
+        setIsCheckingConnection(false);
+        return;
+      }
       
       try {
-        // Direct database check bypassing the context
+        // Immediate check using the optimized function
         const hasConnection = await checkQBConnectionExists(user.id);
+        
+        if (!isMounted) return;
         
         if (hasConnection) {
           console.log("Direct DB check found a connection, refreshing state");
           await refreshConnection();
           
-          // Redirect after connection is refreshed
-          handleRedirectAfterConnect();
+          // Show success message
+          toast({
+            title: "QuickBooks Connected",
+            description: "Your QuickBooks account is connected. Redirecting to dashboard...",
+          });
+          
+          // Redirect after short delay to allow toast to be seen
+          setTimeout(() => {
+            if (isMounted) {
+              handleRedirectAfterConnect();
+            }
+          }, 500);
         }
       } catch (error) {
         console.error("Error checking direct connection:", error);
+      } finally {
+        if (isMounted) {
+          setIsCheckingConnection(false);
+        }
       }
     };
     
     checkDirectConnection();
-  }, [user, isConnected, refreshConnection]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [user, refreshConnection]);
   
   // Check if we should redirect after connecting
   useEffect(() => {
-    if (isConnected && !isReconnecting) {
+    if (isConnected && !isCheckingConnection && !isReconnecting) {
       handleRedirectAfterConnect();
     }
-  }, [isConnected]);
+  }, [isConnected, isCheckingConnection, isReconnecting]);
   
   // Handle redirection after connecting
   const handleRedirectAfterConnect = () => {
     const redirectPath = sessionStorage.getItem('qb_redirect_after_connect');
     if (redirectPath) {
       sessionStorage.removeItem('qb_redirect_after_connect');
-      navigate(redirectPath);
+      navigate(redirectPath, { replace: true });
     } else {
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     }
   };
   
@@ -81,14 +108,16 @@ const Disconnected = () => {
     navigate("/");
   };
 
-  // If we're connected, redirect immediately
-  if (isConnected) {
+  // If we're checking connection or connected, show loading state
+  if (isCheckingConnection || isConnected) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-6">
             <Loader2 className="mx-auto h-12 w-12 animate-spin text-blue-500" />
-            <p className="mt-4 text-gray-600">Connection detected, redirecting...</p>
+            <p className="mt-4 text-gray-600">
+              {isConnected ? "Connection detected, redirecting..." : "Checking connection status..."}
+            </p>
           </CardContent>
         </Card>
       </div>

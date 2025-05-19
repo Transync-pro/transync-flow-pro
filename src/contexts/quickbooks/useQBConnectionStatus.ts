@@ -36,7 +36,7 @@ export const useQBConnectionStatus = (user: User | null) => {
     
     // Don't check too frequently unless forced
     const now = Date.now();
-    const throttleTime = force ? 0 : 5000; // 5 seconds throttle unless forced
+    const throttleTime = force ? 0 : 10000; // Increased to 10 seconds throttle unless forced
     if (now - lastCheckTime.current < throttleTime) {
       return;
     }
@@ -44,7 +44,7 @@ export const useQBConnectionStatus = (user: User | null) => {
     // Check cache first (only if not forced)
     if (!force && 
         connectionCache.current.userId === user.id && 
-        connectionCache.current.timestamp > now - 30000) { // 30 second cache
+        connectionCache.current.timestamp > now - 60000) { // Extended to 60 second cache
       
       if (connectionCache.current.data) {
         // Use cached data
@@ -68,7 +68,10 @@ export const useQBConnectionStatus = (user: User | null) => {
     lastCheckTime.current = now;
     
     try {
-      console.log('Checking QuickBooks connection for user:', user.id);
+      // More selective logging - only log on forced checks
+      if (force) {
+        console.log('Checking QuickBooks connection for user:', user.id);
+      }
       
       // Query the QuickBooks connections table
       const { data, error } = await supabase
@@ -97,13 +100,19 @@ export const useQBConnectionStatus = (user: User | null) => {
         setIsConnected(true);
         setRealmId(qbConnection.realm_id);
         setCompanyName(qbConnection.company_name || null);
-        console.log('QuickBooks connection found:', { 
-          realmId: qbConnection.realm_id,
-          companyName: qbConnection.company_name
-        });
+        
+        // Only log on forced checks
+        if (force) {
+          console.log('QuickBooks connection found:', { 
+            realmId: qbConnection.realm_id,
+            companyName: qbConnection.company_name
+          });
+        }
       } else {
-        // No connection found
-        console.log('No QuickBooks connection found for user:', user.id);
+        // No connection found - only log on forced checks
+        if (force) {
+          console.log('No QuickBooks connection found for user:', user.id);
+        }
         resetConnectionState();
       }
     } catch (error: any) {
@@ -128,7 +137,7 @@ export const useQBConnectionStatus = (user: User | null) => {
     setConnection(null);
   }, []);
 
-  // Check connection on mount and when user changes
+  // Check connection on mount and when user changes - with reduced frequency
   useEffect(() => {
     // Reset cache when user changes
     if (connectionCache.current.userId !== user?.id) {
@@ -139,7 +148,8 @@ export const useQBConnectionStatus = (user: User | null) => {
       };
     }
     
-    checkConnectionStatus();
+    // Check connection status immediately on mount
+    checkConnectionStatus(false);
     
     // Clear throttling on unmount
     return () => {

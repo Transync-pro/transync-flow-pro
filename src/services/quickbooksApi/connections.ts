@@ -12,11 +12,11 @@ interface QuickbooksConnection {
   company_name?: string;
 }
 
-// Add connection cache for performance
+// Improved connection cache with longer TTL
 const connectionCache = new Map<string, {data: QuickbooksConnection | null, timestamp: number}>();
-const CACHE_TTL = 10000; // 10 seconds
+const CACHE_TTL = 60000; // Extended to 60 seconds for better performance
 
-// Get the current user's QuickBooks connection with caching
+// Get the current user's QuickBooks connection with enhanced caching
 export const getQBConnection = async (): Promise<QuickbooksConnection | null> => {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData?.user) return null;
@@ -79,11 +79,11 @@ export async function updateConnectionTokens(
   }
 }
 
-// Check if a QuickBooks connection exists for the user with optimized caching
+// Optimized connection check for RouteGuard - simpler and faster
 export const checkQBConnectionExists = async (userId: string): Promise<boolean> => {
   if (!userId) return false;
   
-  // Check cache first
+  // Check cache first with longer TTL for existence checks
   const now = Date.now();
   const cached = connectionCache.get(userId);
   if (cached && (now - cached.timestamp < CACHE_TTL)) {
@@ -91,21 +91,20 @@ export const checkQBConnectionExists = async (userId: string): Promise<boolean> 
   }
   
   try {
+    // Use a lighter query that just checks existence
     const { count, error } = await supabase
       .from('quickbooks_connections')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId);
     
-    // Fast path optimization - we just need to know if it exists
+    // Store result
     const exists = (count || 0) > 0;
     
-    // Store in cache even if we don't have the full connection data
-    if (!cached) {
-      connectionCache.set(userId, {
-        data: exists ? {} as QuickbooksConnection : null, // Placeholder if exists
-        timestamp: now
-      });
-    }
+    // Update cache
+    connectionCache.set(userId, {
+      data: exists ? {} as QuickbooksConnection : null, // Placeholder
+      timestamp: now
+    });
     
     if (error) {
       console.error("Error checking QuickBooks connection existence:", error);
