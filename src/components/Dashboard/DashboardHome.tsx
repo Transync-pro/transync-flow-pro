@@ -14,7 +14,7 @@ import {
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 // Updated with more detailed activity data
 const statsCards = [
@@ -117,19 +117,42 @@ const DashboardHome = () => {
     activityTrends: initialActivityTrends
   });
 
-  // Fetch real data when connected
+  // Debug logging to check if entityState is being updated
   useEffect(() => {
+    if (entityState) {
+      console.log("Entity state updated:", {
+        invoice: entityState.Invoice?.records?.length || 0,
+        customer: entityState.Customer?.records?.length || 0,
+        vendor: entityState.Vendor?.records?.length || 0
+      });
+    }
+  }, [entityState]);
+
+  // Fetch real data when connected - using useCallback to ensure stable reference
+  const loadEntities = useCallback(async () => {
     if (isConnected) {
-      // Fetch some common entity types for dashboard stats
-      fetchEntities("Invoice");
-      fetchEntities("Customer");
-      fetchEntities("Vendor");
+      console.log("Fetching QuickBooks entities for dashboard...");
+      try {
+        await fetchEntities("Invoice");
+        await fetchEntities("Customer");
+        await fetchEntities("Vendor");
+        console.log("Successfully fetched QuickBooks entities");
+      } catch (error) {
+        console.error("Error fetching entities:", error);
+      }
     }
   }, [isConnected, fetchEntities]);
+
+  // Load entities on component mount if connected
+  useEffect(() => {
+    loadEntities();
+  }, [loadEntities]);
 
   // Update dashboard data when entity state changes
   useEffect(() => {
     if (isConnected && entityState) {
+      console.log("Updating dashboard data with QuickBooks entities");
+      
       // Update stats based on real data
       const updatedStatsCards = [...statsCards];
       
@@ -165,7 +188,11 @@ const DashboardHome = () => {
       if (entityState.Invoice?.records && entityState.Invoice.records.length > 0) {
         // Get the 4 most recent invoices
         const recentInvoices = [...entityState.Invoice.records]
-          .sort((a, b) => new Date(b.MetaData.LastUpdatedTime).getTime() - new Date(a.MetaData.LastUpdatedTime).getTime())
+          .sort((a, b) => {
+            const dateA = a.MetaData?.LastUpdatedTime ? new Date(a.MetaData.LastUpdatedTime).getTime() : 0;
+            const dateB = b.MetaData?.LastUpdatedTime ? new Date(b.MetaData.LastUpdatedTime).getTime() : 0;
+            return dateB - dateA;
+          })
           .slice(0, 4);
           
         updatedActivities = recentInvoices.map((invoice, index) => ({
@@ -174,7 +201,9 @@ const DashboardHome = () => {
           type: "export",
           status: "completed",
           records: invoice.Line ? `${invoice.Line.length} line items` : "Invoice data",
-          date: new Date(invoice.MetaData.LastUpdatedTime).toLocaleString()
+          date: invoice.MetaData?.LastUpdatedTime ? 
+            new Date(invoice.MetaData.LastUpdatedTime).toLocaleString() : 
+            "Recent"
         }));
       }
       
@@ -270,26 +299,28 @@ const DashboardHome = () => {
             <CardDescription>Your data activity over the last 5 months</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[240px] flex items-end justify-between gap-2 p-2 overflow-hidden">
-              {dashboardData.activityTrends.map((month, i) => (
-                <div key={i} className="flex flex-col items-center">
-                  <div className="flex flex-col gap-1 items-center">
-                    <div 
-                      className="w-10 bg-green-500 rounded-t transition-all hover:bg-green-600"
-                      style={{ height: `${Math.min((month.exports/12000) * 180, 180)}px` }}
-                      title={`${month.exports} exports`}
-                    ></div>
-                    <div 
-                      className="w-10 bg-red-400 rounded-t transition-all hover:bg-red-500"
-                      style={{ height: `${Math.min((month.deletions/1000) * 180, 180)}px` }}
-                      title={`${month.deletions} deletions`}
-                    ></div>
+            <div className="h-[240px] relative overflow-hidden">
+              <div className="flex items-end justify-between gap-2 p-2 h-full">
+                {dashboardData.activityTrends.map((month, i) => (
+                  <div key={i} className="flex flex-col items-center h-full">
+                    <div className="flex flex-col gap-1 items-center h-[200px] flex-grow">
+                      <div 
+                        className="w-10 bg-green-500 rounded-t transition-all hover:bg-green-600 absolute bottom-8"
+                        style={{ height: `${Math.min((month.exports/12000) * 160, 160)}px` }}
+                        title={`${month.exports} exports`}
+                      ></div>
+                      <div 
+                        className="w-10 bg-red-400 rounded-t transition-all hover:bg-red-500 absolute bottom-8 ml-12"
+                        style={{ height: `${Math.min((month.deletions/1000) * 160, 160)}px` }}
+                        title={`${month.deletions} deletions`}
+                      ></div>
+                    </div>
+                    <span className="text-xs text-gray-500 absolute bottom-0">{month.month}</span>
                   </div>
-                  <span className="text-xs text-gray-500 mt-1">{month.month}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-            <div className="flex justify-center gap-4 mt-2">
+            <div className="flex justify-center gap-4 mt-4">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 bg-green-500 rounded"></div>
                 <span className="text-xs text-gray-500">Exports</span>
