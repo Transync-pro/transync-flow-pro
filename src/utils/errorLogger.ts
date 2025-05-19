@@ -38,17 +38,18 @@ export const logError = async (
     consoleLog?: boolean;
     persistToDb?: boolean;
   }
-) => {
+): Promise<void> => {
   const { 
     source,
-    stack, 
-    context, 
-    user_id, 
+    stack,
+    context,
+    user_id,
     severity = ErrorSeverity.MEDIUM,
     consoleLog = consoleErrorEnabled,
     persistToDb = persistToDbEnabled
   } = options;
-
+  
+  // Create the error entry
   const entry: ErrorLogEntry = {
     timestamp: new Date().toISOString(),
     message,
@@ -58,31 +59,24 @@ export const logError = async (
     user_id,
     severity
   };
-
+  
   // Add to in-memory log
   errorLog.push(entry);
   
   // Log to console if enabled
   if (consoleLog) {
-    console.error(`[${entry.source}] ${entry.message}`, {
-      timestamp: entry.timestamp,
-      severity: entry.severity,
-      context: entry.context,
-      stack: entry.stack,
-      user_id: entry.user_id
-    });
+    console.error(`[${entry.timestamp}] [${severity}] [${source}]: ${message}`);
+    if (stack) {
+      console.error(stack);
+    }
+    if (context) {
+      console.error('Context:', context);
+    }
   }
   
   // Persist to database if enabled
-  if (persistToDb) {
+  if (persistToDb && supabase) {
     try {
-      // Get current user if no user_id is provided
-      let userId = user_id;
-      if (!userId) {
-        const { data } = await supabase.auth.getUser();
-        userId = data?.user?.id;
-      }
-      
       // Store in operation_logs table instead of error_logs
       // Adjusted to use the fields available in operation_logs table
       // Using 'fetch' as the operation_type since it's a valid value
@@ -98,28 +92,28 @@ export const logError = async (
           stack,
           context
         },
-        user_id: userId
-        // created_at will be automatically set by the database default
+        user_id: user_id || 'system'
       });
-    } catch (err) {
-      // Don't log this error to prevent infinite loops
-      console.error('Failed to persist error log to database:', err);
+    } catch (error) {
+      // Don't throw here to avoid cascading errors
+      console.error('Failed to persist error to database:', error);
     }
   }
-  
-  return entry;
 };
 
 /**
  * Get the error log
  */
-export const getErrorLog = () => [...errorLog];
+export const getErrorLog = (): ErrorLogEntry[] => {
+  return [...errorLog];
+};
 
 /**
  * Clear the error log
  */
-export const clearErrorLog = () => {
+export const clearErrorLog = (): void => {
   errorLog.length = 0;
+  console.log('Error log cleared');
 };
 
 /**
@@ -128,11 +122,14 @@ export const clearErrorLog = () => {
 export const configureErrorLogger = (options: {
   consoleEnabled?: boolean;
   persistToDbEnabled?: boolean;
-}) => {
+}): void => {
   if (options.consoleEnabled !== undefined) {
     consoleErrorEnabled = options.consoleEnabled;
   }
+  
   if (options.persistToDbEnabled !== undefined) {
     persistToDbEnabled = options.persistToDbEnabled;
   }
+  
+  console.log(`Error logger configured: console=${consoleErrorEnabled}, persistToDb=${persistToDbEnabled}`);
 };

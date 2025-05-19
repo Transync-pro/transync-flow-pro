@@ -1,19 +1,39 @@
-
 import { getQBApiBaseUrl } from './config.ts';
 import { supabase } from './connection.ts';
+
+// Valid operation types that match the database constraint
+export type ValidOperationType = 'fetch' | 'export' | 'import' | 'delete';
+
+// Map API operations to valid database operation types
+export const mapOperationType = (apiOperation: string): ValidOperationType => {
+  switch (apiOperation) {
+    case 'fetch':
+      return 'fetch';
+    case 'delete':
+      return 'delete';
+    case 'create':
+    case 'update':
+      return 'import';
+    default:
+      return 'fetch'; // Default to fetch for unknown operations
+  }
+};
 
 // Log operations for auditing purposes
 export const logOperation = async (
   userId: string,
-  operationType: 'fetch' | 'create' | 'update' | 'delete',
+  operationType: string,  // Accept any string but map it to valid types
   entityType: string,
   status: 'success' | 'error',
   details: any = {}
 ) => {
   try {
+    // Map the operation type to a valid database operation type
+    const validOperationType = mapOperationType(operationType);
+    
     await supabase.from('operation_logs').insert({
       user_id: userId,
-      operation_type: operationType,
+      operation_type: validOperationType,  // Use the mapped valid operation type
       entity_type: entityType,
       record_id: details.id || null,
       status,
@@ -118,7 +138,8 @@ export const updateEntity = async (
 ) => {
   try {
     // For special entity types, use the Purchase endpoint
-    const actualEntityType = entityType === "Check" ? "purchase" : entityType.toLowerCase();
+    const actualEntityType = entityType === "Check" || entityType === "CreditCardCredit" ? "purchase" : entityType.toLowerCase();
+    
     const apiUrl = `${getQBApiBaseUrl()}/v3/company/${realmId}/${actualEntityType}`;
     
     console.log(`Updating ${entityType} with ID ${entityId}`);
@@ -154,7 +175,7 @@ export const updateEntity = async (
   }
 };
 
-// Improved delete entity function to handle different entity types
+// Delete a record for a specific entity type
 export const deleteEntity = async (
   accessToken: string,
   realmId: string,
@@ -166,16 +187,22 @@ export const deleteEntity = async (
     let query;
     if (entityType === "Check") {
       query = `SELECT * FROM Purchase WHERE Id = '${entityId}' AND PaymentType = 'Check'`;
+    } else if (entityType === "CreditCardCredit") {
+      query = `SELECT * FROM Purchase WHERE Id = '${entityId}' AND PaymentType = 'CreditCard' AND TotalAmt < 0`;
     } else {
       query = `SELECT * FROM ${entityType} WHERE Id = '${entityId}'`;
     }
     
-    const entityData = await fetchEntities(accessToken, realmId, entityType === "Check" ? "Purchase" : entityType, query);
+    const entityData = await fetchEntities(
+      accessToken, 
+      realmId, 
+      entityType === "Check" || entityType === "CreditCardCredit" ? "Purchase" : entityType,
+      query
+    );
     
-    const actualEntityType = entityType === "Check" ? "Purchase" : entityType;
+    const actualEntityType = entityType === "Check" || entityType === "CreditCardCredit" ? "Purchase" : entityType;
     
-    if (!entityData.QueryResponse || !entityData.QueryResponse[actualEntityType] || 
-        entityData.QueryResponse[actualEntityType].length === 0) {
+    if (!entityData.QueryResponse || !entityData.QueryResponse[actualEntityType] || entityData.QueryResponse[actualEntityType].length === 0) {
       throw new Error(`Entity ${entityType} with ID ${entityId} not found`);
     }
     
@@ -194,8 +221,7 @@ export const deleteEntity = async (
         Id: entityId,
         SyncToken: syncToken
       };
-    } 
-    else if (['Customer', 'Vendor', 'Employee', 'Item'].includes(entityType)) {
+    } else if (['Customer', 'Vendor', 'Employee', 'Item'].includes(entityType)) {
       // For these entity types, we set Active=false to "delete" them
       endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
       payload = {
@@ -204,9 +230,8 @@ export const deleteEntity = async (
         Active: false,
         sparse: true
       };
-    }
-    else if (entityType === "Check") {
-      // For checks, use Purchase endpoint
+    } else if (entityType === "Check" || entityType === "CreditCardCredit") {
+      // For checks and credit card credits, use Purchase endpoint
       endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/purchase`;
       payload = {
         Id: entityId,
@@ -214,8 +239,7 @@ export const deleteEntity = async (
         Active: false,
         sparse: true
       };
-    }
-    else {
+    } else {
       // Default approach - most entities don't support deletion directly
       throw new Error(`Deletion not implemented for entity type: ${entityType}`);
     }
