@@ -129,7 +129,7 @@ const RouteGuard = ({
       }
       
       // Handle QuickBooks requirement for other pages
-      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQbLoading) {
+      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
         console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
         // Store the current location to redirect back after connecting
         sessionStorage.setItem('qb_redirect_after_connect', location.pathname);
