@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +31,9 @@ const RouteGuard = ({
   const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
   const isDisconnectedRoute = location.pathname === "/disconnected";
   const isDashboardRoute = location.pathname === "/dashboard";
+
+  // Flag to prevent multiple redirects
+  const redirectingRef = useRef(false);
   
   // Track if this is the first check after mount
   const isInitialCheck = useRef(true);
@@ -48,7 +52,7 @@ const RouteGuard = ({
       setHasQbConnection(connectionExists);
       
       // If we found a connection but the context doesn't know yet, refresh it once
-      if (connectionExists && !isConnected) {
+      if (connectionExists && !isConnected && !isQBLoading) {
         refreshConnection();
       }
       
@@ -61,7 +65,7 @@ const RouteGuard = ({
       });
       return false;
     }
-  }, [user, isConnected, refreshConnection]);
+  }, [user, isConnected, isQBLoading, refreshConnection]);
 
   // Check access on mount and when dependencies change
   useEffect(() => {
@@ -98,38 +102,59 @@ const RouteGuard = ({
 
   // Handle redirection based on connection status
   useEffect(() => {
-    // Only process redirects after initial check is complete
-    if (isChecking) return;
+    // Only process redirects after initial check is complete and not already redirecting
+    if (isChecking || redirectingRef.current) return;
     
-    // Handle disconnected page logic
-    if (isDisconnectedRoute) {
-      if (hasQbConnection) {
-        // If we're on the disconnected page but have a connection, 
-        // redirect to dashboard
-        console.log('RouteGuard: Connection found while on disconnected page, redirecting to dashboard');
-        navigate('/dashboard', { replace: true });
+    // Set redirecting flag to prevent multiple redirects
+    redirectingRef.current = true;
+    
+    // Use a timeout to ensure the component has time to update state before redirecting
+    setTimeout(() => {
+      // If we're already on the callback route, don't redirect
+      if (isQbCallbackRoute) {
+        redirectingRef.current = false;
+        return;
       }
-      // Otherwise stay on the disconnected page
-      return;
-    }
-    
-    // Handle QuickBooks requirement for other pages
-    if (requiresQuickbooks && user && !hasQbConnection && !isQbCallbackRoute) {
-      console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
-      // Store the current location to redirect back after connecting
-      sessionStorage.setItem('qb_redirect_after_connect', location.pathname);
-      navigate('/disconnected', { replace: true });
-    }
+      
+      // Handle disconnected page logic
+      if (isDisconnectedRoute) {
+        if (hasQbConnection || isConnected) {
+          // If we're on the disconnected page but have a connection, 
+          // redirect to dashboard
+          console.log('RouteGuard: Connection found while on disconnected page, redirecting to dashboard');
+          navigate('/dashboard', { replace: true });
+        }
+        redirectingRef.current = false;
+        return;
+      }
+      
+      // Handle QuickBooks requirement for other pages
+      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQbLoading) {
+        console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
+        // Store the current location to redirect back after connecting
+        sessionStorage.setItem('qb_redirect_after_connect', location.pathname);
+        navigate('/disconnected', { replace: true });
+      }
+      
+      redirectingRef.current = false;
+    }, 100);
   }, [
     isChecking,
     hasQbConnection,
+    isConnected,
     isDisconnectedRoute,
     requiresQuickbooks,
     user,
     isQbCallbackRoute,
+    isQBLoading,
     navigate,
     location.pathname
   ]);
+
+  // Fix for QuickBooks callback handling - a special case to always render children
+  if (isQbCallbackRoute) {
+    return <>{children}</>;
+  }
 
   // Show loading state while checking
   if (isChecking) {
@@ -150,14 +175,9 @@ const RouteGuard = ({
   if (requiresAuth && !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-
-  // Special case: don't redirect from the callback route
-  if (isQbCallbackRoute) {
-    return <>{children}</>;
-  }
   
   // Special case: don't redirect from the disconnected route if we don't have a connection
-  if (isDisconnectedRoute && !hasQbConnection) {
+  if (isDisconnectedRoute && !hasQbConnection && !isConnected) {
     return <>{children}</>;
   }
 

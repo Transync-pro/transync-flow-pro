@@ -9,12 +9,14 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { logError } from "@/utils/errorLogger";
+import { clearConnectionCache } from "@/services/quickbooksApi/connections";
 
 const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [processingComplete, setProcessingComplete] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -98,6 +100,9 @@ const QuickbooksCallback = () => {
 
         // Clean up session storage
         sessionStorage.removeItem("qb_connecting_user");
+        
+        // Clear any existing connection cache
+        clearConnectionCache(userId);
 
         // Update connection status in context
         await refreshConnection();
@@ -121,15 +126,25 @@ const QuickbooksCallback = () => {
           description: toastMessage,
         });
 
-        // Force a refresh before redirecting to ensure connection state is updated
-        await refreshConnection();
-
         // Get redirect path from session storage or default to dashboard
         const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || '/dashboard';
         sessionStorage.removeItem('qb_redirect_after_connect');
         
         console.log('QuickBooks connection success, redirecting to:', redirectPath);
-        navigate(redirectPath, { replace: true });
+        
+        // Set a flag that processing is complete before redirecting
+        setProcessingComplete(true);
+        
+        // Force multiple connection refreshes with increasing delays to ensure the state is updated
+        setTimeout(() => refreshConnection(), 500);
+        setTimeout(() => {
+          refreshConnection();
+          // Wait before navigating to give the context time to update
+          setTimeout(() => {
+            navigate(redirectPath, { replace: true });
+          }, 1000);
+        }, 1500);
+        
       } catch (err: any) {
         logError("QuickBooks callback error", {
           source: "QuickbooksCallback",
@@ -171,7 +186,7 @@ const QuickbooksCallback = () => {
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
         <h1 className="text-2xl font-bold text-center">QuickBooks Connection</h1>
         
-        {isProcessing ? (
+        {isProcessing && !processingComplete ? (
           <div className="flex flex-col items-center justify-center space-y-4">
             <Loader2 className="w-12 h-12 animate-spin text-blue-500" />
             <p className="text-gray-600 text-center">
@@ -187,7 +202,7 @@ const QuickbooksCallback = () => {
             </Alert>
             <div className="flex flex-col space-y-2">
               <Button
-                onClick={() => navigate("/connect-quickbooks")}
+                onClick={() => navigate("/disconnected")}
                 className="w-full"
               >
                 Try Again
@@ -210,6 +225,15 @@ const QuickbooksCallback = () => {
                 Your QuickBooks account has been connected successfully. You will be redirected to the dashboard.
               </AlertDescription>
             </Alert>
+            <p className="text-center text-gray-500">
+              If you are not redirected automatically, please click the button below.
+            </p>
+            <Button 
+              onClick={() => navigate('/dashboard', { replace: true })}
+              className="w-full"
+            >
+              Go to Dashboard
+            </Button>
           </div>
         )}
       </div>

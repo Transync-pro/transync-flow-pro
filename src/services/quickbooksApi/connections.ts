@@ -14,8 +14,8 @@ interface QuickbooksConnection {
 
 // Enhanced connection cache with optimized TTL
 const connectionCache = new Map<string, {data: QuickbooksConnection | null, timestamp: number}>();
-const CACHE_TTL = 120000; // Extended to 2 minutes for better performance
-const EXISTENCE_CACHE_TTL = 300000; // 5 minutes for existence checks
+const CACHE_TTL = 60000; // Shortened to 1 minute for better reliability
+const EXISTENCE_CACHE_TTL = 30000; // Shortened to 30 seconds for existence checks
 
 // Get the current user's QuickBooks connection with enhanced caching
 export const getQBConnection = async (): Promise<QuickbooksConnection | null> => {
@@ -73,26 +73,27 @@ export async function updateConnectionTokens(
     .eq('user_id', userId);
   
   // Invalidate cache
-  connectionCache.delete(userId);
+  clearConnectionCache(userId);
   
   if (error) {
     throw new Error(`Failed to update tokens: ${error.message}`);
   }
 }
 
-// Highly optimized connection check for RouteGuard - simpler and faster
+// Optimized connection check for RouteGuard - improved reliability
 export const checkQBConnectionExists = async (userId: string): Promise<boolean> => {
   if (!userId) return false;
   
-  // Check cache first with longer TTL for existence checks
+  // Check cache first with shorter TTL for existence checks
   const now = Date.now();
   const cached = connectionCache.get(userId);
+  
   if (cached && (now - cached.timestamp < EXISTENCE_CACHE_TTL)) {
     return cached.data !== null;
   }
   
   try {
-    // Use a lighter query that just checks existence
+    // Use a direct count query that's faster and more reliable
     const { count, error } = await supabase
       .from('quickbooks_connections')
       .select('id', { count: 'exact', head: true })
@@ -101,7 +102,7 @@ export const checkQBConnectionExists = async (userId: string): Promise<boolean> 
     // Store result
     const exists = (count || 0) > 0;
     
-    // Update cache
+    // Update cache with the result
     connectionCache.set(userId, {
       data: exists ? {} as QuickbooksConnection : null, // Placeholder
       timestamp: now
@@ -117,13 +118,15 @@ export const checkQBConnectionExists = async (userId: string): Promise<boolean> 
     console.error("Exception checking QuickBooks connection:", error);
     return false;
   }
-};
+}
 
 // Clear connection cache (use when disconnecting)
 export const clearConnectionCache = (userId?: string): void => {
   if (userId) {
+    console.log(`Clearing connection cache for user ${userId}`);
     connectionCache.delete(userId);
   } else {
+    console.log('Clearing entire connection cache');
     connectionCache.clear();
   }
 };
