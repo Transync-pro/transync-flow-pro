@@ -10,23 +10,28 @@ export const mapOperationType = (apiOperation: string): ValidOperationType => {
   // Normalize to lowercase for case-insensitive comparison
   const operation = apiOperation.toLowerCase();
   
+  // Direct mapping for already valid types
+  if (['fetch', 'export', 'import', 'delete'].includes(operation)) {
+    return operation as ValidOperationType;
+  }
+  
   // Fetch operations
-  if (['fetch', 'get', 'read', 'query', 'list', 'find'].includes(operation)) {
+  if (['get', 'read', 'query', 'list', 'find'].includes(operation)) {
     return 'fetch';
   }
   
   // Delete operations
-  if (['delete', 'remove', 'destroy', 'trash'].includes(operation)) {
+  if (['remove', 'destroy', 'trash'].includes(operation)) {
     return 'delete';
   }
   
   // Import operations (create/update)
-  if (['create', 'update', 'put', 'post', 'import', 'save', 'upsert'].includes(operation)) {
+  if (['create', 'update', 'put', 'post', 'save', 'upsert'].includes(operation)) {
     return 'import';
   }
   
   // Export operations
-  if (['export', 'download', 'extract'].includes(operation)) {
+  if (['download', 'extract'].includes(operation)) {
     return 'export';
   }
   
@@ -41,7 +46,8 @@ export const logOperation = async (
   operationType: string,  // Accept any string but map it to valid types
   entityType: string,
   status: 'success' | 'error',
-  details: any = {}
+  details: any = {},
+  recordId: string | null = null
 ) => {
   try {
     // Map the operation type to a valid database operation type
@@ -52,7 +58,7 @@ export const logOperation = async (
       user_id: userId,
       operation_type: validOperationType,  // Use the mapped valid operation type
       entity_type: entityType,
-      record_id: details.id || null,
+      record_id: recordId || details.id || null,
       status,
       details
     });

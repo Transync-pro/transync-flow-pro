@@ -23,9 +23,9 @@ export type OperationType = 'import' | 'export' | 'delete' | 'fetch';
 export type OperationStatus = 'success' | 'error' | 'pending' | 'partial';
 
 export interface LogOperationParams {
-  operationType: OperationType;
+  operationType: OperationType | string; // Allow string input that will be validated
   entityType: string;
-  recordId: string | null;
+  recordId?: string | null; // Make recordId optional
   status: OperationStatus;
   details?: any;
 }

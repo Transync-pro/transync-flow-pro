@@ -50,11 +50,11 @@ export const validateOperationType = (type: string): OperationType => {
   const validTypes: OperationType[] = ['import', 'export', 'delete', 'fetch'];
   
   // Cast to lowercase to handle case variations
-  const normalizedType = type.toLowerCase() as OperationType;
+  const normalizedType = type.toLowerCase();
   
   // Check if the normalized type is valid
-  if (validTypes.includes(normalizedType)) {
-    return normalizedType;
+  if (validTypes.includes(normalizedType as OperationType)) {
+    return normalizedType as OperationType;
   }
   
   // Map common API operation names to valid types
