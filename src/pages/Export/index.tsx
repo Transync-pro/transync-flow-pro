@@ -6,7 +6,6 @@ import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ChevronLeft } from "lucide-react";
-import { EntityRecord } from "@/contexts/quickbooks/types";
 import { DateRange } from "react-day-picker";
 
 // Import components
@@ -15,19 +14,17 @@ import { FilterControls } from "./FilterControls";
 import { ExportControls } from "./ExportControls";
 import { FieldSelectionPanel } from "./FieldSelectionPanel";
 import { ExportTable } from "./ExportTable";
-import { formatDisplayName, getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
+import { useExportData } from "./hooks/useExportData";
+import { useExportFields } from "./hooks/useExportFields";
+import { usePagination } from "./hooks/usePagination";
 
 const Export = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fileName, setFileName] = useState("export");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [pageSize, setPageSize] = useState(10);
-  const [pageIndex, setPageIndex] = useState(0);
   const [selectedRecords, setSelectedRecords] = useState<Record<string, boolean>>({});
   const [selectAllRecords, setSelectAllRecords] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   
   const {
     selectedEntity,
@@ -40,14 +37,15 @@ const Export = () => {
     entityOptions,
   } = useQuickbooksEntities();
 
+  // Use custom hooks for better organization
+  const { selectedFields, setSelectedFields, getAvailableFields, toggleFieldSelection, handleSelectAllFields, getFilteredFields, searchQuery, setSearchQuery } = useExportFields(selectedEntity, entityState);
+  const { getEntityRecords, handleExportData, handleExport } = useExportData(selectedEntity, entityState, selectedFields, fileName, selectedRecords);
+  const { pageSize, setPageSize, pageIndex, setPageIndex, paginatedRecords, totalPages } = usePagination(selectedEntity ? entityState[selectedEntity]?.filteredRecords || [] : []);
+
   const currentEntityState = selectedEntity ? entityState[selectedEntity] : null;
   const filteredRecords = currentEntityState?.filteredRecords || [];
   const isLoading = currentEntityState?.isLoading || false;
   const error = currentEntityState?.error || null;
-
-  // Pagination calculation
-  const totalPages = Math.ceil(filteredRecords.length / pageSize);
-  const paginatedRecords = filteredRecords.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
   // Handle date range change
   useEffect(() => {
@@ -63,60 +61,7 @@ const Export = () => {
     setSelectedRecords({});
     setSelectAllRecords(false);
     setSearchQuery("");
-  }, [selectedEntity, entityState]);
-
-  // Get entity records with applied filters
-  const getEntityRecords = (): EntityRecord[] => {
-    if (!selectedEntity || !entityState[selectedEntity]) return [];
-    
-    // If there are selected records, only return those
-    if (Object.keys(selectedRecords).length > 0) {
-      return entityState[selectedEntity].filteredRecords.filter(record => 
-        record.Id && selectedRecords[record.Id]
-      );
-    }
-    
-    return entityState[selectedEntity].filteredRecords || [];
-  };
-
-  // Get available fields for the current entity
-  const getAvailableFields = (): string[] => {
-    if (!selectedEntity) return [];
-    
-    // Use the predefined entity columns from our mapping
-    const columnConfigs = getEntityColumns(selectedEntity);
-    return columnConfigs.map(config => config.field);
-  };
-  
-  // Filter fields based on search
-  const getFilteredFields = (): string[] => {
-    const fields = getAvailableFields();
-    if (!searchQuery) return fields;
-    
-    return fields.filter(field => 
-      formatDisplayName(field).toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  };
-
-  // Handle field selection
-  const toggleFieldSelection = (field: string) => {
-    setSelectedFields(prev => {
-      if (prev.includes(field)) {
-        return prev.filter(f => f !== field);
-      } else {
-        return [...prev, field];
-      }
-    });
-  };
-
-  // Handle select all fields
-  const handleSelectAllFields = (select: boolean) => {
-    if (select) {
-      setSelectedFields(getAvailableFields());
-    } else {
-      setSelectedFields([]);
-    }
-  };
+  }, [selectedEntity, entityState, setSelectedFields, setPageIndex, setSearchQuery]);
 
   // Handle entity selection with explicit fetch
   const handleEntitySelect = (entity: string) => {
@@ -177,58 +122,6 @@ const Export = () => {
   // Count selected records
   const selectedRecordsCount = Object.values(selectedRecords).filter(Boolean).length;
 
-  // Export data
-  const handleExport = (format: "csv" | "json" = "csv") => {
-    try {
-      if (selectedFields.length === 0) {
-        toast({
-          title: "No Fields Selected",
-          description: "Please select at least one field to export",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      const records = getEntityRecords();
-      if (records.length === 0) {
-        toast({
-          title: "No Data Available",
-          description: "No records to export",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Process records based on selected fields
-      const exportData = handleExportData(records, selectedFields, format);
-      
-      // Create download link
-      const fileExtension = format === "csv" ? "csv" : "json";
-      const mimeType = format === "csv" ? "text/csv" : "application/json";
-      const blob = new Blob([exportData], { type: `${mimeType};charset=utf-8;` });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${fileName || selectedEntity || 'export'}.${fileExtension}`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Export Successful",
-        description: `${records.length} records exported to ${format.toUpperCase()}`,
-      });
-    } catch (error: any) {
-      console.error("Export error:", error);
-      toast({
-        title: "Export Failed",
-        description: error.message || `Error generating ${format.toUpperCase()} file`,
-        variant: "destructive",
-      });
-    }
-  };
-
   // Handle export of selected records
   const handleExportSelected = (format: "csv" | "json") => (e: React.MouseEvent<HTMLButtonElement>) => {
     if (selectedRecordsCount === 0) {
@@ -241,41 +134,6 @@ const Export = () => {
     }
     
     handleExport(format);
-  };
-
-  // Convert data to CSV or JSON
-  const handleExportData = (records: EntityRecord[], fields: string[], format: "csv" | "json") => {
-    if (format === "json") {
-      const jsonData = records.map(record => {
-        const item: Record<string, any> = {};
-        fields.forEach(field => {
-          const value = getNestedValue(record, field);
-          // Use the display name for the field
-          const displayName = formatDisplayName(field);
-          item[displayName] = value;
-        });
-        return item;
-      });
-      return JSON.stringify(jsonData, null, 2);
-    } else {
-      // Generate CSV
-      const headers = fields.map(field => formatDisplayName(field));
-      let csv = headers.join(',') + '\n';
-      
-      records.forEach(record => {
-        const values = fields.map(field => {
-          const value = getNestedValue(record, field);
-          // Format value for CSV
-          if (value === null || value === undefined) return '';
-          if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`;
-          if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
-          return value;
-        });
-        csv += values.join(',') + '\n';
-      });
-      
-      return csv;
-    }
   };
 
   // Handle page change
