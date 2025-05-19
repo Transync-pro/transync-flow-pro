@@ -10,20 +10,21 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuItem,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  LayoutDashboard,
-  ArrowDown,
   ArrowUp,
+  ArrowDown,
   Trash2,
+  LayoutDashboard,
   Search,
-  ChevronDown,
   User,
   LogOut,
+  Settings,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -170,78 +171,80 @@ const DashboardSidebar = () => {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   const location = useLocation();
-  const currentPath = location.pathname;
 
-  // Helper function to check if a route is active
-  const isActive = (path: string) => {
-    if (path === "/dashboard") {
-      return currentPath === "/dashboard";
-    }
-    return currentPath.startsWith(path);
-  };
+  // Check if the current path matches the menu item path
+  const isActivePath = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   return (
     <Sidebar className={isCollapsed ? "w-16" : "w-64"} collapsible="icon">
-      <SidebarContent className="pt-4 flex flex-col h-full">
+      <SidebarContent className="pt-4 flex flex-col h-full bg-gradient-to-b from-gray-50 to-white">
         <div className="flex-1">
           <SidebarGroup>
-            <SidebarGroupLabel>Data Management</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-purple-700 font-semibold">Data Management</SidebarGroupLabel>
             <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link 
-                    to="/dashboard" 
-                    className={`flex items-center ${isActive("/dashboard") ? "bg-blue-50 text-blue-700 font-medium" : "hover:bg-gray-100"} rounded-md px-3 py-2 w-full transition-colors`}
-                  >
-                    <LayoutDashboard size={20} className={`${!isCollapsed ? "mr-3" : ""} ${isActive("/dashboard") ? "text-blue-600" : "text-gray-600"}`} />
-                    {!isCollapsed && <span>Dashboard</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link 
-                    to="/dashboard/import" 
-                    className={`flex items-center ${isActive("/dashboard/import") ? "bg-blue-50 text-blue-700 font-medium" : "hover:bg-gray-100"} rounded-md px-3 py-2 w-full transition-colors`}
-                  >
-                    <ArrowDown size={20} className={`${!isCollapsed ? "mr-3" : ""} ${isActive("/dashboard/import") ? "text-blue-600" : "text-gray-600"}`} />
-                    {!isCollapsed && <span>Import</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link 
-                    to="/dashboard/export" 
-                    className={`flex items-center ${isActive("/dashboard/export") ? "bg-blue-50 text-blue-700 font-medium" : "hover:bg-gray-100"} rounded-md px-3 py-2 w-full transition-colors`}
-                  >
-                    <ArrowUp size={20} className={`${!isCollapsed ? "mr-3" : ""} ${isActive("/dashboard/export") ? "text-blue-600" : "text-gray-600"}`} />
-                    {!isCollapsed && <span>Export</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link 
-                    to="/dashboard/delete" 
-                    className={`flex items-center ${isActive("/dashboard/delete") ? "bg-blue-50 text-blue-700 font-medium" : "hover:bg-gray-100"} rounded-md px-3 py-2 w-full transition-colors`}
-                  >
-                    <Trash2 size={20} className={`${!isCollapsed ? "mr-3" : ""} ${isActive("/dashboard/delete") ? "text-blue-600" : "text-gray-600"}`} />
-                    {!isCollapsed && <span>Delete</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </div>
-      {/* QuickBooks connection button at the bottom */}
-      <div className="p-4 border-t mt-4">
-        <QuickbooksConnectionButton />
-      </div>
-    </SidebarContent>
-  </Sidebar>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Dashboard">
+                    <Link 
+                      to="/dashboard" 
+                      className={`flex items-center ${isActivePath('/dashboard') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActivePath('/dashboard') ? 'bg-purple-200 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>
+                        <LayoutDashboard size={16} />
+                      </div>
+                      {!isCollapsed && <span className="ml-2 font-medium">Dashboard</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Import">
+                    <Link 
+                      to="/dashboard/import" 
+                      className={`flex items-center ${isActivePath('/dashboard/import') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActivePath('/dashboard/import') ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                        <ArrowDown size={16} />
+                      </div>
+                      {!isCollapsed && <span className="ml-2 font-medium">Import</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Export">
+                    <Link 
+                      to="/dashboard/export" 
+                      className={`flex items-center ${isActivePath('/dashboard/export') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActivePath('/dashboard/export') ? 'bg-green-200 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                        <ArrowUp size={16} />
+                      </div>
+                      {!isCollapsed && <span className="ml-2 font-medium">Export</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Delete">
+                    <Link 
+                      to="/dashboard/delete" 
+                      className={`flex items-center ${isActivePath('/dashboard/delete') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActivePath('/dashboard/delete') ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-600'}`}>
+                        <Trash2 size={16} />
+                      </div>
+                      {!isCollapsed && <span className="ml-2 font-medium">Delete</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </div>
+        {/* QuickBooks connection button at the bottom */}
+        <div className="p-4 border-t mt-4">
+          <QuickbooksConnectionButton />
+        </div>
+      </SidebarContent>
+    </Sidebar>
   );
 };
 

@@ -1,9 +1,9 @@
 
 import { useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import DashboardHome from "@/components/Dashboard/DashboardHome";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
-import DashboardHome from "@/components/Dashboard/DashboardHome";
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -26,25 +26,7 @@ const Dashboard = () => {
   
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold gradient-text">TransyncPro Dashboard</h1>
-          <p className="text-gray-600 mt-2">
-            Welcome to TransyncPro. Use the sidebar to navigate to different features.
-          </p>
-          {isConnected && companyName && (
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-green-800">
-                <span className="font-semibold">Connected to:</span> {companyName}
-              </p>
-            </div>
-          )}
-        </div>
-        
-        <div className="dashboard-content">
-          <DashboardHome />
-        </div>
-      </div>
+      <DashboardHome />
     </DashboardLayout>
   );
 };

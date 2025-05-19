@@ -1,4 +1,3 @@
-import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -20,8 +19,9 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
 import { Pagination } from "@/components/ui/pagination";
 import { getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
+import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 
-const DeleteContent = () => {
+const Delete = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -219,242 +219,236 @@ const DeleteContent = () => {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <DeleteConfirmDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        onConfirm={handleDelete}
-        entityType={selectedEntity || ""}
-        count={selectedEntityIds.length}
-        isDeleting={isDeleting}
-        progress={deleteProgress}
-      />
+    <DashboardLayout>
+      <div className="container mx-auto p-4">
+        <DeleteConfirmDialog
+          open={showDeleteConfirm}
+          onOpenChange={setShowDeleteConfirm}
+          onConfirm={handleDelete}
+          entityType={selectedEntity || ""}
+          count={selectedEntityIds.length}
+          isDeleting={isDeleting}
+          progress={deleteProgress}
+        />
 
-      <div className="flex justify-between items-center mb-6">
-        <Button 
-          variant="outline" 
-          onClick={handleBackToDashboard} 
-          className="flex items-center gap-2"
-        >
-          <ChevronLeft size={16} />
-          Back to Dashboard
-        </Button>
-        <h1 className="text-2xl font-semibold">Delete QuickBooks Data</h1>
-      </div>
+        <div className="flex justify-between items-center mb-6">
+          <Button 
+            variant="outline" 
+            onClick={handleBackToDashboard} 
+            className="flex items-center gap-2"
+          >
+            <ChevronLeft size={16} />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-2xl font-semibold">Delete QuickBooks Data</h1>
+        </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Select Records to Delete</CardTitle>
-          <CardDescription>
-            Choose an entity type, fetch records, then select items to delete
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex flex-col space-y-2 flex-grow">
-              <Label htmlFor="entity-type">Entity Type</Label>
-              <Select
-                value={selectedEntity || ""}
-                onValueChange={handleEntitySelect}
-              >
-                <SelectTrigger id="entity-type">
-                  <SelectValue placeholder="Select an entity type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {entityOptions.map((entity) => (
-                    <SelectItem key={entity.value} value={entity.value}>
-                      {entity.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col space-y-2 flex-grow">
-              <Label>Date Range (Optional)</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "LLL dd, y")} -{" "}
-                          {format(dateRange.to, "LLL dd, y")}
-                        </>
-                      ) : (
-                        format(dateRange.from, "LLL dd, y")
-                      )
-                    ) : (
-                      <span>Select date range</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={2}
-                  />
-                </PopoverContent>
-              </Popover>
-              {dateRange && dateRange.from && (
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setDateRange(undefined)}
-                  size="sm"
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Select Records to Delete</CardTitle>
+            <CardDescription>
+              Choose an entity type, fetch records, then select items to delete
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col space-y-2 flex-grow">
+                <Label htmlFor="entity-type">Entity Type</Label>
+                <Select
+                  value={selectedEntity || ""}
+                  onValueChange={handleEntitySelect}
                 >
-                  Clear
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {selectedEntity && (
-            <Button
-              onClick={handleFetchData}
-              disabled={isLoading}
-              className="flex items-center"
-            >
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              {isLoading ? "Loading Data..." : "Fetch Data"}
-            </Button>
-          )}
-
-          {selectedEntity && !isLoading && filteredRecords.length > 0 && (
-            <div className="flex space-x-2">
-              <div className="flex-1">
-                <Input
-                  placeholder="Search by name or ID..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
+                  <SelectTrigger id="entity-type">
+                    <SelectValue placeholder="Select an entity type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {entityOptions.map((entity) => (
+                      <SelectItem key={entity.value} value={entity.value}>
+                        {entity.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              <div className="flex flex-col space-y-2 flex-grow">
+                <Label>Date Range (Optional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                            {format(dateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span>Select date range</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dateRange && dateRange.from && (
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => setDateRange(undefined)}
+                    size="sm"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {selectedEntity && (
               <Button
-                variant="outline"
-                onClick={handleSearch}
+                onClick={handleFetchData}
+                disabled={isLoading}
                 className="flex items-center"
               >
-                <Search className="h-4 w-4" />
-                <span className="ml-2 hidden md:inline">Search</span>
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {isLoading ? "Loading Data..." : "Fetch Data"}
               </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {selectedEntity || "Entity"} Records
-            {filteredRecords.length > 0 && ` (${filteredRecords.length})`}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Modified to show more results without scrolling */}
-          <div className="overflow-auto">
-            {isLoading ? (
-              <div className="flex flex-col items-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                <p className="mt-4">Loading {selectedEntity} records...</p>
-              </div>
-            ) : error ? (
-              <div className="flex flex-col items-center py-8 text-red-500">
-                <AlertCircle className="h-8 w-8" />
-                <p className="mt-4">Error: {error}</p>
-              </div>
-            ) : filteredRecords.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                {selectedEntity
-                  ? "No records found. Click 'Fetch Data' to load records."
-                  : "Select an entity type to get started"}
-              </div>
-            ) : (
-              <div className="w-full overflow-x-auto">
-                <DataTable
-                  columns={generateColumns()}
-                  data={paginatedRecords}
-                  pageSize={pageSize}
-                  className="w-full"
-                />
-              </div>
             )}
-          </div>
-          {filteredRecords.length > 0 && (
-            <>
-              <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-gray-500">
-                  Showing {pageIndex * pageSize + 1} to{" "}
-                  {Math.min((pageIndex + 1) * pageSize, filteredRecords.length)} of{" "}
-                  {filteredRecords.length} records
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Select
-                    value={String(pageSize)}
-                    onValueChange={(value) => {
-                      setPageSize(Number(value));
-                      setPageIndex(0);
-                    }}
-                  >
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue placeholder="Page size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10 / page</SelectItem>
-                      <SelectItem value="25">25 / page</SelectItem>
-                      <SelectItem value="50">50 / page</SelectItem>
-                      <SelectItem value="100">100 / page</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Pagination
-                    currentPage={pageIndex}
-                    totalPages={totalPages}
-                    onPageChange={handlePageChange}
+
+            {selectedEntity && !isLoading && filteredRecords.length > 0 && (
+              <div className="flex space-x-2">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search by name or ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
+                <Button
+                  variant="outline"
+                  onClick={handleSearch}
+                  className="flex items-center"
+                >
+                  <Search className="h-4 w-4" />
+                  <span className="ml-2 hidden md:inline">Search</span>
+                </Button>
               </div>
-            </>
-          )}
-        </CardContent>
-        {selectedEntityIds.length > 0 && (
-          <CardFooter className="flex justify-between">
-            <p className="text-sm text-gray-500">
-              {selectedEntityIds.length} item(s) selected
-            </p>
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              className="flex items-center"
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
-              )}
-              Delete Selected
-            </Button>
-          </CardFooter>
-        )}
-      </Card>
-    </div>
-  );
-};
+            )}
+          </CardContent>
+        </Card>
 
-const Delete = () => {
-  return (
-    <DashboardLayout>
-      <DeleteContent />
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {selectedEntity || "Entity"} Records
+              {filteredRecords.length > 0 && ` (${filteredRecords.length})`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Modified to show more results without scrolling */}
+            <div className="overflow-auto">
+              {isLoading ? (
+                <div className="flex flex-col items-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                  <p className="mt-4">Loading {selectedEntity} records...</p>
+                </div>
+              ) : error ? (
+                <div className="flex flex-col items-center py-8 text-red-500">
+                  <AlertCircle className="h-8 w-8" />
+                  <p className="mt-4">Error: {error}</p>
+                </div>
+              ) : filteredRecords.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  {selectedEntity
+                    ? "No records found. Click 'Fetch Data' to load records."
+                    : "Select an entity type to get started"}
+                </div>
+              ) : (
+                <div className="w-full overflow-x-auto">
+                  <DataTable
+                    columns={generateColumns()}
+                    data={paginatedRecords}
+                    pageSize={pageSize}
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
+            {filteredRecords.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-500">
+                    Showing {pageIndex * pageSize + 1} to{" "}
+                    {Math.min((pageIndex + 1) * pageSize, filteredRecords.length)} of{" "}
+                    {filteredRecords.length} records
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(value) => {
+                        setPageSize(Number(value));
+                        setPageIndex(0);
+                      }}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue placeholder="Page size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10 / page</SelectItem>
+                        <SelectItem value="25">25 / page</SelectItem>
+                        <SelectItem value="50">50 / page</SelectItem>
+                        <SelectItem value="100">100 / page</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Pagination
+                      currentPage={pageIndex}
+                      totalPages={totalPages}
+                      onPageChange={handlePageChange}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+          {selectedEntityIds.length > 0 && (
+            <CardFooter className="flex justify-between">
+              <p className="text-sm text-gray-500">
+                {selectedEntityIds.length} item(s) selected
+              </p>
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                className="flex items-center"
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Delete Selected
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
+      </div>
     </DashboardLayout>
   );
 };
