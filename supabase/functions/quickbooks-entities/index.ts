@@ -317,9 +317,14 @@ const logOperation = async (
   details: any = {}
 ) => {
   try {
+    // Ensure operationType is always one of the valid values
+    const validType = ['fetch', 'export', 'import', 'delete'].includes(operationType) 
+      ? operationType 
+      : 'fetch';
+      
     await supabase.from('operation_logs').insert({
       user_id: userId,
-      operation_type: operationType,
+      operation_type: validType,
       entity_type: entityType,
       record_id: details.id || null,
       status,
@@ -486,7 +491,7 @@ serve(async (req) => {
       const { userId, operation, entityType } = await req.json();
       if (userId && operation && entityType) {
         // Map operation to valid operation_type
-        let logOperationType = 'fetch';
+        let logOperationType: 'fetch' | 'export' | 'import' | 'delete' = 'fetch';
         if (operation === 'delete') logOperationType = 'delete';
         if (['create', 'update'].includes(operation)) logOperationType = 'import';
         

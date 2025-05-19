@@ -1,3 +1,4 @@
+
 import { getQBApiBaseUrl } from './config.ts';
 import { supabase } from './connection.ts';
 
@@ -6,14 +7,23 @@ export type ValidOperationType = 'fetch' | 'export' | 'import' | 'delete';
 
 // Map API operations to valid database operation types
 export const mapOperationType = (apiOperation: string): ValidOperationType => {
-  switch (apiOperation) {
+  switch (apiOperation.toLowerCase()) {
     case 'fetch':
+    case 'get':
+    case 'read':
+    case 'query':
       return 'fetch';
     case 'delete':
+    case 'remove':
       return 'delete';
     case 'create':
     case 'update':
+    case 'put':
+    case 'post':
+    case 'import':
       return 'import';
+    case 'export':
+      return 'export';
     default:
       return 'fetch'; // Default to fetch for unknown operations
   }

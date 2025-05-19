@@ -1,4 +1,6 @@
+
 import { supabase } from "@/integrations/supabase/client";
+import { OperationType } from "@/services/quickbooksApi/types";
 
 // Error severity levels
 export enum ErrorSeverity {
@@ -81,7 +83,7 @@ export const logError = async (
       // Adjusted to use the fields available in operation_logs table
       // Using 'fetch' as the operation_type since it's a valid value
       await supabase.from('operation_logs').insert({
-        operation_type: 'fetch',  // Changed from 'error' to 'fetch' to comply with constraint
+        operation_type: 'fetch',  // VALID value according to constraint
         entity_type: source,
         record_id: null,
         status: 'error',  // Indicate it's an error in the status field

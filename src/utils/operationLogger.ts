@@ -1,8 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
-
-// The operation types should match exactly what's defined in the database constraint
-export type OperationType = 'export' | 'import' | 'delete' | 'fetch';
+import { OperationType } from "@/services/quickbooksApi/types";
 
 /**
  * Log user operations to the operation_logs table in Supabase
@@ -31,7 +28,8 @@ export const logOperation = async ({
     // Validate operation type to match database constraint
     if (!['export', 'import', 'delete', 'fetch'].includes(operationType)) {
       console.error(`Invalid operation type: ${operationType}. Must be one of: export, import, delete, fetch`);
-      return;
+      // Default to 'fetch' if invalid
+      operationType = 'fetch';
     }
     
     const { error } = await supabase.from("operation_logs").insert({

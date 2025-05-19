@@ -1,3 +1,4 @@
+
 // Types for QuickBooks API operations
 
 export interface QuickbooksEntity {
@@ -17,9 +18,9 @@ export interface QuickbooksSchema {
   fields: string[];
 }
 
-// Updated to include 'fetch' to match the database constraint
+// These are the ONLY valid operation types according to the database constraint
 export type OperationType = 'import' | 'export' | 'delete' | 'fetch';
-export type OperationStatus = 'success' | 'error' | 'pending';
+export type OperationStatus = 'success' | 'error' | 'pending' | 'partial';
 
 export interface LogOperationParams {
   operationType: OperationType;
