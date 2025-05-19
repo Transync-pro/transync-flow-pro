@@ -75,13 +75,8 @@ const Disconnected = () => {
   
   // Handle redirection after connecting
   const handleRedirectAfterConnect = () => {
-    const redirectPath = sessionStorage.getItem('qb_redirect_after_connect');
-    if (redirectPath) {
-      sessionStorage.removeItem('qb_redirect_after_connect');
-      navigate(redirectPath, { replace: true });
-    } else {
-      navigate('/dashboard', { replace: true });
-    }
+    // Always redirect to dashboard after connecting
+    navigate('/dashboard', { replace: true });
   };
   
   // Handle connection

@@ -134,8 +134,22 @@ const QuickbooksConnectionButton = () => {
   const navigate = useNavigate();
 
   const handleDisconnect = async () => {
-    await disconnect();
-    navigate("/disconnected");
+    try {
+      await disconnect();
+      // Explicitly redirect to the disconnected page after disconnecting
+      navigate("/disconnected", { replace: true });
+      toast({
+        title: "Disconnected from QuickBooks",
+        description: "Your QuickBooks account has been disconnected successfully."
+      });
+    } catch (error) {
+      console.error("Error disconnecting from QuickBooks:", error);
+      toast({
+        title: "Error",
+        description: "Failed to disconnect from QuickBooks",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleConnect = () => {

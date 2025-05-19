@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -112,14 +111,8 @@ const QuickbooksCallback = () => {
 
         // Give UI time to update before redirecting
         setTimeout(() => {
-          // Check for a stored redirect path
-          const redirectPath = sessionStorage.getItem('qb_redirect_after_connect');
-          if (redirectPath) {
-            sessionStorage.removeItem('qb_redirect_after_connect');
-            navigate(redirectPath);
-          } else {
-            navigate("/dashboard");
-          }
+          // Always redirect to dashboard after successful connection
+          navigate("/dashboard", { replace: true });
         }, 1500);
       } catch (err: any) {
         logError("QuickBooks callback error", {

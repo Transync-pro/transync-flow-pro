@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,6 +34,7 @@ const RouteGuard = ({
   // Flag special routes
   const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
   const isDisconnectedRoute = location.pathname === "/disconnected";
+  const isDashboardRoute = location.pathname === "/dashboard";
   
   // Direct database check for QuickBooks connection with better caching
   const checkQbConnectionDirectly = useCallback(async () => {
@@ -98,13 +98,12 @@ const RouteGuard = ({
     }
   }, [user, isConnected, refreshConnection, hasQbConnection]);
 
-  // Fix for disconnected page redirect loop
+  // Fix for disconnected page redirect loop - always prevent redirection from disconnected when we have no connection
   useEffect(() => {
     // If we're on the disconnected page and have a connection, navigate away immediately
     if (isDisconnectedRoute && hasQbConnection) {
-      const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || '/dashboard';
-      sessionStorage.removeItem('qb_redirect_after_connect');
-      navigate(redirectPath, { replace: true });
+      console.log('RouteGuard: Connection found while on disconnected page, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
     }
   }, [isDisconnectedRoute, hasQbConnection, navigate]);
 
@@ -177,8 +176,6 @@ const RouteGuard = ({
     return <>{children}</>;
   }
   
-  // Special case: if on disconnected but we have a connection, we handle this in the useEffect
-
   // If QuickBooks is required and not connected, redirect to disconnected page
   if (requiresQuickbooks && user && !hasQbConnection && !isQbCallbackRoute) {
     console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
