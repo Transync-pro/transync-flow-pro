@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { FileJson, FileSpreadsheet, Download } from "lucide-react";
+import { Download } from "lucide-react";
 
 interface ExportControlsProps {
   onExportAll: (format: "csv" | "json") => void;
@@ -20,48 +20,49 @@ export const ExportControls = ({
 }: ExportControlsProps) => {
   return (
     <div className="space-y-2">
-      <div className="space-x-2 flex flex-wrap gap-2">
+      <div className="flex flex-col space-y-2">
         <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onExportAll("csv")}
           disabled={isLoading || !hasData}
+          variant="outline"
+          onClick={() => onExportAll("csv")}
+          className="flex items-center justify-center w-full"
         >
-          <FileSpreadsheet className="h-4 w-4 mr-2" />
-          Export All as CSV
+          <Download className="mr-2 h-4 w-4" />
+          Export All to CSV
         </Button>
         
         <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onExportAll("json")}
           disabled={isLoading || !hasData}
+          variant="outline"
+          onClick={() => onExportAll("json")}
+          className="flex items-center justify-center w-full"
         >
-          <FileJson className="h-4 w-4 mr-2" />
-          Export All as JSON
+          <Download className="mr-2 h-4 w-4" />
+          Export All to JSON
         </Button>
       </div>
       
-      <div className="space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onExportSelected("csv")}
-          disabled={!hasSelection}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export Selected as CSV
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onExportSelected("json")}
-          disabled={!hasSelection}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export Selected as JSON
-        </Button>
-      </div>
+      {hasSelection && (
+        <div className="flex flex-col space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <Button
+            variant="default"
+            onClick={onExportSelected("csv")}
+            className="flex items-center justify-center w-full"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export Selected to CSV
+          </Button>
+          
+          <Button
+            variant="default"
+            onClick={onExportSelected("json")}
+            className="flex items-center justify-center w-full"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export Selected to JSON
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

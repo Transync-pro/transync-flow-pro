@@ -95,8 +95,6 @@ export const useEntityOperations = (
         // For special entity types that are actually Purchase entity with filters
         if (typeToFetch === "Check") {
           query = `SELECT * FROM Purchase WHERE TxnDate >= '${fromDate}' AND TxnDate <= '${toDate}' AND PaymentType = 'Check' MAXRESULTS 1000`;
-        } else if (typeToFetch === "CreditCardCredit") {
-          query = `SELECT * FROM Purchase WHERE TxnDate >= '${fromDate}' AND TxnDate <= '${toDate}' AND PaymentType = 'CreditCard' AND Credit = true MAXRESULTS 1000`;
         } else {
           query = `SELECT * FROM ${typeToFetch} WHERE ${dateField} >= '${fromDate}' AND ${dateField} <= '${toDate}' MAXRESULTS 1000`;
         }
@@ -104,8 +102,6 @@ export const useEntityOperations = (
         // For special entity types that are actually Purchase entity with filters
         if (typeToFetch === "Check") {
           query = `SELECT * FROM Purchase WHERE PaymentType = 'Check' MAXRESULTS 1000`;
-        } else if (typeToFetch === "CreditCardCredit") {
-          query = `SELECT * FROM Purchase WHERE PaymentType = 'CreditCard' AND Credit = true MAXRESULTS 1000`;
         }
       }
       
@@ -133,7 +129,7 @@ export const useEntityOperations = (
       let fetchedEntities = [];
       
       // Handle special cases for entities that are actually filtered Purchases
-      if (typeToFetch === "Check" || typeToFetch === "CreditCardCredit") {
+      if (typeToFetch === "Check") {
         fetchedEntities = data.data?.QueryResponse?.Purchase || [];
       } else {
         fetchedEntities = data.data?.QueryResponse?.[typeToFetch] || [];

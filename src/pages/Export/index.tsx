@@ -250,7 +250,9 @@ const Export = () => {
         const item: Record<string, any> = {};
         fields.forEach(field => {
           const value = getNestedValue(record, field);
-          item[field] = value;
+          // Use the display name for the field
+          const displayName = formatDisplayName(field);
+          item[displayName] = value;
         });
         return item;
       });

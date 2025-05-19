@@ -1,3 +1,4 @@
+
 import { getNestedValue } from "./entityUtils";
 import { EntityOption, EntityColumnConfig } from "./types";
 
@@ -18,7 +19,6 @@ export const getEntityOptions = (): EntityOption[] => {
     { value: "Bill", label: "Bills", group: "Vendors & Expenses" },
     { value: "Purchase", label: "Purchases", group: "Vendors & Expenses" },
     { value: "Check", label: "Checks", group: "Vendors & Expenses" },
-    { value: "CreditCardCredit", label: "Credit Card Credits", group: "Vendors & Expenses" },
     { value: "VendorCredit", label: "Vendor Credits", group: "Vendors & Expenses" },
     
     // Products & Services
@@ -27,7 +27,6 @@ export const getEntityOptions = (): EntityOption[] => {
     // Accounting
     { value: "Account", label: "Chart of Accounts", group: "Accounting" },
     { value: "JournalEntry", label: "Journal Entries", group: "Accounting" },
-    { value: "TaxPayment", label: "Tax Payments", group: "Accounting" },
     { value: "Transfer", label: "Transfers", group: "Accounting" },
   ];
 };
@@ -50,6 +49,15 @@ export const formatDisplayName = (field: string): string => {
   if (field === 'PrimaryEmailAddr') return 'Email Address';
   if (field === 'BillAddr') return 'Billing Address';
   if (field === 'ShipAddr') return 'Shipping Address';
+  if (field === 'CustomerRef.name') return 'Customer';
+  if (field === 'VendorRef.name') return 'Vendor';
+  if (field === 'AccountRef.name') return 'Account';
+  if (field === 'FromAccountRef.name') return 'From Account';
+  if (field === 'ToAccountRef.name') return 'To Account';
+  if (field === 'PaymentMethodRef.name') return 'Payment Method';
+  if (field === 'Line') return 'Line Items';
+  if (field === 'PrivateNote') return 'Memo';
+  if (field === 'PaymentRefNum') return 'Reference Number';
   
   // Convert camelCase to words with spaces
   return field
@@ -97,6 +105,32 @@ export const getEntityColumns = (entityType: string): EntityColumnConfig[] => {
       { field: 'PaymentRefNum', header: 'Reference Number' },
       { field: 'PaymentMethodRef.name', header: 'Payment Method' }
     ],
+    SalesReceipt: [
+      { field: 'DocNumber', header: 'Receipt #' },
+      { field: 'CustomerRef.name', header: 'Customer' },
+      { field: 'TxnDate', header: 'Date' },
+      { field: 'TotalAmt', header: 'Total' },
+      { field: 'PaymentMethodRef.name', header: 'Payment Method' },
+      { field: 'PrivateNote', header: 'Memo' },
+      { field: 'Line[0].Description', header: 'Description' }
+    ],
+    CreditMemo: [
+      { field: 'DocNumber', header: 'Credit Memo #' },
+      { field: 'CustomerRef.name', header: 'Customer' },
+      { field: 'TxnDate', header: 'Date' },
+      { field: 'TotalAmt', header: 'Amount' },
+      { field: 'RemainingCredit', header: 'Remaining Credit' },
+      { field: 'PrivateNote', header: 'Memo' }
+    ],
+    RefundReceipt: [
+      { field: 'DocNumber', header: 'Refund #' },
+      { field: 'CustomerRef.name', header: 'Customer' },
+      { field: 'TxnDate', header: 'Date' },
+      { field: 'TotalAmt', header: 'Amount' },
+      { field: 'PaymentMethodRef.name', header: 'Payment Method' },
+      { field: 'PrivateNote', header: 'Memo' },
+      { field: 'DepositToAccountRef.name', header: 'Deposit Account' }
+    ],
     Vendor: [
       { field: 'DisplayName', header: 'Display Name' },
       { field: 'CompanyName', header: 'Company Name' },
@@ -131,14 +165,17 @@ export const getEntityColumns = (entityType: string): EntityColumnConfig[] => {
       { field: 'EntityRef.name', header: 'Payee' },
       { field: 'AccountRef.name', header: 'Bank Account' },
       { field: 'TxnDate', header: 'Date' },
-      { field: 'TotalAmt', header: 'Amount' }
+      { field: 'TotalAmt', header: 'Amount' },
+      { field: 'PrivateNote', header: 'Memo' }
     ],
-    CreditCardCredit: [
-      { field: 'AccountRef.name', header: 'Credit Card Account' },
-      { field: 'EntityRef.name', header: 'Vendor' },
+    VendorCredit: [
+      { field: 'DocNumber', header: 'Credit #' },
+      { field: 'VendorRef.name', header: 'Vendor' },
       { field: 'TxnDate', header: 'Date' },
       { field: 'TotalAmt', header: 'Credit Amount' },
-      { field: 'DocNumber', header: 'Reference Number' }
+      { field: 'RemainingCredit', header: 'Remaining Credit' },
+      { field: 'PrivateNote', header: 'Memo' },
+      { field: 'Line[0].Description', header: 'Description' }
     ],
     Item: [
       { field: 'Name', header: 'Name' },
@@ -157,13 +194,27 @@ export const getEntityColumns = (entityType: string): EntityColumnConfig[] => {
       { field: 'CurrentBalance', header: 'Current Balance' },
       { field: 'Description', header: 'Description' },
       { field: 'Active', header: 'Active' }
+    ],
+    JournalEntry: [
+      { field: 'DocNumber', header: 'Journal #' },
+      { field: 'TxnDate', header: 'Date' },
+      { field: 'TotalAmt', header: 'Amount' },
+      { field: 'PrivateNote', header: 'Memo' },
+      { field: 'Line[0].Description', header: 'Line Description' },
+      { field: 'Line[0].AccountRef.name', header: 'Main Account' },
+      { field: 'Adjustment', header: 'Is Adjustment' }
+    ],
+    Transfer: [
+      { field: 'TxnDate', header: 'Date' },
+      { field: 'FromAccountRef.name', header: 'From Account' },
+      { field: 'ToAccountRef.name', header: 'To Account' },
+      { field: 'Amount', header: 'Amount' },
+      { field: 'PrivateNote', header: 'Memo' }
     ]
   };
   
   // Fallback to base entity type for specialized entities
-  const columns = entitySpecificColumns[entityType] || 
-                  (entityType === 'CreditCardCredit' || entityType === 'Check' ? 
-                   entitySpecificColumns['Purchase'] : []);
+  const columns = entitySpecificColumns[entityType] || [];
   
   return [...columns, ...commonColumns];
 };

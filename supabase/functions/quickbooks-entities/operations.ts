@@ -39,9 +39,6 @@ export const fetchEntities = async (
     if (!queryString) {
       if (entityType === "Check") {
         queryString = `SELECT * FROM Purchase WHERE PaymentType = 'Check' MAXRESULTS 1000`;
-      } else if (entityType === "CreditCardCredit") {
-        // Fix: Credit is not a queryable property, use TotalAmt < 0 instead
-        queryString = `SELECT * FROM Purchase WHERE PaymentType = 'CreditCard' AND TotalAmt < 0 MAXRESULTS 1000`;
       } else {
         queryString = `SELECT * FROM ${entityType} MAXRESULTS 1000`;
       }
@@ -49,12 +46,6 @@ export const fetchEntities = async (
       // Adjust query for special entity types
       if (entityType === "Check" && !queryString.includes("PaymentType = 'Check'")) {
         queryString = queryString.replace("FROM Purchase", "FROM Purchase WHERE PaymentType = 'Check'");
-      } else if (entityType === "CreditCardCredit" && !queryString.includes("PaymentType = 'CreditCard'")) {
-        // Fix: Adjust user-provided query for Credit Card Credits
-        queryString = queryString.replace(
-          "FROM Purchase", 
-          "FROM Purchase WHERE PaymentType = 'CreditCard' AND TotalAmt < 0"
-        );
       }
     }
     
@@ -127,7 +118,7 @@ export const updateEntity = async (
 ) => {
   try {
     // For special entity types, use the Purchase endpoint
-    const actualEntityType = entityType === "Check" || entityType === "CreditCardCredit" ? "purchase" : entityType.toLowerCase();
+    const actualEntityType = entityType === "Check" ? "purchase" : entityType.toLowerCase();
     const apiUrl = `${getQBApiBaseUrl()}/v3/company/${realmId}/${actualEntityType}`;
     
     console.log(`Updating ${entityType} with ID ${entityId}`);
@@ -175,15 +166,13 @@ export const deleteEntity = async (
     let query;
     if (entityType === "Check") {
       query = `SELECT * FROM Purchase WHERE Id = '${entityId}' AND PaymentType = 'Check'`;
-    } else if (entityType === "CreditCardCredit") {
-      query = `SELECT * FROM Purchase WHERE Id = '${entityId}' AND PaymentType = 'CreditCard' AND TotalAmt < 0`;
     } else {
       query = `SELECT * FROM ${entityType} WHERE Id = '${entityId}'`;
     }
     
-    const entityData = await fetchEntities(accessToken, realmId, entityType === "Check" || entityType === "CreditCardCredit" ? "Purchase" : entityType, query);
+    const entityData = await fetchEntities(accessToken, realmId, entityType === "Check" ? "Purchase" : entityType, query);
     
-    const actualEntityType = entityType === "Check" || entityType === "CreditCardCredit" ? "Purchase" : entityType;
+    const actualEntityType = entityType === "Check" ? "Purchase" : entityType;
     
     if (!entityData.QueryResponse || !entityData.QueryResponse[actualEntityType] || 
         entityData.QueryResponse[actualEntityType].length === 0) {
@@ -216,8 +205,8 @@ export const deleteEntity = async (
         sparse: true
       };
     }
-    else if (entityType === "Check" || entityType === "CreditCardCredit") {
-      // For checks and credit card credits, use Purchase endpoint
+    else if (entityType === "Check") {
+      // For checks, use Purchase endpoint
       endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/purchase`;
       payload = {
         Id: entityId,
