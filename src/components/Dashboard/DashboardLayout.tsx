@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -16,15 +16,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  Plus,
-  File,
   ArrowUp,
   ArrowDown,
   Trash2,
   LayoutDashboard,
   Search,
-  Calendar,
-  Check,
   User,
   LogOut,
   Settings,
@@ -40,7 +36,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
-
 
 const UserMenu = () => {
   const { user, signOut } = useAuth();
@@ -128,15 +123,6 @@ const DashboardHeader = () => {
           />
         </div>
         
-        <div>
-          <Button 
-            className="bg-transyncpro-button hover:bg-transyncpro-button/90 text-white" 
-            onClick={() => navigate('/dashboard/templates')}
-          >
-            <Plus size={16} className="mr-2" /> New Sync
-          </Button>
-        </div>
-        
         <UserMenu />
       </div>
     </header>
@@ -184,89 +170,81 @@ const QuickbooksConnectionButton = () => {
 const DashboardSidebar = () => {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const location = useLocation();
+
+  // Check if the current path matches the menu item path
+  const isActivePath = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   return (
     <Sidebar className={isCollapsed ? "w-16" : "w-64"} collapsible="icon">
-      <SidebarContent className="pt-4 flex flex-col h-full">
+      <SidebarContent className="pt-4 flex flex-col h-full bg-gradient-to-b from-gray-50 to-white">
         <div className="flex-1">
           <SidebarGroup>
-            <SidebarGroupLabel>Data Management</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-purple-700 font-semibold">Data Management</SidebarGroupLabel>
             <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard" className="flex items-center">
-                    <LayoutDashboard size={20} className="mr-2" />
-                    {!isCollapsed && <span>Dashboard</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/import" className="flex items-center">
-                    <ArrowDown size={20} className="mr-2" />
-                    {!isCollapsed && <span>Import</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/export" className="flex items-center">
-                    <ArrowUp size={20} className="mr-2" />
-                    {!isCollapsed && <span>Export</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/delete" className="flex items-center">
-                    <Trash2 size={20} className="mr-2" />
-                    {!isCollapsed && <span>Delete</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        
-        <SidebarGroup>
-          <SidebarGroupLabel>Templates</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/templates" className="flex items-center">
-                    <File size={20} className="mr-2" />
-                    {!isCollapsed && <span>My Templates</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/schedule" className="flex items-center">
-                    <Calendar size={20} className="mr-2" />
-                    {!isCollapsed && <span>Scheduled Jobs</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/completed" className="flex items-center">
-                    <Check size={20} className="mr-2" />
-                    {!isCollapsed && <span>Completed Jobs</span>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </div>
-      {/* QuickBooks connection button at the bottom */}
-      <div className="p-4 border-t mt-4">
-        <QuickbooksConnectionButton />
-      </div>
-    </SidebarContent>
-  </Sidebar>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Dashboard">
+                    <Link 
+                      to="/dashboard" 
+                      className={`flex items-center ${isActivePath('/dashboard') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActivePath('/dashboard') ? 'bg-purple-200 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>
+                        <LayoutDashboard size={16} />
+                      </div>
+                      {!isCollapsed && <span className="ml-2 font-medium">Dashboard</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Import">
+                    <Link 
+                      to="/dashboard/import" 
+                      className={`flex items-center ${isActivePath('/dashboard/import') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActivePath('/dashboard/import') ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                        <ArrowDown size={16} />
+                      </div>
+                      {!isCollapsed && <span className="ml-2 font-medium">Import</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Export">
+                    <Link 
+                      to="/dashboard/export" 
+                      className={`flex items-center ${isActivePath('/dashboard/export') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActivePath('/dashboard/export') ? 'bg-green-200 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                        <ArrowUp size={16} />
+                      </div>
+                      {!isCollapsed && <span className="ml-2 font-medium">Export</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Delete">
+                    <Link 
+                      to="/dashboard/delete" 
+                      className={`flex items-center ${isActivePath('/dashboard/delete') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActivePath('/dashboard/delete') ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-600'}`}>
+                        <Trash2 size={16} />
+                      </div>
+                      {!isCollapsed && <span className="ml-2 font-medium">Delete</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </div>
+        {/* QuickBooks connection button at the bottom */}
+        <div className="p-4 border-t mt-4">
+          <QuickbooksConnectionButton />
+        </div>
+      </SidebarContent>
+    </Sidebar>
   );
 };
 
