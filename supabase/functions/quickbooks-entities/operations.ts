@@ -7,26 +7,32 @@ export type ValidOperationType = 'fetch' | 'export' | 'import' | 'delete';
 
 // Map API operations to valid database operation types
 export const mapOperationType = (apiOperation: string): ValidOperationType => {
-  switch (apiOperation.toLowerCase()) {
-    case 'fetch':
-    case 'get':
-    case 'read':
-    case 'query':
-      return 'fetch';
-    case 'delete':
-    case 'remove':
-      return 'delete';
-    case 'create':
-    case 'update':
-    case 'put':
-    case 'post':
-    case 'import':
-      return 'import';
-    case 'export':
-      return 'export';
-    default:
-      return 'fetch'; // Default to fetch for unknown operations
+  // Normalize to lowercase for case-insensitive comparison
+  const operation = apiOperation.toLowerCase();
+  
+  // Fetch operations
+  if (['fetch', 'get', 'read', 'query', 'list', 'find'].includes(operation)) {
+    return 'fetch';
   }
+  
+  // Delete operations
+  if (['delete', 'remove', 'destroy', 'trash'].includes(operation)) {
+    return 'delete';
+  }
+  
+  // Import operations (create/update)
+  if (['create', 'update', 'put', 'post', 'import', 'save', 'upsert'].includes(operation)) {
+    return 'import';
+  }
+  
+  // Export operations
+  if (['export', 'download', 'extract'].includes(operation)) {
+    return 'export';
+  }
+  
+  // Default to fetch for unknown operations
+  console.warn(`Unknown operation type "${apiOperation}" - defaulting to "fetch"`);
+  return 'fetch';
 };
 
 // Log operations for auditing purposes
@@ -41,7 +47,8 @@ export const logOperation = async (
     // Map the operation type to a valid database operation type
     const validOperationType = mapOperationType(operationType);
     
-    await supabase.from('operation_logs').insert({
+    // Execute the insert with the validated operation type
+    const { error } = await supabase.from('operation_logs').insert({
       user_id: userId,
       operation_type: validOperationType,  // Use the mapped valid operation type
       entity_type: entityType,
@@ -49,6 +56,10 @@ export const logOperation = async (
       status,
       details
     });
+    
+    if (error) {
+      console.error('Error logging operation:', error);
+    }
   } catch (error) {
     console.error('Error logging operation:', error);
   }

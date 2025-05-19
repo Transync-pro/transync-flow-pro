@@ -311,17 +311,19 @@ const updateEntity = async (
 // Log the operation for auditing purposes
 const logOperation = async (
   userId: string,
-  operationType: 'fetch' | 'export' | 'import' | 'delete',
+  operationType: string,
   entityType: string,
   status: 'success' | 'error',
   details: any = {}
 ) => {
   try {
-    // Ensure operationType is always one of the valid values
-    const validType = ['fetch', 'export', 'import', 'delete'].includes(operationType) 
-      ? operationType 
-      : 'fetch';
-      
+    // Import the mapOperationType function to ensure valid operation type
+    const { mapOperationType } = await import('./operations.ts');
+    
+    // Use the mapping function to ensure we get a valid type
+    const validType = mapOperationType(operationType);
+    
+    // Log with the validated operation type
     await supabase.from('operation_logs').insert({
       user_id: userId,
       operation_type: validType,

@@ -1,5 +1,6 @@
+
 import { supabase } from "@/integrations/supabase/client";
-import { OperationType } from "@/services/quickbooksApi/types";
+import { OperationType, LogOperationParams } from "@/services/quickbooksApi/types";
 
 /**
  * Log user operations to the operation_logs table in Supabase
@@ -10,13 +11,7 @@ export const logOperation = async ({
   recordId = null,
   status,
   details = {}
-}: {
-  operationType: OperationType;
-  entityType: string;
-  recordId?: string | null;
-  status: 'success' | 'error' | 'pending' | 'partial';
-  details?: any;
-}): Promise<void> => {
+}: LogOperationParams): Promise<void> => {
   try {
     const { data: user } = await supabase.auth.getUser();
     
@@ -25,16 +20,12 @@ export const logOperation = async ({
       return;
     }
     
-    // Validate operation type to match database constraint
-    if (!['export', 'import', 'delete', 'fetch'].includes(operationType)) {
-      console.error(`Invalid operation type: ${operationType}. Must be one of: export, import, delete, fetch`);
-      // Default to 'fetch' if invalid
-      operationType = 'fetch';
-    }
+    // Use the strict type guard function to ensure valid operation type
+    const validOperationType = validateOperationType(operationType);
     
     const { error } = await supabase.from("operation_logs").insert({
       user_id: user.user.id,
-      operation_type: operationType,
+      operation_type: validOperationType,
       entity_type: entityType,
       record_id: recordId,
       status,
@@ -44,10 +35,44 @@ export const logOperation = async ({
     if (error) {
       console.error("Error logging operation:", error);
     } else {
-      console.log(`Operation logged: ${operationType} ${entityType} - ${status}`);
+      console.log(`Operation logged: ${validOperationType} ${entityType} - ${status}`);
     }
   } catch (error) {
     console.error("Failed to log operation:", error);
+  }
+};
+
+/**
+ * Strict validator to ensure operation type matches database constraint
+ * Always returns a valid value that matches the database constraint
+ */
+export const validateOperationType = (type: string): OperationType => {
+  const validTypes: OperationType[] = ['import', 'export', 'delete', 'fetch'];
+  
+  // Cast to lowercase to handle case variations
+  const normalizedType = type.toLowerCase() as OperationType;
+  
+  // Check if the normalized type is valid
+  if (validTypes.includes(normalizedType)) {
+    return normalizedType;
+  }
+  
+  // Map common API operation names to valid types
+  switch (normalizedType) {
+    case 'create':
+    case 'update':
+    case 'put':
+    case 'post':
+      return 'import';
+    case 'get':
+    case 'read':
+    case 'query':
+      return 'fetch';
+    case 'remove':
+      return 'delete';
+    default:
+      console.warn(`Invalid operation type: "${type}". Defaulting to "fetch"`);
+      return 'fetch'; // Default to fetch for unknown operations
   }
 };
 

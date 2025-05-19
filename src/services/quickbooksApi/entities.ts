@@ -1,7 +1,7 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { logOperation } from "@/utils/operationLogger";
+import { validateOperationType } from "@/utils/operationLogger";
 
 // Generic type for QuickBooks entity operation responses
 type QBEntityResponse<T = any> = {
@@ -33,10 +33,11 @@ export const fetchQuickbooksEntities = async <T = any>(
     if (error) throw new Error(error.message);
     if (data.error) throw new Error(data.error);
     
-    // Log the successful fetch operation
+    // Log the successful fetch operation with validated operation type
     await logOperation({
-      operationType: 'fetch',
+      operationType: validateOperationType('fetch'),
       entityType,
+      recordId: null,
       status: 'success',
       details: { 
         query: customQuery,
@@ -51,9 +52,9 @@ export const fetchQuickbooksEntities = async <T = any>(
   } catch (error: any) {
     console.error(`Error fetching ${entityType}:`, error);
     
-    // Log the failed fetch operation
+    // Log the failed fetch operation with validated operation type
     await logOperation({
-      operationType: 'fetch',
+      operationType: validateOperationType('fetch'),
       entityType,
       status: 'error',
       details: { error: error.message || "An unknown error occurred" }
@@ -95,9 +96,9 @@ export const createQuickbooksEntity = async <T = any>(
     if (error) throw new Error(error.message);
     if (data.error) throw new Error(data.error);
     
-    // Log the successful creation
+    // Log the successful creation with validated operation type
     await logOperation({
-      operationType: 'import',
+      operationType: validateOperationType('import'),
       entityType,
       recordId: data?.data?.[entityType]?.Id,
       status: 'success',
@@ -116,9 +117,9 @@ export const createQuickbooksEntity = async <T = any>(
   } catch (error: any) {
     console.error(`Error creating ${entityType}:`, error);
     
-    // Log the failed creation
+    // Log the failed creation with validated operation type
     await logOperation({
-      operationType: 'import',
+      operationType: validateOperationType('import'),
       entityType,
       status: 'error',
       details: { action: 'create', error: error.message || "An unknown error occurred" }
@@ -164,9 +165,9 @@ export const updateQuickbooksEntity = async <T = any>(
     if (error) throw new Error(error.message);
     if (data.error) throw new Error(data.error);
     
-    // Log the successful update
+    // Log the successful update with validated operation type
     await logOperation({
-      operationType: 'import',
+      operationType: validateOperationType('import'),
       entityType,
       recordId: entityId,
       status: 'success',
@@ -185,9 +186,9 @@ export const updateQuickbooksEntity = async <T = any>(
   } catch (error: any) {
     console.error(`Error updating ${entityType}:`, error);
     
-    // Log the failed update
+    // Log the failed update with validated operation type
     await logOperation({
-      operationType: 'import',
+      operationType: validateOperationType('import'),
       entityType,
       recordId: entityId,
       status: 'error',
@@ -230,9 +231,9 @@ export const deleteQuickbooksEntity = async <T = any>(
     if (error) throw new Error(error.message);
     if (data.error) throw new Error(data.error);
     
-    // Log the successful deletion
+    // Log the successful deletion with validated operation type
     await logOperation({
-      operationType: 'delete',
+      operationType: validateOperationType('delete'),
       entityType,
       recordId: entityId,
       status: 'success',
@@ -251,9 +252,9 @@ export const deleteQuickbooksEntity = async <T = any>(
   } catch (error: any) {
     console.error(`Error deleting ${entityType}:`, error);
     
-    // Log the failed deletion
+    // Log the failed deletion with validated operation type
     await logOperation({
-      operationType: 'delete',
+      operationType: validateOperationType('delete'),
       entityType,
       recordId: entityId,
       status: 'error',

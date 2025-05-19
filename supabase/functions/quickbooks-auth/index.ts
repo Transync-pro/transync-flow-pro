@@ -218,6 +218,143 @@ const saveUserIdentity = async (userId, realmId, userInfo) => {
   }
 };
 
+/**
+ * Handle token exchange and user identity saving
+ */
+const handleTokenExchange = async (req: Request, path: string): Promise<Response> => {
+  try {
+    const { code, redirectUri, userId, realmId } = await req.json();
+    console.log('Token request with params:', {
+      code: !!code,
+      redirectUri,
+      userId,
+      realmId
+    });
+    if (!code || !redirectUri || !userId || !realmId) {
+      console.error('Missing required parameters:', {
+        code: !!code,
+        redirectUri: !!redirectUri,
+        userId: !!userId,
+        realmId: !!realmId
+      });
+      throw new Error('Missing required parameters: code, redirectUri, userId, or realmId');
+    }
+    if (!QUICKBOOKS_CLIENT_ID || !QUICKBOOKS_CLIENT_SECRET) {
+      throw new Error('Missing QuickBooks credentials. Check environment configuration.');
+    }
+    console.log(`Exchanging code for tokens with realmId ${realmId}`);
+    // Exchange authorization code for tokens
+    const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+        'Authorization': `Basic ${btoa(`${QUICKBOOKS_CLIENT_ID}:${QUICKBOOKS_CLIENT_SECRET}`)}`
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri
+      }).toString()
+    });
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Token exchange failed:', errorText);
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(`Failed to exchange code for tokens: ${JSON.stringify(errorData)}`);
+      } catch (e) {
+        throw new Error(`Failed to exchange code for tokens: ${errorText}`);
+      }
+    }
+    const tokenData = await tokenResponse.json();
+    console.log('Token exchange successful, received access token and refresh token');
+    
+    // Get company info using the new access token
+    const companyName = await getCompanyInfo(tokenData.access_token, realmId);
+    // Add company name to token data if available
+    if (companyName) {
+      tokenData.company_name = companyName;
+      console.log(`Retrieved company name: ${companyName}`);
+    }
+    
+    // FIXED: Fetch user identity information with the new approach
+    const userIdentity = await fetchUserIdentity(tokenData.access_token, realmId);
+    console.log('User identity fetched:', userIdentity ? 'success' : 'failed');
+    
+    // Save the connection to Supabase with the realm ID from the callback
+    const saveResult = await saveConnection(userId, realmId, tokenData);
+    console.log('Connection saved to database:', saveResult.success);
+    
+    // Save user identity information to Supabase if we got any
+    if (userIdentity) {
+      try {
+        // Check if user identity already exists
+        const { data: existingIdentity } = await supabase
+          .from('quickbooks_user_info')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('realm_id', realmId)
+          .single();
+        
+        // Prepare identity information
+        const identityInfo = {
+          user_id: userId,
+          realm_id: realmId,
+          first_name: userInfo?.givenName || null,
+          last_name: userInfo?.familyName || null,
+          email: userInfo?.email || null,
+          phone: userInfo?.phoneNumber || null,
+          updated_at: new Date().toISOString()
+        };
+        
+        if (existingIdentity) {
+          // Update existing record
+          await supabase
+            .from('quickbooks_user_info')
+            .update(identityInfo)
+            .eq('id', existingIdentity.id);
+        } else {
+          // Insert new record
+          await supabase
+            .from('quickbooks_user_info')
+            .insert(identityInfo);
+        }
+      } catch (error) {
+        // Log error but don't fail the whole process
+        console.error("Error saving user identity:", error);
+      }
+      
+      console.log('User identity saved to database');
+    } else {
+      console.log('No user identity information available to save');
+    }
+    
+    return new Response(JSON.stringify({
+      success: true,
+      companyName,
+      realmId,
+      userIdentity // Include the user identity in the response
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      }
+    });
+  } catch (error) {
+    console.error('Error in QuickBooks auth function:', error);
+    return new Response(JSON.stringify({
+      error: error.message || 'Internal server error'
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      status: 400
+    });
+  }
+};
+
 // Handle the request
 serve(async (req)=>{
   // Handle CORS preflight request
@@ -257,88 +394,7 @@ serve(async (req)=>{
         }
       });
     } else if (path === 'token') {
-      const { code, redirectUri, userId, realmId } = params;
-      console.log('Token request with params:', {
-        code: !!code,
-        redirectUri,
-        userId,
-        realmId
-      });
-      if (!code || !redirectUri || !userId || !realmId) {
-        console.error('Missing required parameters:', {
-          code: !!code,
-          redirectUri: !!redirectUri,
-          userId: !!userId,
-          realmId: !!realmId
-        });
-        throw new Error('Missing required parameters: code, redirectUri, userId, or realmId');
-      }
-      if (!QUICKBOOKS_CLIENT_ID || !QUICKBOOKS_CLIENT_SECRET) {
-        throw new Error('Missing QuickBooks credentials. Check environment configuration.');
-      }
-      console.log(`Exchanging code for tokens with realmId ${realmId}`);
-      // Exchange authorization code for tokens
-      const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
-          'Authorization': `Basic ${btoa(`${QUICKBOOKS_CLIENT_ID}:${QUICKBOOKS_CLIENT_SECRET}`)}`
-        },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: redirectUri
-        }).toString()
-      });
-      if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text();
-        console.error('Token exchange failed:', errorText);
-        try {
-          const errorData = JSON.parse(errorText);
-          throw new Error(`Failed to exchange code for tokens: ${JSON.stringify(errorData)}`);
-        } catch (e) {
-          throw new Error(`Failed to exchange code for tokens: ${errorText}`);
-        }
-      }
-      const tokenData = await tokenResponse.json();
-      console.log('Token exchange successful, received access token and refresh token');
-      
-      // Get company info using the new access token
-      const companyName = await getCompanyInfo(tokenData.access_token, realmId);
-      // Add company name to token data if available
-      if (companyName) {
-        tokenData.company_name = companyName;
-        console.log(`Retrieved company name: ${companyName}`);
-      }
-      
-      // FIXED: Fetch user identity information with the new approach
-      const userIdentity = await fetchUserIdentity(tokenData.access_token, realmId);
-      console.log('User identity fetched:', userIdentity ? 'success' : 'failed');
-      
-      // Save the connection to Supabase with the realm ID from the callback
-      const saveResult = await saveConnection(userId, realmId, tokenData);
-      console.log('Connection saved to database:', saveResult.success);
-      
-      // Save user identity information to Supabase if we got any
-      if (userIdentity) {
-        await saveUserIdentity(userId, realmId, userIdentity);
-        console.log('User identity saved to database');
-      } else {
-        console.log('No user identity information available to save');
-      }
-      
-      return new Response(JSON.stringify({
-        success: true,
-        companyName,
-        realmId,
-        userIdentity // Include the user identity in the response
-      }), {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
+      return handleTokenExchange(req, path);
     } else if (path === 'refresh') {
       const { refreshToken, userId } = params;
       if (!refreshToken || !userId) {
