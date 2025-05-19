@@ -185,7 +185,7 @@ const DashboardHome = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activity Trends Chart */}
+        {/* Activity Trends Chart - FIXED to stay within container bounds */}
         <Card>
           <CardHeader>
             <CardTitle>Activity Trends</CardTitle>
