@@ -1,4 +1,3 @@
-
 import { getNestedValue } from "./entityUtils";
 import { EntityOption, EntityColumnConfig } from "./types";
 
@@ -168,3 +167,6 @@ export const getEntityColumns = (entityType: string): EntityColumnConfig[] => {
   
   return [...columns, ...commonColumns];
 };
+
+// Re-export getNestedValue from entityUtils to maintain compatibility
+export { getNestedValue };

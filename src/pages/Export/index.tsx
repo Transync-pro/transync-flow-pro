@@ -4,10 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ChevronLeft } from "lucide-react";
-import { DataTable } from "@/components/DataTable";
 import { EntityRecord } from "@/contexts/quickbooks/types";
+import { DateRange } from "react-day-picker";
 
 // Import components
 import { EntitySelect } from "./EntitySelect";
@@ -15,14 +15,14 @@ import { FilterControls } from "./FilterControls";
 import { ExportControls } from "./ExportControls";
 import { FieldSelectionPanel } from "./FieldSelectionPanel";
 import { ExportTable } from "./ExportTable";
-import { formatDisplayName } from "@/contexts/quickbooks/entityMapping";
+import { formatDisplayName, getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
 
 const Export = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fileName, setFileName] = useState("export");
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date } | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedRecords, setSelectedRecords] = useState<Record<string, boolean>>({});
@@ -38,7 +38,6 @@ const Export = () => {
     fetchEntities,
     filterEntities,
     entityOptions,
-    getNestedValue
   } = useQuickbooksEntities();
 
   const currentEntityState = selectedEntity ? entityState[selectedEntity] : null;
@@ -308,7 +307,7 @@ const Export = () => {
             <EntitySelect 
               selectedEntity={selectedEntity}
               entityOptions={entityOptions}
-              onEntitySelect={handleEntitySelect}
+              onChange={handleEntitySelect}
               dateRange={dateRange}
               setDateRange={setDateRange}
             />
