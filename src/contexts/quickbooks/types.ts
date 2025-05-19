@@ -1,46 +1,18 @@
-import { DateRange } from "react-day-picker";
-import { DeleteProgress } from "./useEntityOperations";
 import { User } from "@supabase/supabase-js";
 
-export interface EntityRecord {
-  Id?: string;
-  [key: string]: any;
-}
-
-export interface EntityState {
-  records: EntityRecord[];
-  filteredRecords: EntityRecord[];
-  isLoading: boolean;
-  error: string | null;
-}
-
-// Adding the missing EntityOption interface
-export interface EntityOption {
-  label: string;
-  value: string;
-  group?: string;
-}
-
-// Adding the missing EntityColumnConfig interface
-export interface EntityColumnConfig {
-  field: string;
-  header: string;
-  accessor?: (record: any) => any;
-}
-
-// Adding the missing QuickbooksConnection interface
 export interface QuickbooksConnection {
   id: string;
   user_id: string;
   realm_id: string;
   access_token: string;
   refresh_token: string;
+  token_type: string;
   expires_at: string;
-  company_name?: string | null;
-  created_at?: string;
+  created_at: string;
+  updated_at?: string;
+  company_name?: string;
 }
 
-// Adding the missing QuickbooksContextType interface
 export interface QuickbooksContextType {
   isConnected: boolean;
   isLoading: boolean;
@@ -56,35 +28,73 @@ export interface QuickbooksContextType {
   refreshConnection: () => Promise<void>;
 }
 
+// New type for QB user identity
+export interface QuickbooksUserIdentity {
+  id?: string;
+  user_id: string;
+  realm_id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Extended QuickBooks context type with user identity
+export interface QuickbooksUserContextType {
+  userIdentity: QuickbooksUserIdentity | null;
+  isLoading: boolean;
+  error: string | null;
+  refreshUserIdentity: () => Promise<void>;
+}
+
+// Entity types
+export interface EntityState {
+  isLoading: boolean;
+  error: string | null;
+  records: any[];
+  filteredRecords: any[];
+  totalCount: number;
+  lastUpdated: Date | null;
+}
+
+export interface LogOperationParams {
+  operationType: 'import' | 'export' | 'delete';
+  entityType: string;
+  recordId: string | null;
+  status: 'success' | 'error' | 'pending' | 'partial';
+  details?: any;
+}
+
+export interface DateRange {
+  from: Date | null;
+  to: Date | null;
+}
+
+export interface EntityOption {
+  value: string;
+  label: string;
+  description?: string;
+  icon?: React.ReactNode;
+}
+
 export interface QuickbooksEntitiesContextType {
-  // Entity selection state
-  selectedEntity: string | null;
-  setSelectedEntity: (entity: string | null) => void;
-  selectedDateRange: DateRange | undefined;
-  setSelectedDateRange: (dateRange: DateRange | undefined) => void;
-  
-  // Entity data state
+  selectedEntity: string;
+  setSelectedEntity: (entity: string) => void;
+  selectedDateRange: DateRange;
+  setSelectedDateRange: (range: DateRange) => void;
   entityState: Record<string, EntityState>;
-  
-  // Entity operations
   fetchEntities: (entityType?: string) => Promise<void>;
-  filterEntities: (searchTerm: string, entityType?: string) => void;
-  deleteEntity: (entityId: string, entityType?: string) => Promise<boolean>;
-  deleteSelectedEntities: (entityIds: string[], entityType?: string) => Promise<void>;
-  
-  // Multi-select functionality
+  filterEntities: (entityType: string, searchTerm: string) => void;
+  deleteEntity: (entityType: string, entityId: string) => Promise<boolean>;
+  deleteSelectedEntities: () => Promise<{ success: number; failed: number }>;
   selectedEntityIds: string[];
   setSelectedEntityIds: (ids: string[]) => void;
   toggleEntitySelection: (id: string) => void;
-  selectAllEntities: (select: boolean, entityType?: string) => void;
-  
-  // Delete progress tracking
-  deleteProgress: DeleteProgress;
+  selectAllEntities: (select: boolean, entities?: any[]) => void;
+  deleteProgress: number;
   isDeleting: boolean;
-  
-  // Available entity options
-  entityOptions: Array<{ value: string; label: string }>;
-  
-  // Helper functions
+  entityOptions: EntityOption[];
   getNestedValue: (obj: any, path: string) => any;
 }

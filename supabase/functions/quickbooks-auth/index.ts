@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
 const QUICKBOOKS_CLIENT_ID = Deno.env.get('SANDBOX_ID') || '';
@@ -82,6 +83,7 @@ const saveConnection = async (userId, realmId, tokenResponse)=>{
     throw error;
   }
 };
+
 // Get the connection for a user
 const getConnection = async (userId)=>{
   console.log(`Getting connection for user ${userId}`);
@@ -92,6 +94,7 @@ const getConnection = async (userId)=>{
   }
   return data;
 };
+
 // Get company info from QuickBooks
 const getCompanyInfo = async (accessToken, realmId)=>{
   try {
@@ -117,6 +120,74 @@ const getCompanyInfo = async (accessToken, realmId)=>{
     return null;
   }
 };
+
+// NEW FUNCTION: Fetch user identity information from QuickBooks OpenID Connect endpoint
+const fetchUserIdentity = async (accessToken) => {
+  try {
+    console.log('Fetching user identity information from QuickBooks');
+    const response = await fetch('https://oauth.platform.intuit.com/v1/openid_connect/userinfo', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Failed to get user info: ${response.status} ${response.statusText}`, errorText);
+      return null;
+    }
+
+    const userData = await response.json();
+    console.log('Successfully retrieved user identity information');
+    return {
+      first_name: userData.givenName,
+      last_name: userData.familyName,
+      email: userData.email,
+      phone: userData.phoneNumber
+    };
+  } catch (error) {
+    console.error('Error fetching user identity:', error);
+    return null;
+  }
+};
+
+// NEW FUNCTION: Save user identity to Supabase
+const saveUserIdentity = async (userId, realmId, userInfo) => {
+  if (!userInfo) {
+    console.log('No user identity information to save');
+    return;
+  }
+
+  try {
+    console.log(`Saving user identity for user ${userId} and realm ${realmId}`);
+    
+    const { data, error } = await supabase
+      .from('quickbooks_user_info')
+      .upsert({
+        user_id: userId,
+        realm_id: realmId,
+        first_name: userInfo.first_name,
+        last_name: userInfo.last_name,
+        email: userInfo.email,
+        phone: userInfo.phone,
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error('Error saving user identity:', error);
+      throw error;
+    }
+
+    console.log('User identity saved successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('Error in saveUserIdentity:', error);
+    return { success: false, error };
+  }
+};
+
 // Handle the request
 serve(async (req)=>{
   // Handle CORS preflight request
@@ -202,6 +273,7 @@ serve(async (req)=>{
       }
       const tokenData = await tokenResponse.json();
       console.log('Token exchange successful, received access token and refresh token');
+      
       // Get company info using the new access token
       const companyName = await getCompanyInfo(tokenData.access_token, realmId);
       // Add company name to token data if available
@@ -209,13 +281,25 @@ serve(async (req)=>{
         tokenData.company_name = companyName;
         console.log(`Retrieved company name: ${companyName}`);
       }
+      
+      // NEW: Fetch user identity information from QuickBooks
+      const userIdentity = await fetchUserIdentity(tokenData.access_token);
+      
       // Save the connection to Supabase with the realm ID from the callback
       const saveResult = await saveConnection(userId, realmId, tokenData);
       console.log('Connection saved to database:', saveResult.success);
+      
+      // NEW: Save user identity information to Supabase
+      if (userIdentity) {
+        await saveUserIdentity(userId, realmId, userIdentity);
+        console.log('User identity saved to database');
+      }
+      
       return new Response(JSON.stringify({
         success: true,
         companyName,
-        realmId
+        realmId,
+        userIdentity // Include the user identity in the response
       }), {
         headers: {
           ...corsHeaders,
@@ -319,6 +403,33 @@ serve(async (req)=>{
       console.log('Connection deleted from database');
       return new Response(JSON.stringify({
         success: true
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
+    } else if (path === 'get-user-identity') { // NEW ENDPOINT to get user identity
+      const { userId, realmId } = params;
+      if (!userId) {
+        throw new Error('Missing required parameter: userId');
+      }
+
+      const { data, error } = await supabase
+        .from('quickbooks_user_info')
+        .select('*')
+        .eq('user_id', userId)
+        .eq(realmId ? 'realm_id' : 'id', realmId || userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching user identity:', error);
+        throw error;
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        userIdentity: data
       }), {
         headers: {
           ...corsHeaders,

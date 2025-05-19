@@ -39,8 +39,9 @@ const Dashboard = () => {
   }, [isConnected, companyName, toast]);
   
   // Only render the dashboard if connected
-  if (!isConnected) {
-    return null; // Will redirect via the effect
+  if (isConnected === false) {
+    // Will redirect via the effect
+    return null;
   }
   
   return (

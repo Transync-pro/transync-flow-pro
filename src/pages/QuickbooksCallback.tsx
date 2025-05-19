@@ -104,13 +104,32 @@ const QuickbooksCallback = () => {
         
         // Mark as successful and show toast
         setSuccess(true);
+        
+        // Show toast with company name and user identity info if available
+        let toastMessage = `Your QuickBooks account (${data.companyName || 'Unknown Company'}) has been connected successfully!`;
+        
+        // Add user identity info to toast if available
+        if (data.userIdentity) {
+          const identity = data.userIdentity;
+          if (identity.first_name && identity.last_name) {
+            toastMessage += ` Connected user: ${identity.first_name} ${identity.last_name}`;
+          }
+        }
+        
         toast({
           title: "QuickBooks Connected",
-          description: `Your QuickBooks account (${data.companyName || 'Unknown Company'}) has been connected successfully!`,
+          description: toastMessage,
         });
 
-        // Redirect to dashboard immediately with replace to avoid back navigation
-        navigate("/dashboard", { replace: true });
+        // Force a refresh before redirecting to ensure connection state is updated
+        await refreshConnection();
+
+        // Get redirect path from session storage or default to dashboard
+        const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || '/dashboard';
+        sessionStorage.removeItem('qb_redirect_after_connect');
+        
+        console.log('QuickBooks connection success, redirecting to:', redirectPath);
+        navigate(redirectPath, { replace: true });
       } catch (err: any) {
         logError("QuickBooks callback error", {
           source: "QuickbooksCallback",
