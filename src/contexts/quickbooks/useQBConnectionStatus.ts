@@ -13,9 +13,18 @@ export const useQBConnectionStatus = (user: User | null) => {
   const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
   const checkInProgress = useRef<boolean>(false);
   const lastCheckTime = useRef<number>(0);
+  const connectionCache = useRef<{
+    userId: string | null;
+    data: QuickbooksConnection | null;
+    timestamp: number;
+  }>({
+    userId: null,
+    data: null,
+    timestamp: 0
+  });
 
-  // Check connection status
-  const checkConnectionStatus = useCallback(async () => {
+  // Check connection status with caching
+  const checkConnectionStatus = useCallback(async (force = false) => {
     if (!user) {
       resetConnectionState();
       setIsLoading(false);
@@ -25,11 +34,33 @@ export const useQBConnectionStatus = (user: User | null) => {
     // Prevent concurrent checks
     if (checkInProgress.current) return;
     
-    // Don't check too frequently
+    // Don't check too frequently unless forced
     const now = Date.now();
-    const throttleTime = 2000; // 2 seconds
+    const throttleTime = force ? 0 : 5000; // 5 seconds throttle unless forced
     if (now - lastCheckTime.current < throttleTime) {
       return;
+    }
+    
+    // Check cache first (only if not forced)
+    if (!force && 
+        connectionCache.current.userId === user.id && 
+        connectionCache.current.timestamp > now - 30000) { // 30 second cache
+      
+      if (connectionCache.current.data) {
+        // Use cached data
+        const qbConnection = connectionCache.current.data;
+        setConnection(qbConnection);
+        setIsConnected(true);
+        setRealmId(qbConnection.realm_id);
+        setCompanyName(qbConnection.company_name || null);
+        setIsLoading(false);
+        return;
+      } else if (connectionCache.current.data === null) {
+        // We know there's no connection from cache
+        resetConnectionState();
+        setIsLoading(false);
+        return;
+      }
     }
     
     checkInProgress.current = true;
@@ -51,6 +82,13 @@ export const useQBConnectionStatus = (user: User | null) => {
         resetConnectionState();
         return;
       }
+      
+      // Update cache
+      connectionCache.current = {
+        userId: user.id,
+        data: data || null,
+        timestamp: now
+      };
       
       if (data) {
         // Connection found
@@ -92,14 +130,28 @@ export const useQBConnectionStatus = (user: User | null) => {
 
   // Check connection on mount and when user changes
   useEffect(() => {
+    // Reset cache when user changes
+    if (connectionCache.current.userId !== user?.id) {
+      connectionCache.current = {
+        userId: null,
+        data: null,
+        timestamp: 0
+      };
+    }
+    
     checkConnectionStatus();
+    
+    // Clear throttling on unmount
+    return () => {
+      lastCheckTime.current = 0;
+    };
   }, [user, checkConnectionStatus]);
 
-  // Public refresh method
+  // Public refresh method - force a check
   const refreshConnection = useCallback(async () => {
     // Reset throttling to ensure immediate check
     lastCheckTime.current = 0;
-    await checkConnectionStatus();
+    await checkConnectionStatus(true);
   }, [checkConnectionStatus]);
 
   return {
