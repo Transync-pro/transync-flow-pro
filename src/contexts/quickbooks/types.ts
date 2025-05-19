@@ -60,6 +60,7 @@ export interface EntityState {
   lastUpdated: Date | null;
 }
 
+// Add DeleteProgress interface to track bulk deletion operations
 export interface DeleteProgress {
   total: number;
   current: number;
@@ -121,7 +122,7 @@ export interface QuickbooksEntitiesContextType {
   setSelectedEntityIds: (ids: string[]) => void;
   toggleEntitySelection: (id: string) => void;
   selectAllEntities: (select: boolean, entities?: any[]) => void;
-  deleteProgress: number;
+  deleteProgress: DeleteProgress;  // Updated to use DeleteProgress interface instead of number
   isDeleting: boolean;
   entityOptions: EntityOption[];
   getNestedValue: (obj: any, path: string) => any;

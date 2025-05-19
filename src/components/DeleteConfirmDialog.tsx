@@ -3,7 +3,7 @@ import React from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import { Progress } from "./ui/progress";
 import { Loader2 } from "lucide-react";
-import { DeleteProgress } from "@/contexts/quickbooks/useEntityOperations";
+import { DeleteProgress } from "@/contexts/quickbooks/types";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
