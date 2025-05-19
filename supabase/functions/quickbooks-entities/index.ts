@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
 
@@ -312,7 +311,7 @@ const updateEntity = async (
 // Log the operation for auditing purposes
 const logOperation = async (
   userId: string,
-  operationType: 'fetch' | 'create' | 'update' | 'delete',
+  operationType: 'fetch' | 'export' | 'import' | 'delete',
   entityType: string,
   status: 'success' | 'error',
   details: any = {}
@@ -410,41 +409,45 @@ serve(async (req) => {
         break;
         
       case 'create':
-        if (!params.data) {
-          throw new Error('Missing required parameter: data');
+        try {
+          result = await createEntity(
+            connection.access_token,
+            connection.realm_id,
+            actualEntityType,
+            params.data
+          );
+          await logOperation(userId, 'import', entityType, 'success', {
+            id: result[entityType]?.Id,
+            name: result[entityType]?.Name || result[entityType]?.DisplayName
+          });
+        } catch (error: any) {
+          await logOperation(userId, 'import', entityType, 'error', {
+            error: error.message
+          });
+          throw error;
         }
-        
-        result = await createEntity(
-          connection.access_token,
-          connection.realm_id,
-          actualEntityType,
-          params.data
-        );
-        
-        await logOperation(userId, 'create', entityType, 'success', {
-          id: result[actualEntityType]?.Id,
-          data: result
-        });
         break;
         
       case 'update':
-        if (!params.id || !params.data || !params.syncToken) {
-          throw new Error('Missing required parameters for update: id, data, or syncToken');
+        try {
+          result = await updateEntity(
+            connection.access_token,
+            connection.realm_id,
+            actualEntityType,
+            params.id,
+            params.data,
+            params.syncToken
+          );
+          await logOperation(userId, 'import', entityType, 'success', {
+            id: result[entityType]?.Id,
+            name: result[entityType]?.Name || result[entityType]?.DisplayName
+          });
+        } catch (error: any) {
+          await logOperation(userId, 'import', entityType, 'error', {
+            error: error.message
+          });
+          throw error;
         }
-        
-        result = await updateEntity(
-          connection.access_token,
-          connection.realm_id,
-          actualEntityType,
-          params.id,
-          params.data,
-          params.syncToken
-        );
-        
-        await logOperation(userId, 'update', entityType, 'success', {
-          id: params.id,
-          data: result
-        });
         break;
         
       case 'delete':
@@ -480,11 +483,15 @@ serve(async (req) => {
     
     // Try to log the error if we have a userId
     try {
-      const clonedReq = req.clone();
-      const { userId, entityType, operation } = await clonedReq.json();
-      if (userId && entityType && operation) {
-        await logOperation(userId, operation, entityType, 'error', {
-          error: error.message || 'Unknown error'
+      const { userId, operation, entityType } = await req.json();
+      if (userId && operation && entityType) {
+        // Map operation to valid operation_type
+        let logOperationType = 'fetch';
+        if (operation === 'delete') logOperationType = 'delete';
+        if (['create', 'update'].includes(operation)) logOperationType = 'import';
+        
+        await logOperation(userId, logOperationType, entityType, 'error', {
+          error: error.message
         });
       }
     } catch (e) {

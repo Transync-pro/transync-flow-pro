@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Error severity levels
@@ -86,14 +85,16 @@ export const logError = async (
       
       // Store in operation_logs table instead of error_logs
       // Adjusted to use the fields available in operation_logs table
+      // Using 'fetch' as the operation_type since it's a valid value
       await supabase.from('operation_logs').insert({
-        operation_type: 'error',
+        operation_type: 'fetch',  // Changed from 'error' to 'fetch' to comply with constraint
         entity_type: source,
         record_id: null,
-        status: severity,
+        status: 'error',  // Indicate it's an error in the status field
         details: {
           message,
           timestamp: entry.timestamp,
+          severity,
           stack,
           context
         },
