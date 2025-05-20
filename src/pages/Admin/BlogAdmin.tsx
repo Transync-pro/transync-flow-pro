@@ -2,10 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import PageLayout from "@/components/PageLayout";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { checkUserRole, isUserAdmin } from "@/services/blog/users";
 import type { BlogPost } from "@/types/blog";
 import BlogAdminHeader from "@/components/Admin/BlogAdminHeader";
 import BlogPostsTable from "@/components/Admin/BlogPostsTable";
@@ -15,8 +12,7 @@ import SampleDataGenerator from "@/components/Admin/SampleDataGenerator";
 const BlogAdmin = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isAdminChecking, setIsAdminChecking] = useState(true);
+  // Admin check is handled by RouteGuard
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<null | BlogPost>(null);
   const navigate = useNavigate();
@@ -34,42 +30,9 @@ const BlogAdmin = () => {
   const [focusKeyword, setFocusKeyword] = useState("");
   
   useEffect(() => {
-    const checkAdmin = async () => {
-      console.log("BlogAdmin: Checking admin status");
-      setIsAdminChecking(true);
-      
-      try {
-        const adminStatus = await isUserAdmin();
-        console.log("BlogAdmin: Is user admin:", adminStatus);
-        
-        if (!adminStatus) {
-          console.log("BlogAdmin: User is not admin, redirecting to homepage");
-          toast({
-            title: "Access Denied",
-            description: "You don't have permission to access the admin area.",
-            variant: "destructive"
-          });
-          navigate('/');
-          return;
-        }
-        
-        setIsAdmin(true);
-        fetchPosts();
-      } catch (error) {
-        console.error("BlogAdmin: Error checking admin status:", error);
-        toast({
-          title: "Error",
-          description: "Failed to verify admin permissions",
-          variant: "destructive"
-        });
-        navigate('/');
-      } finally {
-        setIsAdminChecking(false);
-      }
-    };
-    
-    checkAdmin();
-  }, [navigate]);
+    // Fetch posts on component mount
+    fetchPosts();
+  }, []);
   
   const fetchPosts = async () => {
     try {
@@ -218,32 +181,7 @@ const BlogAdmin = () => {
     setFocusKeyword("");
   };
   
-  if (isAdminChecking) {
-    return (
-      <PageLayout>
-        <div className="py-16 max-w-7xl mx-auto px-4 flex flex-col items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mb-4"></div>
-          <p className="text-center text-gray-600">Verifying admin access...</p>
-        </div>
-      </PageLayout>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <PageLayout>
-        <div className="py-16 max-w-7xl mx-auto px-4">
-          <Alert variant="destructive" className="mb-6">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Access Denied</AlertTitle>
-            <AlertDescription>
-              You don't have permission to access the admin area.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </PageLayout>
-    );
-  }
+  // Admin check is handled by RouteGuard
 
   return (
     <PageLayout>
