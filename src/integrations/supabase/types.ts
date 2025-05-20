@@ -9,6 +9,114 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      blog_posts: {
+        Row: {
+          author: string
+          canonical_url: string | null
+          category: string
+          content: string
+          content_blocks: Json | null
+          featured_image: string
+          focus_keyword: string
+          id: string
+          is_featured: boolean
+          meta_description: string
+          meta_title: string | null
+          published_date: string
+          seo_data: Json | null
+          slug: string
+          social_image_url: string | null
+          summary: string
+          title: string
+          updated_date: string
+        }
+        Insert: {
+          author: string
+          canonical_url?: string | null
+          category: string
+          content: string
+          content_blocks?: Json | null
+          featured_image: string
+          focus_keyword: string
+          id?: string
+          is_featured?: boolean
+          meta_description: string
+          meta_title?: string | null
+          published_date?: string
+          seo_data?: Json | null
+          slug: string
+          social_image_url?: string | null
+          summary: string
+          title: string
+          updated_date?: string
+        }
+        Update: {
+          author?: string
+          canonical_url?: string | null
+          category?: string
+          content?: string
+          content_blocks?: Json | null
+          featured_image?: string
+          focus_keyword?: string
+          id?: string
+          is_featured?: boolean
+          meta_description?: string
+          meta_title?: string | null
+          published_date?: string
+          seo_data?: Json | null
+          slug?: string
+          social_image_url?: string | null
+          summary?: string
+          title?: string
+          updated_date?: string
+        }
+        Relationships: []
+      }
+      blog_posts_tags: {
+        Row: {
+          post_id: string
+          tag_id: string
+        }
+        Insert: {
+          post_id: string
+          tag_id: string
+        }
+        Update: {
+          post_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_tags_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "blog_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_posts_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "blog_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_tags: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       operation_logs: {
         Row: {
           created_at: string | null
@@ -117,12 +225,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: { required_role: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

@@ -20,7 +20,7 @@ import Dashboard from "./pages/Dashboard";
 import Import from "./pages/Import";
 import Export from "./pages/Export";
 import Delete from "./pages/Delete";
-import History from "./pages/History"; // Import new History page
+import History from "./pages/History";
 import Profile from "./pages/Profile";
 import QuickbooksCallback from "./pages/QuickbooksCallback";
 import QuickbooksConnectPage from "./components/QuickbooksConnectPage";
@@ -35,6 +35,8 @@ import AboutUs from "./pages/AboutUs";
 import Integrations from "./pages/Integrations";
 import Demo from "./pages/Demo";
 import Blog from "./pages/Blog";
+import BlogDetail from "./pages/BlogDetail";
+import BlogAdmin from "./pages/Admin/BlogAdmin";
 import Documentation from "./pages/Documentation";
 import Tutorials from "./pages/Tutorials";
 import Support from "./pages/Support";
@@ -165,6 +167,13 @@ const App = () => {
                     </RouteGuard>
                   } />
                   
+                  {/* Admin routes */}
+                  <Route path="/admin/blog" element={
+                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+                      <BlogAdmin />
+                    </RouteGuard>
+                  } />
+                  
                   {/* New public pages */}
                   <Route path="/features" element={<Features />} />
                   <Route path="/subscription" element={<Subscription />} />
@@ -174,6 +183,7 @@ const App = () => {
                   <Route path="/integrations" element={<Integrations />} />
                   <Route path="/demo" element={<Demo />} />
                   <Route path="/blog" element={<Blog />} />
+                  <Route path="/blog/:slug" element={<BlogDetail />} />
                   <Route path="/documentation" element={<Documentation />} />
                   <Route path="/tutorials" element={<Tutorials />} />
                   <Route path="/support" element={<Support />} />
