@@ -173,7 +173,7 @@ export const updateImportJobStatus = async (
     console.error("Error updating import job:", error);
     return false;
   }
-}
+};
 /**
  * Process WordPress XML file and extract post data
  * Using a browser-compatible approach for XML parsing
@@ -188,25 +188,33 @@ export const processWordPressXml = async (xmlContent: string): Promise<WordPress
     const posts: WordPressPost[] = [];
     const items = xmlDoc.getElementsByTagName("item");
     const attachmentMap: Record<string, string> = {};
-    console.log(`Found ${items.length} items in WordPress XML`);
+    // First pass: build attachment map
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      // Helper to get namespaced element text
       const getNsText = (tag: string) => {
         const el = item.getElementsByTagName(tag)[0];
         return el ? el.textContent || '' : '';
       };
-      // Check if it's a post and published
+      const postType = getNsText("wp:post_type");
+      if (postType === 'attachment') {
+        const attachmentId = getNsText("wp:post_id");
+        // Prefer wp:attachment_url if present, fallback to link
+        const attachmentUrl = getNsText("wp:attachment_url") || getNsText("link");
+        if (attachmentId && attachmentUrl) {
+          attachmentMap[attachmentId] = attachmentUrl;
+        }
+      }
+    }
+    // Second pass: parse only real posts
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const getNsText = (tag: string) => {
+        const el = item.getElementsByTagName(tag)[0];
+        return el ? el.textContent || '' : '';
+      };
       const postType = getNsText("wp:post_type");
       const postStatus = getNsText("wp:status");
-      if (postType === 'attachment') {
-        // Build attachment map
-        const attachmentId = getNsText("wp:post_id");
-        const attachmentUrl = getNsText("link");
-        attachmentMap[attachmentId] = attachmentUrl;
-      } else if (postType !== 'post' || postStatus !== 'publish') {
-        continue;
-      }
+      if (postType !== 'post' || (postStatus !== 'publish' && postStatus !== 'draft')) continue;
       // Extract post data
       const post: WordPressPost = {
         id: getNsText("wp:post_id"),
@@ -235,7 +243,7 @@ export const processWordPressXml = async (xmlContent: string): Promise<WordPress
         }
         if (metaKey === '_thumbnail_id') {
           const thumbnailId = metaValue;
-          post.featuredImage = attachmentMap[thumbnailId] || null;
+          post.featuredImage = (thumbnailId && attachmentMap[thumbnailId]) ? attachmentMap[thumbnailId] : null;
         }
       }
       posts.push(post);
@@ -468,8 +476,7 @@ export const processWordPressPost = async (
         error: `Post with WordPress ID ${wpPost.id} already imported` 
       };
     }
-    
-    // Process all images in the post
+    // Process all images in the post content
     const imageMap: Record<string, string> = {};
     for (const imageUrl of wpPost.images) {
       const newUrl = await processImage(imageUrl, jobId);
@@ -477,35 +484,30 @@ export const processWordPressPost = async (
         imageMap[imageUrl] = newUrl;
       }
     }
-    
-    // If there's a featured image, process it too
+    // If there's a featured image, process and set it
     if (wpPost.featuredImage) {
       const newFeaturedImage = await processImage(wpPost.featuredImage, jobId);
       if (newFeaturedImage) {
-        imageMap[wpPost.featuredImage] = newFeaturedImage;
         wpPost.featuredImage = newFeaturedImage;
+      } else if (wpPost.images.length > 0 && imageMap[wpPost.images[0]]) {
+        wpPost.featuredImage = imageMap[wpPost.images[0]];
       }
     } else if (wpPost.images.length > 0 && imageMap[wpPost.images[0]]) {
-      // Use the first image as featured if none was specified
+      // Use first image as featured if no featured image
       wpPost.featuredImage = imageMap[wpPost.images[0]];
     }
-    
     // Replace image URLs in content
     const updatedContent = await replaceImageUrls(wpPost.content, imageMap);
     wpPost.content = updatedContent;
-    
     // Convert to blog post format - ensuring all required fields are present
     const blogPost = convertToBlogPost(wpPost, imageMap);
-    
     // Insert into database
     const { data: insertedPost, error: insertError } = await supabase
       .from('blog_posts')
       .insert(blogPost)
       .select('id')
       .single();
-      
     if (insertError) throw insertError;
-    
     // Create mapping record
     const { error: mappingError } = await supabase
       .from('blog_import_mappings')
@@ -515,9 +517,7 @@ export const processWordPressPost = async (
         blog_post_id: insertedPost.id,
         original_url: wpPost.link
       });
-      
     if (mappingError) throw mappingError;
-    
     return { success: true, postId: insertedPost.id };
   } catch (error: any) {
     console.error("Error processing WordPress post:", error);
