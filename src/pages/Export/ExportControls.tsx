@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { logOperation } from "@/utils/operationLogger";
+import { toast } from "@/components/ui/use-toast";
 
 interface ExportControlsProps {
   onExportAll: (format: "csv" | "json") => void;
@@ -19,13 +20,15 @@ export const ExportControls = ({
   hasSelection,
 }: ExportControlsProps) => {
   
-  // Wrapper function to ensure logging happens
+  // Enhanced wrapper function with better error handling and logging
   const handleExportClick = async (format: "csv" | "json", isSelected: boolean) => {
+    console.log(`Starting export process: ${format} format, selected only: ${isSelected}`);
+    
     try {
       // Log the export operation before performing it
       await logOperation({
         operationType: 'export',
-        entityType: 'data', // This will be overridden in the actual export handler with the specific entity
+        entityType: 'data', // This will be overridden in the actual export handler
         status: 'pending',
         details: { 
           format,
@@ -34,6 +37,8 @@ export const ExportControls = ({
         }
       });
       
+      console.log("Export operation logged successfully, proceeding with export");
+      
       // Call the original handler
       if (isSelected) {
         onExportSelected(format)({} as React.MouseEvent<HTMLButtonElement>);
@@ -41,13 +46,30 @@ export const ExportControls = ({
         onExportAll(format);
       }
     } catch (error) {
-      console.error("Error logging export operation:", error);
-      // Still proceed with export even if logging fails
-      if (isSelected) {
-        onExportSelected(format)({} as React.MouseEvent<HTMLButtonElement>);
-      } else {
-        onExportAll(format);
+      console.error("Error during export operation:", error);
+      
+      // Log the failed operation
+      try {
+        await logOperation({
+          operationType: 'export',
+          entityType: 'data',
+          status: 'error',
+          details: { 
+            error: error instanceof Error ? error.message : String(error),
+            format,
+            selectedOnly: isSelected,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error("Failed to log export error:", logError);
       }
+      
+      toast({
+        title: "Export Error",
+        description: "An error occurred during the export process. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 

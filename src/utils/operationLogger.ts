@@ -13,6 +13,8 @@ export const logOperation = async ({
   details = {}
 }: LogOperationParams): Promise<void> => {
   try {
+    console.log(`Logging operation: ${operationType} - ${entityType} - ${status}`);
+    
     const { data: user } = await supabase.auth.getUser();
     
     if (!user?.user) {
@@ -22,6 +24,11 @@ export const logOperation = async ({
     
     // Use the strict type guard function to ensure valid operation type
     const validOperationType = validateOperationType(operationType);
+    
+    // Add timestamp if not already present in details
+    if (!details.timestamp) {
+      details.timestamp = new Date().toISOString();
+    }
     
     const { error } = await supabase.from("operation_logs").insert({
       user_id: user.user.id,
@@ -35,7 +42,7 @@ export const logOperation = async ({
     if (error) {
       console.error("Error logging operation:", error);
     } else {
-      console.log(`Operation logged: ${validOperationType} ${entityType} - ${status}`);
+      console.log(`Operation logged successfully: ${validOperationType} ${entityType} - ${status}`);
     }
   } catch (error) {
     console.error("Failed to log operation:", error);
