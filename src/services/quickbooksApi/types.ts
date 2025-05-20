@@ -18,6 +18,13 @@ export interface QuickbooksSchema {
   fields: string[];
 }
 
+// Add the QBEntityResponse type that was missing
+export interface QBEntityResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
 // These are the ONLY valid operation types according to the database constraint
 export type OperationType = 'import' | 'export' | 'delete' | 'fetch';
 export type OperationStatus = 'success' | 'error' | 'pending' | 'partial';
