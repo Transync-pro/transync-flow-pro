@@ -1,4 +1,3 @@
-
 import { getQBApiBaseUrl } from './config.ts';
 import { supabase } from './connection.ts';
 
@@ -45,15 +44,13 @@ export const logOperation = async (
   userId: string,
   operationType: string,  // Accept any string but map it to valid types
   entityType: string,
-  status: 'success' | 'error' | 'pending' | 'partial',
+  status: 'success' | 'error',
   details: any = {},
   recordId: string | null = null
 ) => {
   try {
     // Map the operation type to a valid database operation type
     const validOperationType = mapOperationType(operationType);
-    
-    console.log(`Logging operation to database: ${validOperationType} - ${entityType} - ${status}`);
     
     // Execute the insert with the validated operation type
     const { error } = await supabase.from('operation_logs').insert({
@@ -67,8 +64,6 @@ export const logOperation = async (
     
     if (error) {
       console.error('Error logging operation:', error);
-    } else {
-      console.log(`Operation logged successfully: ${validOperationType} - ${entityType} - ${status}`);
     }
   } catch (error) {
     console.error('Error logging operation:', error);

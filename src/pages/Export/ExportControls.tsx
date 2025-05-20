@@ -49,11 +49,11 @@ export const ExportControls = ({
         onExportAll(format);
       }
       
-      // Log successful completion
+      // Log successful completion - Fix: use 'success' instead of 'complete'
       await logOperation({
         operationType: 'export',
         entityType: selectedEntity || 'unknown',
-        status: 'success', // Changed from 'complete' to 'success' to match OperationStatus type
+        status: 'success',
         details: { 
           format,
           selectedOnly: isSelected,
