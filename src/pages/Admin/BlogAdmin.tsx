@@ -35,7 +35,9 @@ const BlogAdmin = () => {
   
   useEffect(() => {
     const checkAdmin = async () => {
+      console.log("BlogAdmin: Checking admin status");
       const role = await checkUserRole();
+      console.log("BlogAdmin: User role:", role);
       
       if (role !== 'admin') {
         toast({

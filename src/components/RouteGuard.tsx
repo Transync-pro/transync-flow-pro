@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { logError } from "@/utils/errorLogger";
 import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
 import { checkUserRole } from "@/services/blog/users";
+import { toast } from "@/components/ui/use-toast";
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -28,6 +29,7 @@ const RouteGuard = ({
   const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [roleChecked, setRoleChecked] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -77,22 +79,50 @@ const RouteGuard = ({
     const checkAdminRole = async () => {
       if (!user) {
         setIsAdmin(false);
+        setRoleChecked(true);
         return;
       }
       
       try {
+        console.log("Checking admin role for user:", user.id);
         const role = await checkUserRole();
-        setIsAdmin(role === 'admin');
+        console.log("User role result:", role);
+        
+        const hasAdminRole = role === 'admin';
+        setIsAdmin(hasAdminRole);
+        
+        if (requiresAdmin && !hasAdminRole) {
+          console.log("User does not have admin role, redirecting to homepage");
+          toast({
+            title: "Access Denied",
+            description: "You don't have permission to access the admin area.",
+            variant: "destructive"
+          });
+          navigate('/');
+        }
       } catch (error) {
         console.error("Error checking admin role:", error);
         setIsAdmin(false);
+        
+        if (requiresAdmin) {
+          toast({
+            title: "Access Error",
+            description: "Failed to verify admin permissions.",
+            variant: "destructive"
+          });
+          navigate('/');
+        }
+      } finally {
+        setRoleChecked(true);
       }
     };
     
     if (requiresAdmin || isAdminRoute) {
       checkAdminRole();
+    } else {
+      setRoleChecked(true);
     }
-  }, [user, requiresAdmin, isAdminRoute]);
+  }, [user, requiresAdmin, isAdminRoute, navigate]);
 
   // Check access on mount and when dependencies change
   useEffect(() => {
@@ -111,7 +141,9 @@ const RouteGuard = ({
         await checkQbConnectionDirectly();
       } 
       
-      setIsChecking(false);
+      if (!requiresAdmin || roleChecked) {
+        setIsChecking(false);
+      }
       
       // Reset the initial check flag after first run
       isInitialCheck.current = false;
@@ -124,7 +156,9 @@ const RouteGuard = ({
     user, 
     checkQbConnectionDirectly, 
     isQbCallbackRoute, 
-    isDisconnectedRoute
+    isDisconnectedRoute,
+    requiresAdmin,
+    roleChecked
   ]);
 
   // Handle redirection based on connection status
@@ -192,7 +226,7 @@ const RouteGuard = ({
   }
 
   // Show loading state while checking
-  if (isChecking) {
+  if (isChecking || (requiresAdmin && !roleChecked)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <Loader2 className="h-12 w-12 animate-spin text-blue-500" />

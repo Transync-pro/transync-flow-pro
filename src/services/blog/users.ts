@@ -9,8 +9,11 @@ export async function checkUserRole(): Promise<string | null> {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
+      console.log("No session found when checking user role");
       return null;
     }
+    
+    console.log("Checking role for user ID:", session.user.id);
     
     const { data, error } = await supabase
       .from('user_roles')
@@ -23,6 +26,7 @@ export async function checkUserRole(): Promise<string | null> {
       return null;
     }
     
+    console.log("User role data:", data);
     return data?.role || null;
   } catch (error) {
     console.error("Unexpected error checking user role:", error);
