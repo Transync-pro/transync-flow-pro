@@ -221,13 +221,11 @@ const saveUserIdentity = async (userId, realmId, userInfo) => {
 
 /**
  * Handle token exchange and user identity saving
- * FIXED: Modified to avoid the "Body already consumed" error by parsing the request body only once
+ * FIX: Completely rewritten to avoid request body consumption issues
  */
-const handleTokenExchange = async (req) => {
+const handleTokenExchange = async (params) => {
   try {
-    // Parse the request body only once and store it in a variable
-    const reqBody = await req.json();
-    const { code, redirectUri, userId, realmId } = reqBody;
+    const { code, redirectUri, userId, realmId } = params;
     
     console.log('Token request with params:', {
       code: !!code,
@@ -288,7 +286,7 @@ const handleTokenExchange = async (req) => {
       console.log(`Retrieved company name: ${companyName}`);
     }
     
-    // FIXED: Fetch user identity information with the new approach
+    // Fetch user identity information with the new approach
     const userIdentity = await fetchUserIdentity(tokenData.access_token, realmId);
     console.log('User identity fetched:', userIdentity ? 'success' : 'failed');
     
@@ -340,28 +338,15 @@ const handleTokenExchange = async (req) => {
       console.log('No user identity information available to save');
     }
     
-    return new Response(JSON.stringify({
+    return {
       success: true,
       companyName,
       realmId,
       userIdentity // Include the user identity in the response
-    }), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
-    });
+    };
   } catch (error) {
     console.error('Error in QuickBooks auth function:', error);
-    return new Response(JSON.stringify({
-      error: error.message || 'Internal server error'
-    }), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      },
-      status: 400
-    });
+    throw new Error(error.message || 'Internal server error');
   }
 };
 
@@ -378,8 +363,23 @@ serve(async (req)=>{
     console.log('Edge function received request. Environment:', QUICKBOOKS_ENVIRONMENT);
     console.log('Client ID configured:', QUICKBOOKS_CLIENT_ID ? 'Yes' : 'No');
     
-    // FIXED: Parse the request body only once
-    const reqBody = await req.json();
+    // Parse the request body
+    let reqBody;
+    try {
+      reqBody = await req.json();
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      return new Response(JSON.stringify({
+        error: 'Invalid JSON in request body'
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 400
+      });
+    }
+    
     const { path, ...params } = reqBody;
     
     console.log(`Request path: ${path}, params:`, params);
@@ -409,8 +409,26 @@ serve(async (req)=>{
         }
       });
     } else if (path === 'token') {
-      // FIXED: Pass the entire request object to handleTokenExchange
-      return await handleTokenExchange(req);
+      // FIX: Get parameters from the already parsed request body
+      try {
+        const result = await handleTokenExchange(params);
+        return new Response(JSON.stringify(result), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({
+          error: error.message || 'Internal server error'
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+          status: 400
+        });
+      }
     } else if (path === 'refresh') {
       const { refreshToken, userId } = params;
       if (!refreshToken || !userId) {
