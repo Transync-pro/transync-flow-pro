@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -55,7 +56,6 @@ export async function createAdminUser(email: string, password: string): Promise<
           .from('user_roles')
           .select('*')
           .eq('user_id', existingUser?.id)
-          .eq('role', 'admin')
           .single();
           
         if (existingRole) {
@@ -73,6 +73,7 @@ export async function createAdminUser(email: string, password: string): Promise<
           ]);
           
         if (roleError) {
+          console.error("Role creation error:", roleError);
           return { 
             success: false, 
             message: `Failed to assign admin role to existing user: ${roleError.message}`
@@ -101,6 +102,7 @@ export async function createAdminUser(email: string, password: string): Promise<
         ]);
         
       if (roleError) {
+        console.error("Role creation error:", roleError);
         return { 
           success: false, 
           message: `Failed to assign admin role: ${roleError.message}`

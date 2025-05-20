@@ -1,5 +1,6 @@
 
 import React from "react";
+import { Link } from "react-router-dom";
 
 interface BlogHeroProps {
   title: string;
@@ -21,6 +22,15 @@ const BlogHero: React.FC<BlogHeroProps> = ({ title, description }) => {
         <p className="text-xl text-white/90 max-w-3xl mx-auto leading-relaxed">
           {description}
         </p>
+        
+        {/* Hidden link for admin - visually hidden */}
+        <Link 
+          to="/admin/blog" 
+          className="opacity-0 absolute left-0 top-0 w-1 h-1 overflow-hidden"
+          aria-hidden="true"
+        >
+          Admin Access
+        </Link>
       </div>
     </section>
   );

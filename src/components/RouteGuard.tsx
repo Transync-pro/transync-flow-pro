@@ -6,24 +6,28 @@ import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { Loader2 } from "lucide-react";
 import { logError } from "@/utils/errorLogger";
 import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
+import { checkUserRole } from "@/services/blog/users";
 
 interface RouteGuardProps {
   children: ReactNode;
   requiresAuth?: boolean;
   requiresQuickbooks?: boolean;
   isPublicOnly?: boolean;
+  requiresAdmin?: boolean;
 }
 
 const RouteGuard = ({ 
   children, 
   requiresAuth = true, 
   requiresQuickbooks = false,
-  isPublicOnly = false
+  isPublicOnly = false,
+  requiresAdmin = false
 }: RouteGuardProps) => {
   const { user, isLoading: isAuthLoading } = useAuth();
   const { isConnected, isLoading: isQBLoading, refreshConnection } = useQuickbooks();
   const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -31,6 +35,7 @@ const RouteGuard = ({
   const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
   const isDisconnectedRoute = location.pathname === "/disconnected";
   const isDashboardRoute = location.pathname === "/dashboard";
+  const isAdminRoute = location.pathname.startsWith("/admin");
 
   // Flag to prevent multiple redirects
   const redirectingRef = useRef(false);
@@ -66,6 +71,28 @@ const RouteGuard = ({
       return false;
     }
   }, [user, isConnected, isQBLoading, refreshConnection]);
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdminRole = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+      
+      try {
+        const role = await checkUserRole();
+        setIsAdmin(role === 'admin');
+      } catch (error) {
+        console.error("Error checking admin role:", error);
+        setIsAdmin(false);
+      }
+    };
+    
+    if (requiresAdmin) {
+      checkAdminRole();
+    }
+  }, [user, requiresAdmin]);
 
   // Check access on mount and when dependencies change
   useEffect(() => {
@@ -136,6 +163,12 @@ const RouteGuard = ({
         navigate('/disconnected', { replace: true });
       }
       
+      // Handle admin routes
+      if (requiresAdmin && !isAdmin) {
+        console.log('RouteGuard: User is not an admin, redirecting to home');
+        navigate('/', { replace: true });
+      }
+      
       redirectingRef.current = false;
     }, 100);
   }, [
@@ -144,6 +177,8 @@ const RouteGuard = ({
     isConnected,
     isDisconnectedRoute,
     requiresQuickbooks,
+    requiresAdmin,
+    isAdmin,
     user,
     isQbCallbackRoute,
     isQBLoading,
@@ -174,6 +209,11 @@ const RouteGuard = ({
   // Redirect unauthenticated users to login
   if (requiresAuth && !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  
+  // Redirect non-admin users away from admin pages
+  if (requiresAdmin && !isAdmin) {
+    return <Navigate to="/" replace />;
   }
   
   // Special case: don't redirect from the disconnected route if we don't have a connection
