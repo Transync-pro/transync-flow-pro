@@ -169,7 +169,7 @@ const App = () => {
                   
                   {/* Admin routes */}
                   <Route path="/admin/blog" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+                    <RouteGuard requiresAuth={true} requiresAdmin={true}>
                       <BlogAdmin />
                     </RouteGuard>
                   } />

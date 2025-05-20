@@ -89,10 +89,10 @@ const RouteGuard = ({
       }
     };
     
-    if (requiresAdmin) {
+    if (requiresAdmin || isAdminRoute) {
       checkAdminRole();
     }
-  }, [user, requiresAdmin]);
+  }, [user, requiresAdmin, isAdminRoute]);
 
   // Check access on mount and when dependencies change
   useEffect(() => {
