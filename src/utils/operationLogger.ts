@@ -58,22 +58,24 @@ export const validateOperationType = (type: string): OperationType => {
   }
   
   // Map common API operation names to valid types
-  switch (normalizedType) {
-    case 'create':
-    case 'update':
-    case 'put':
-    case 'post':
-      return 'import';
-    case 'get':
-    case 'read':
-    case 'query':
-      return 'fetch';
-    case 'remove':
-      return 'delete';
-    default:
-      console.warn(`Invalid operation type: "${type}". Defaulting to "fetch"`);
-      return 'fetch'; // Default to fetch for unknown operations
+  if (['create', 'update', 'put', 'post', 'save', 'upsert'].includes(normalizedType)) {
+    return 'import';
   }
+  
+  if (['get', 'read', 'query', 'list', 'find'].includes(normalizedType)) {
+    return 'fetch';
+  }
+  
+  if (['remove', 'destroy', 'trash'].includes(normalizedType)) {
+    return 'delete';
+  }
+  
+  if (['download', 'extract'].includes(normalizedType)) {
+    return 'export';
+  }
+  
+  console.warn(`Invalid operation type: "${type}". Defaulting to "fetch"`);
+  return 'fetch'; // Default to fetch for unknown operations
 };
 
 /**
