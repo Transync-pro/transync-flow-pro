@@ -90,31 +90,10 @@ const RouteGuard = ({
         
         setIsAdmin(adminStatus);
         setRoleChecked(true);
-        
-        // Handle admin route access immediately after check
-        if (requiresAdmin && !adminStatus) {
-          console.log("RouteGuard: Admin access denied, redirecting to home");
-          toast({
-            title: "Access Denied",
-            description: "You don't have permission to access the admin area.",
-            variant: "destructive"
-          });
-          navigate('/', { replace: true });
-        }
       } catch (error) {
         console.error("RouteGuard: Error checking admin role:", error);
         setIsAdmin(false);
         setRoleChecked(true);
-        
-        if (requiresAdmin) {
-          console.log("RouteGuard: Admin check failed, redirecting to home");
-          toast({
-            title: "Error",
-            description: "Failed to verify admin privileges.",
-            variant: "destructive"
-          });
-          navigate('/', { replace: true });
-        }
       }
     };
     
@@ -175,8 +154,6 @@ const RouteGuard = ({
       // Handle disconnected page logic
       if (isDisconnectedRoute) {
         if (hasQbConnection || isConnected) {
-          // If we're on the disconnected page but have a connection, 
-          // redirect to dashboard
           console.log('RouteGuard: Connection found while on disconnected page, redirecting to dashboard');
           navigate('/dashboard', { replace: true });
         }
@@ -187,22 +164,9 @@ const RouteGuard = ({
       // Handle QuickBooks requirement for other pages
       if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
         console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
-        // Store the current location to redirect back after connecting
-        sessionStorage.setItem('qb_redirect_after_connect', location.pathname);
         navigate('/disconnected', { replace: true });
         redirectingRef.current = false;
         return;
-      }
-      
-      // Handle admin routes - only redirect if we've completed the role check
-      if (requiresAdmin && roleChecked && !isAdmin) {
-        console.log('RouteGuard: User is not an admin, redirecting to home');
-        toast({
-          title: "Access Denied",
-          description: "You don't have permission to access the admin area.",
-          variant: "destructive"
-        });
-        navigate('/', { replace: true });
       }
       
       redirectingRef.current = false;
@@ -222,6 +186,21 @@ const RouteGuard = ({
     navigate,
     location.pathname
   ]);
+
+  // Special admin route check - this ensures we don't redirect until admin check is complete
+  useEffect(() => {
+    if (isAdminRoute && roleChecked && !isChecking) {
+      if (!isAdmin) {
+        console.log('RouteGuard: Admin route access denied after check completed');
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access the admin area.",
+          variant: "destructive"
+        });
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isAdminRoute, roleChecked, isChecking, isAdmin, navigate]);
 
   // Fix for QuickBooks callback handling - a special case to always render children
   if (isQbCallbackRoute) {
