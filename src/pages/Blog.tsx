@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import PageLayout from "@/components/PageLayout";
-import { getAllBlogPosts, getBlogCategories } from "@/services/blogService"; 
+import { getAllBlogPosts, getBlogCategories } from "@/services/blog"; 
 import { toast } from "@/components/ui/use-toast";
 import type { BlogPost as BlogPostType } from "@/types/blog";
 import SeoHead from "@/components/Blog/SeoHead";
@@ -10,6 +10,7 @@ import BlogSearch from "@/components/Blog/BlogSearch";
 import BlogFeaturedPosts from "@/components/Blog/BlogFeaturedPosts";
 import BlogPostsList from "@/components/Blog/BlogPostsList";
 import BlogNewsletter from "@/components/Blog/BlogNewsletter";
+import AdminCreator from "@/components/Blog/AdminCreator";
 
 const Blog = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,6 +77,12 @@ const Blog = () => {
         title="TransyncPro Blog" 
         description="Expert tips, tutorials, and insights on QuickBooks data management and accounting best practices." 
       />
+
+      <div className="bg-white pt-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-end">
+          <AdminCreator />
+        </div>
+      </div>
 
       <BlogSearch 
         searchQuery={searchQuery}

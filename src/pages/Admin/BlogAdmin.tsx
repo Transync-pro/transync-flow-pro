@@ -6,11 +6,12 @@ import PageLayout from "@/components/PageLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { checkUserRole } from "@/services/blogService";
+import { checkUserRole } from "@/services/blog/users";
 import type { BlogPost } from "@/types/blog";
 import BlogAdminHeader from "@/components/Admin/BlogAdminHeader";
 import BlogPostsTable from "@/components/Admin/BlogPostsTable";
 import BlogPostForm from "@/components/Admin/BlogPostForm";
+import SampleDataGenerator from "@/components/Admin/SampleDataGenerator";
 
 const BlogAdmin = () => {
   const [posts, setPosts] = useState<any[]>([]);
@@ -220,6 +221,10 @@ const BlogAdmin = () => {
     <PageLayout>
       <div className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <BlogAdminHeader onCreatePost={handleCreatePost} />
+        
+        <div className="mb-8">
+          <SampleDataGenerator />
+        </div>
         
         <BlogPostsTable 
           posts={posts}
