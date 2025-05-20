@@ -1,4 +1,3 @@
-
 import { getQBApiBaseUrl } from './config.ts';
 import { supabase } from './connection.ts';
 
