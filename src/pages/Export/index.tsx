@@ -439,6 +439,7 @@ const Export = () => {
               isLoading={isLoading}
               hasData={filteredRecords.length > 0}
               hasSelection={selectedRecordsCount > 0}
+              selectedEntity={selectedEntity}
             />
             
             {getAvailableFields().length > 0 && (

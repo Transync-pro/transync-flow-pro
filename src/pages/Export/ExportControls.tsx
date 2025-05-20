@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { logOperation } from "@/utils/operationLogger";
@@ -10,6 +9,7 @@ interface ExportControlsProps {
   isLoading: boolean;
   hasData: boolean;
   hasSelection: boolean;
+  selectedEntity?: string | null;
 }
 
 export const ExportControls = ({
@@ -18,6 +18,7 @@ export const ExportControls = ({
   isLoading,
   hasData,
   hasSelection,
+  selectedEntity = null,
 }: ExportControlsProps) => {
   
   // Enhanced wrapper function with better error handling and logging
@@ -28,7 +29,7 @@ export const ExportControls = ({
       // Log the export operation before performing it
       await logOperation({
         operationType: 'export',
-        entityType: 'data', // This will be overridden in the actual export handler
+        entityType: selectedEntity || 'unknown',
         status: 'pending',
         details: { 
           format,
@@ -52,7 +53,7 @@ export const ExportControls = ({
       try {
         await logOperation({
           operationType: 'export',
-          entityType: 'data',
+          entityType: selectedEntity || 'unknown',
           status: 'error',
           details: { 
             error: error instanceof Error ? error.message : String(error),
@@ -74,54 +75,58 @@ export const ExportControls = ({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="text-sm font-medium mb-2">Export Format</div>
-      <div className="flex flex-col space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            variant="outline"
-            onClick={() => handleExportClick("csv", false)}
-            disabled={isLoading || !hasData}
-            className="flex items-center justify-center"
-            title="Export all records to CSV"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            CSV (All)
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleExportClick("json", false)}
-            disabled={isLoading || !hasData}
-            className="flex items-center justify-center"
-            title="Export all records to JSON"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            JSON (All)
-          </Button>
+    <div className="flex flex-col space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col space-y-2">
+          <span className="text-sm font-medium">Export All Records</span>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => handleExportClick("csv", false)}
+              disabled={isLoading || !hasData}
+              className="flex items-center justify-center"
+              title="Export all records to CSV"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              CSV (All)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleExportClick("json", false)}
+              disabled={isLoading || !hasData}
+              className="flex items-center justify-center"
+              title="Export all records to JSON"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              JSON (All)
+            </Button>
+          </div>
         </div>
-        
-        {/* Selected records export buttons */}
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => handleExportClick("csv", true)}
-            disabled={isLoading || !hasSelection}
-            className="flex items-center justify-center"
-            title="Export selected records to CSV"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            CSV (Selected)
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => handleExportClick("json", true)}
-            disabled={isLoading || !hasSelection}
-            className="flex items-center justify-center"
-            title="Export selected records to JSON"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            JSON (Selected)
-          </Button>
+
+        <div className="flex flex-col space-y-2">
+          <span className="text-sm font-medium">Export Selected Records</span>
+          <div className="flex space-x-2">
+            <Button
+              variant="secondary"
+              onClick={() => handleExportClick("csv", true)}
+              disabled={isLoading || !hasSelection}
+              className="flex items-center justify-center"
+              title="Export selected records to CSV"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              CSV (Selected)
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => handleExportClick("json", true)}
+              disabled={isLoading || !hasSelection}
+              className="flex items-center justify-center"
+              title="Export selected records to JSON"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              JSON (Selected)
+            </Button>
+          </div>
         </div>
       </div>
     </div>
