@@ -1,10 +1,9 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { parseStringPromise } from "xml2js";
-import { DOMParser } from "xmldom";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "@/components/ui/use-toast";
 import type { BlogPost } from "@/types/blog";
+import { logError } from "@/utils/errorLogger";
 
 /**
  * WordPress post data structure after extraction
@@ -179,85 +178,137 @@ export const updateImportJobStatus = async (
 
 /**
  * Process WordPress XML file and extract post data
+ * Using a browser-compatible approach for XML parsing
  */
 export const processWordPressXml = async (xmlContent: string): Promise<WordPressPost[]> => {
   try {
-    const result = await parseStringPromise(xmlContent, { explicitArray: false });
-    const rss = result.rss;
-    const channel = rss.channel;
-    const items = Array.isArray(channel.item) ? channel.item : [channel.item];
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+    
+    if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+      throw new Error("XML parsing error");
+    }
     
     const posts: WordPressPost[] = [];
+    const items = xmlDoc.querySelectorAll("item");
     
-    for (const item of items) {
-      // Filter for actual posts (not attachments or other content types)
-      if (item['wp:post_type'] !== 'post' || item['wp:status'] !== 'publish') {
+    console.log(`Found ${items.length} items in WordPress XML`);
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      
+      // Check if it's a post and published
+      const postType = getElementTextContent(item, "wp\\:post_type");
+      const postStatus = getElementTextContent(item, "wp\\:status");
+      
+      if (postType !== 'post' || postStatus !== 'publish') {
         continue;
       }
       
       // Extract post data
       const post: WordPressPost = {
-        id: item['wp:post_id'],
-        title: item.title || 'Untitled',
-        content: item['content:encoded'] || '',
-        summary: item['excerpt:encoded'] || '',
-        pubDate: new Date(item.pubDate).toISOString(),
-        author: item['dc:creator'] || 'Unknown',
-        category: extractPrimaryCategory(item),
+        id: getElementTextContent(item, "wp\\:post_id"),
+        title: getElementTextContent(item, "title") || 'Untitled',
+        content: getElementTextContent(item, "content\\:encoded") || '',
+        summary: getElementTextContent(item, "excerpt\\:encoded") || '',
+        pubDate: new Date(getElementTextContent(item, "pubDate") || '').toISOString(),
+        author: getElementTextContent(item, "dc\\:creator") || 'Unknown',
+        category: extractPrimaryCategoryDOM(item),
         featuredImage: null,
-        link: item.link || null,
-        postName: item['wp:post_name'] || '',
-        status: item['wp:status'] || 'draft',
-        images: extractImages(item['content:encoded'] || ''),
+        link: getElementTextContent(item, "link") || null,
+        postName: getElementTextContent(item, "wp\\:post_name") || '',
+        status: postStatus || 'draft',
+        images: extractImagesFromContent(getElementTextContent(item, "content\\:encoded") || ''),
       };
       
       // Extract Yoast SEO metadata if present
-      const postmeta = Array.isArray(item['wp:postmeta']) ? item['wp:postmeta'] : [item['wp:postmeta']];
-      if (postmeta) {
-        for (const meta of postmeta) {
-          if (meta['wp:meta_key'] === '_yoast_wpseo_metadesc') {
-            post.metaDescription = meta['wp:meta_value'] || '';
-          }
-          if (meta['wp:meta_key'] === '_yoast_wpseo_focuskw') {
-            post.focusKeyword = meta['wp:meta_value'] || '';
-          }
+      const postmetaElements = item.querySelectorAll("wp\\:postmeta");
+      for (let j = 0; j < postmetaElements.length; j++) {
+        const metaKey = getElementTextContent(postmetaElements[j], "wp\\:meta_key");
+        const metaValue = getElementTextContent(postmetaElements[j], "wp\\:meta_value");
+        
+        if (metaKey === '_yoast_wpseo_metadesc') {
+          post.metaDescription = metaValue || '';
+        }
+        
+        if (metaKey === '_yoast_wpseo_focuskw') {
+          post.focusKeyword = metaValue || '';
         }
       }
       
       posts.push(post);
     }
     
+    console.log(`Processed ${posts.length} posts from WordPress XML`);
     return posts;
   } catch (error) {
     console.error("Error processing WordPress XML:", error);
+    logError("Failed to process WordPress XML", {
+      source: "WordPress Import",
+      context: { error }
+    });
     return [];
   }
 };
 
 /**
- * Extract primary category from WordPress post
+ * Helper function to safely get text content from XML element
  */
-function extractPrimaryCategory(item: any): string {
-  if (!item.category) return 'Uncategorized';
-  
-  if (Array.isArray(item.category)) {
-    // Try to find a category that's not "Uncategorized"
-    const nonDefaultCategory = item.category.find(
-      (cat: any) => 
-        cat._ && 
-        cat._.toLowerCase() !== 'uncategorized' && 
-        cat.$?.domain === 'category'
-    );
+function getElementTextContent(parent: Element, selector: string): string {
+  try {
+    const element = parent.querySelector(selector);
+    return element ? element.textContent || '' : '';
+  } catch (error) {
+    return '';
+  }
+}
+
+/**
+ * Extract primary category from WordPress post using DOM API
+ */
+function extractPrimaryCategoryDOM(item: Element): string {
+  try {
+    const categories = item.querySelectorAll("category");
+    if (categories.length === 0) return 'Uncategorized';
     
-    if (nonDefaultCategory) {
-      return nonDefaultCategory._ || 'Uncategorized';
+    // Try to find a category that's not "Uncategorized"
+    for (let i = 0; i < categories.length; i++) {
+      const cat = categories[i];
+      const domain = cat.getAttribute('domain');
+      const text = cat.textContent || '';
+      
+      if (domain === 'category' && text.toLowerCase() !== 'uncategorized') {
+        return text;
+      }
     }
     
     // If no proper category found, return the first one
-    return item.category[0]._ || item.category[0] || 'Uncategorized';
+    return categories[0].textContent || 'Uncategorized';
+  } catch (error) {
+    return 'Uncategorized';
   }
-  
-  return item.category._ || item.category || 'Uncategorized';
+}
+
+/**
+ * Extract all image URLs from content using DOM API
+ */
+function extractImagesFromContent(content: string): string[] {
+  try {
+    const images: string[] = [];
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${content}</div>`, 'text/html');
+    const imgTags = doc.getElementsByTagName('img');
+    
+    for (let i = 0; i < imgTags.length; i++) {
+      const src = imgTags[i].getAttribute('src');
+      if (src) images.push(src);
+    }
+    
+    return images;
+  } catch (error) {
+    console.error("Error extracting images:", error);
+    return [];
+  }
 }
 
 /**
@@ -487,11 +538,15 @@ export const importWordPressXml = async (
       throw new Error("Failed to create import job");
     }
 
+    console.log("Import job created:", job.id);
+
     // Start processing in the background
     setTimeout(async () => {
       try {
+        console.log("Starting XML processing");
         // Parse XML content
         const wpPosts = await processWordPressXml(xmlContent);
+        console.log(`Extracted ${wpPosts.length} posts from WordPress XML`);
         
         // Update job with total count
         await updateImportJobStatus(job.id, 'processing', {
@@ -507,12 +562,16 @@ export const importWordPressXml = async (
         
         for (let i = 0; i < wpPosts.length; i++) {
           const post = wpPosts[i];
+          console.log(`Processing post ${i+1}/${wpPosts.length}: ${post.title}`);
+          
           const result = await processWordPressPost(post, job.id);
           
           if (result.success) {
             importedCount++;
+            console.log(`Successfully imported post: ${post.title}`);
           } else {
             failedCount++;
+            console.error(`Failed to import post: ${post.title}`, result.error);
             errors.push({
               postId: post.id,
               title: post.title,
@@ -541,6 +600,12 @@ export const importWordPressXml = async (
           imported: importedCount,
           failed: failedCount
         }, errors);
+        
+        console.log("Import completed:", {
+          total: wpPosts.length,
+          imported: importedCount,
+          failed: failedCount
+        });
         
       } catch (error: any) {
         console.error("Error in import process:", error);
