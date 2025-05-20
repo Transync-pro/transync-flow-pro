@@ -90,14 +90,36 @@ const RouteGuard = ({
         const adminStatus = await isUserAdmin();
         console.log("RouteGuard: Is user admin:", adminStatus);
         
+        // Set admin status and role checked in one update
         setIsAdmin(adminStatus);
         setRoleChecked(true);
+        
+        // If not admin and on admin route, redirect immediately
+        if (!adminStatus && isAdminRoute) {
+          console.log("RouteGuard: Admin route access denied after check completed");
+          toast({
+            title: "Access Denied",
+            description: "You don't have permission to access the admin area.",
+            variant: "destructive"
+          });
+          navigate('/', { replace: true });
+        }
+        
         setIsLoading(false);
       } catch (error) {
         console.error("RouteGuard: Error checking admin role:", error);
         setIsAdmin(false);
         setRoleChecked(true);
         setIsLoading(false);
+        
+        if (isAdminRoute) {
+          toast({
+            title: "Error",
+            description: "Failed to verify admin permissions",
+            variant: "destructive"
+          });
+          navigate('/', { replace: true });
+        }
       }
     };
     
@@ -107,7 +129,7 @@ const RouteGuard = ({
       setRoleChecked(true);
       setIsLoading(false);
     }
-  }, [user, requiresAdmin, isAdminRoute]);
+  }, [user, requiresAdmin, isAdminRoute, navigate]);
 
   // Check access on mount and when dependencies change
   useEffect(() => {
@@ -174,16 +196,7 @@ const RouteGuard = ({
         return;
       }
       
-      // Handle admin routes - only redirect if we've completed the role check
-      if (requiresAdmin && roleChecked && !isAdmin) {
-        console.log('RouteGuard: User is not an admin, redirecting to home');
-        toast({
-          title: "Access Denied",
-          description: "You don't have permission to access the admin area.",
-          variant: "destructive"
-        });
-        navigate('/', { replace: true });
-      }
+      // Admin route redirection is now handled in the checkAdminRole function
       
       redirectingRef.current = false;
     }, 100);

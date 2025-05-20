@@ -15,32 +15,22 @@ export async function checkUserRole(): Promise<string | null> {
     
     console.log("Checking role for user ID:", session.user.id);
     
-    // First, check if user is admin using the database function
+    // Use the RPC function to check admin status
     const { data: isAdmin, error: adminCheckError } = await supabase
       .rpc('is_user_admin', { user_id: session.user.id });
       
     if (adminCheckError) {
       console.error("Error checking admin status:", adminCheckError);
-      // Continue to check for other roles even if admin check fails
-    } else if (isAdmin) {
+      return null;
+    }
+    
+    if (isAdmin) {
       console.log("User is an admin");
       return 'admin';
     }
     
-    // If not admin, check for other roles
-    const { data: roleData, error: roleError } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', session.user.id)
-      .maybeSingle();
-      
-    if (roleError) {
-      console.error("Error checking user role:", roleError);
-      return null;
-    }
-    
-    console.log("User role:", roleData?.role || 'no role');
-    return roleData?.role || null;
+    console.log("User is not an admin");
+    return null;
   } catch (error) {
     console.error("Unexpected error checking user role:", error);
     return null;
