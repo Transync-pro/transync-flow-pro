@@ -68,6 +68,7 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.3",
     "xml2js": "^0.6.2",
+    "xmldom": "^0.6.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

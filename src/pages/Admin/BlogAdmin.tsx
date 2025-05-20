@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +8,6 @@ import type { BlogPost } from "@/types/blog";
 import BlogAdminHeader from "@/components/Admin/BlogAdminHeader";
 import BlogPostsTable from "@/components/Admin/BlogPostsTable";
 import BlogPostForm from "@/components/Admin/BlogPostForm";
-import SampleDataGenerator from "@/components/Admin/SampleDataGenerator";
 
 const BlogAdmin = () => {
   const [posts, setPosts] = useState<any[]>([]);
@@ -187,10 +187,6 @@ const BlogAdmin = () => {
     <PageLayout>
       <div className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <BlogAdminHeader onCreatePost={handleCreatePost} />
-        
-        <div className="mb-8">
-          <SampleDataGenerator />
-        </div>
         
         <BlogPostsTable 
           posts={posts}

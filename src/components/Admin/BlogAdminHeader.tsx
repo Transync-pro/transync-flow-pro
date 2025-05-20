@@ -20,7 +20,7 @@ const BlogAdminHeader: React.FC<BlogAdminHeaderProps> = ({ onCreatePost }) => {
         <Link to="/admin/blog/import">
           <Button 
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full"
           >
             <Upload size={16} />
             Import from WordPress
