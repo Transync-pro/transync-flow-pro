@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { logOperation } from "@/utils/operationLogger";
 import { toast } from "@/components/ui/use-toast";
+import { OperationStatus } from "@/services/quickbooksApi/types";
 
 interface ExportControlsProps {
   onExportAll: (format: "csv" | "json") => void;
@@ -48,11 +49,11 @@ export const ExportControls = ({
         onExportAll(format);
       }
       
-      // Log successful completion
+      // Log successful completion - Fix: use 'success' instead of 'complete'
       await logOperation({
         operationType: 'export',
         entityType: selectedEntity || 'unknown',
-        status: 'complete',
+        status: 'success',
         details: { 
           format,
           selectedOnly: isSelected,
