@@ -292,8 +292,19 @@ export const deleteEntity = async (
         sparse: true
       };
     } else {
-      // Default approach - most entities don't support deletion directly
-      throw new Error(`Deletion not implemented for entity type: ${entityType}`);
+      // Default approach - try to set Active=false
+      try {
+        endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
+        payload = {
+          Id: entityId,
+          SyncToken: syncToken,
+          Active: false,
+          sparse: true
+        };
+        console.log(`Attempting generic deletion approach for ${entityType}`);
+      } catch (error) {
+        throw new Error(`Deletion not implemented for entity type: ${entityType}`);
+      }
     }
     
     console.log(`Deleting ${entityType} with ID ${entityId} using payload:`, payload);
