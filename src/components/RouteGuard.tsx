@@ -77,6 +77,8 @@ const RouteGuard = ({
 
   // Check if user is admin
   useEffect(() => {
+    if (isAuthLoading) return; // Wait for auth to finish loading
+
     const checkAdminRole = async () => {
       if (!user) {
         setIsAdmin(false);
@@ -129,7 +131,7 @@ const RouteGuard = ({
       setRoleChecked(true);
       setIsLoading(false);
     }
-  }, [user, requiresAdmin, isAdminRoute, navigate]);
+  }, [user, requiresAdmin, isAdminRoute, isAuthLoading, navigate]);
 
   // Check access on mount and when dependencies change
   useEffect(() => {

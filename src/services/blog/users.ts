@@ -155,7 +155,7 @@ export async function isUserAdmin(): Promise<boolean> {
     console.log("Starting admin check...");
     // Get current session
     const { data: { session } } = await supabase.auth.getSession();
-    
+    console.log("isUserAdmin: session", session);
     if (!session || !session.user) {
       console.log("No active session found");
       return false;
