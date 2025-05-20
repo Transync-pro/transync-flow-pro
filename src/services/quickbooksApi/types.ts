@@ -1,3 +1,4 @@
+
 export interface QBConnection {
   user_id: string;
   realm_id: string;
@@ -38,4 +39,30 @@ export interface QuickbooksError {
     type: string;
   };
   time: string;
+}
+
+// Add the missing types that were causing errors
+export interface QuickbooksEntity {
+  [key: string]: any;
+  Active?: boolean;
+  Id?: string;
+  SyncToken?: string;
+}
+
+export interface QuickbooksQueryParams {
+  entity: string;
+  fields?: string[];
+  conditions?: string;
+  maxResults?: number;
+}
+
+export interface QuickbooksSchema {
+  required: string[];
+  fields: string[];
+}
+
+export interface QBEntityResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
 }
