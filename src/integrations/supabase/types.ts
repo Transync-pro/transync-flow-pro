@@ -251,6 +251,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_blog_posts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          author: string
+          canonical_url: string | null
+          category: string
+          content: string
+          content_blocks: Json | null
+          featured_image: string
+          focus_keyword: string
+          id: string
+          is_featured: boolean
+          meta_description: string
+          meta_title: string | null
+          published_date: string
+          seo_data: Json | null
+          slug: string
+          social_image_url: string | null
+          summary: string
+          title: string
+          updated_date: string
+        }[]
+      }
+      get_blog_posts_tags: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          post_id: string
+          tag_id: string
+        }[]
+      }
+      get_blog_tags: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
       has_role: {
         Args: { required_role: string }
         Returns: boolean
