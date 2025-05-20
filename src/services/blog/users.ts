@@ -5,15 +5,16 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export async function checkUserRole(): Promise<string | null> {
   try {
-    // Get current session
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get current session with force refresh
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (!session) {
-      console.log("No session found when checking user role");
+    if (sessionError || !session) {
+      console.error("Session error or no session:", sessionError?.message || "No session");
       return null;
     }
     
     console.log("Checking role for user ID:", session.user.id);
+    console.log("Session user metadata:", session.user.user_metadata);
     
     // Query user_roles table with more detailed logging
     const { data, error } = await supabase
@@ -27,7 +28,7 @@ export async function checkUserRole(): Promise<string | null> {
       return null;
     }
     
-    console.log("User role data:", data);
+    console.log("Database role query result:", data);
     return data?.role || null;
   } catch (error) {
     console.error("Unexpected error checking user role:", error);
@@ -150,9 +151,10 @@ export async function createAdminUser(email: string, password: string): Promise<
  */
 export async function isUserAdmin(): Promise<boolean> {
   try {
+    console.log("Starting admin check...");
     const role = await checkUserRole();
     const isAdmin = role === 'admin';
-    console.log("Admin check result:", isAdmin);
+    console.log(`Admin check complete. Role: ${role}, Is Admin: ${isAdmin}`);
     return isAdmin;
   } catch (error) {
     console.error("Failed to check if user is admin:", error);

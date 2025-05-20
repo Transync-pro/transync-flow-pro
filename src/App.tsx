@@ -37,6 +37,7 @@ import Demo from "./pages/Demo";
 import Blog from "./pages/Blog";
 import BlogDetail from "./pages/BlogDetail";
 import BlogAdmin from "./pages/Admin/BlogAdmin";
+import TestAdmin from "./pages/Admin/TestAdmin";
 import Documentation from "./pages/Documentation";
 import Tutorials from "./pages/Tutorials";
 import Support from "./pages/Support";
@@ -171,6 +172,11 @@ const App = () => {
                   <Route path="/admin/blog" element={
                     <RouteGuard requiresAuth={true} requiresAdmin={true}>
                       <BlogAdmin />
+                    </RouteGuard>
+                  } />
+                  <Route path="/admin/test" element={
+                    <RouteGuard requiresAuth={true} requiresAdmin={true}>
+                      <TestAdmin />
                     </RouteGuard>
                   } />
                   
