@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { parseStringPromise } from "xml2js";
 import { DOMParser } from "xmldom";
@@ -350,8 +351,11 @@ export const replaceImageUrls = async (content: string, imageMap: Record<string,
 
 /**
  * Convert WordPress post to blog post format
+ * This now returns a complete BlogPost object with all required fields
  */
-const convertToBlogPost = (wpPost: WordPressPost, imageMap: Record<string, string>): Partial<BlogPost> => {
+const convertToBlogPost = (wpPost: WordPressPost, imageMap: Record<string, string>): Omit<BlogPost, 'id' | 'tags' | 'blog_posts_tags'> => {
+  const currentDate = new Date().toISOString();
+  
   return {
     title: wpPost.title,
     slug: wpPost.postName || wpPost.title.toLowerCase().replace(/\s+/g, '-'),
@@ -363,6 +367,8 @@ const convertToBlogPost = (wpPost: WordPressPost, imageMap: Record<string, strin
     is_featured: false,
     meta_description: wpPost.metaDescription || wpPost.summary || wpPost.content.substring(0, 160),
     focus_keyword: wpPost.focusKeyword || '',
+    published_date: wpPost.pubDate || currentDate,
+    updated_date: currentDate,
     seo_data: {
       original_url: wpPost.link,
       wp_post_id: wpPost.id
@@ -431,13 +437,13 @@ export const processWordPressPost = async (
     const updatedContent = await replaceImageUrls(wpPost.content, imageMap);
     wpPost.content = updatedContent;
     
-    // Convert to blog post format
+    // Convert to blog post format - ensuring all required fields are present
     const blogPost = convertToBlogPost(wpPost, imageMap);
     
     // Insert into database
     const { data: insertedPost, error: insertError } = await supabase
       .from('blog_posts')
-      .insert([blogPost])
+      .insert(blogPost)
       .select('id')
       .single();
       
@@ -446,12 +452,12 @@ export const processWordPressPost = async (
     // Create mapping record
     const { error: mappingError } = await supabase
       .from('blog_import_mappings')
-      .insert([{
+      .insert({
         job_id: jobId,
         wp_post_id: wpPost.id,
         blog_post_id: insertedPost.id,
         original_url: wpPost.link
-      }]);
+      });
       
     if (mappingError) throw mappingError;
     
