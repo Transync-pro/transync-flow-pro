@@ -101,6 +101,7 @@ export type Database = {
           seo_data: Json | null
           slug: string
           social_image_url: string | null
+          status: string
           summary: string
           title: string
           updated_date: string
@@ -121,6 +122,7 @@ export type Database = {
           seo_data?: Json | null
           slug: string
           social_image_url?: string | null
+          status?: string
           summary: string
           title: string
           updated_date?: string
@@ -141,6 +143,7 @@ export type Database = {
           seo_data?: Json | null
           slug?: string
           social_image_url?: string | null
+          status?: string
           summary?: string
           title?: string
           updated_date?: string
@@ -348,6 +351,7 @@ export type Database = {
           seo_data: Json | null
           slug: string
           social_image_url: string | null
+          status: string
           summary: string
           title: string
           updated_date: string

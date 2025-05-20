@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { BlogPost } from "@/types/blog";
 
 interface BlogPostsTableProps {
@@ -71,11 +72,10 @@ const BlogPostsTable: React.FC<BlogPostsTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>
-                <input
-                  type="checkbox"
+              <TableHead className="w-[50px]">
+                <Checkbox
                   checked={selectAll}
-                  onChange={onSelectAll}
+                  onCheckedChange={onSelectAll}
                   aria-label="Select all posts"
                 />
               </TableHead>
@@ -83,6 +83,7 @@ const BlogPostsTable: React.FC<BlogPostsTableProps> = ({
               <TableHead>Author</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Published</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Featured</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -90,20 +91,19 @@ const BlogPostsTable: React.FC<BlogPostsTableProps> = ({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">Loading...</TableCell>
+                <TableCell colSpan={8} className="text-center py-8">Loading...</TableCell>
               </TableRow>
             ) : filteredPosts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">No blog posts found</TableCell>
+                <TableCell colSpan={8} className="text-center py-8">No blog posts found</TableCell>
               </TableRow>
             ) : (
               filteredPosts.map((post) => (
                 <TableRow key={post.id}>
                   <TableCell>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={selectedIds.includes(post.id)}
-                      onChange={() => onSelectPost(post.id)}
+                      onCheckedChange={() => onSelectPost(post.id)}
                       aria-label={`Select post ${post.title}`}
                     />
                   </TableCell>
@@ -111,6 +111,15 @@ const BlogPostsTable: React.FC<BlogPostsTableProps> = ({
                   <TableCell>{post.author}</TableCell>
                   <TableCell>{post.category}</TableCell>
                   <TableCell>{format(new Date(post.published_date), 'MMM d, yyyy')}</TableCell>
+                  <TableCell>
+                    <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                      post.status === 'published' ? 'bg-green-100 text-green-800' : 
+                      post.status === 'draft' ? 'bg-yellow-100 text-yellow-800' : 
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
+                    </span>
+                  </TableCell>
                   <TableCell>{post.is_featured ? 'Yes' : 'No'}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button size="sm" variant="ghost" onClick={() => onEditPost(post)}>

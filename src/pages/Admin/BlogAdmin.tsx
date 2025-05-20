@@ -3,7 +3,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import PageLayout from "@/components/PageLayout";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
+import { Pagination } from "@/components/ui/pagination";
 import type { BlogPost } from "@/types/blog";
 import BlogAdminHeader from "@/components/Admin/BlogAdminHeader";
 import BlogPostsTable from "@/components/Admin/BlogPostsTable";
@@ -30,7 +32,7 @@ const BlogAdmin = () => {
   const [focusKeyword, setFocusKeyword] = useState("");
 
   // Pagination states
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const [pageSize] = useState(20);
   const [totalPosts, setTotalPosts] = useState(0);
 
@@ -43,17 +45,28 @@ const BlogAdmin = () => {
     // eslint-disable-next-line
   }, [page]);
 
-  const fetchPosts = async (pageNum = 1) => {
+  const fetchPosts = async (pageNum = 0) => {
     setLoading(true);
     try {
-      const from = (pageNum - 1) * pageSize;
+      const from = pageNum * pageSize;
       const to = from + pageSize - 1;
-      const { data, error, count } = await supabase
+      
+      // First get the count for pagination
+      const { count, error: countError } = await supabase
         .from('blog_posts')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) throw countError;
+      
+      // Then fetch the data for the current page
+      const { data, error } = await supabase
+        .from('blog_posts')
+        .select('*')
         .order('published_date', { ascending: false })
         .range(from, to);
+        
       if (error) throw error;
+      
       setPosts(data || []);
       setTotalPosts(count || 0);
       setSelectedIds([]);
@@ -95,19 +108,21 @@ const BlogAdmin = () => {
     try {
       const { error } = await supabase
         .from('blog_posts')
-        .delete()
+        .update({ status: 'trashed' })
         .eq('id', id);
+      
       if (error) throw error;
+      
       toast({
         title: "Success",
-        description: "Blog post deleted successfully"
+        description: "Blog post moved to trash"
       });
       fetchPosts(page);
     } catch (error) {
-      console.error("Error deleting post:", error);
+      console.error("Error trashing post:", error);
       toast({
         title: "Error",
-        description: "Failed to delete blog post",
+        description: "Failed to move blog post to trash",
         variant: "destructive"
       });
     }
@@ -116,22 +131,26 @@ const BlogAdmin = () => {
   // Bulk actions
   const handleBulkAction = async (action: 'trash' | 'draft') => {
     if (selectedIds.length === 0) return;
+    
     try {
       const { error } = await supabase
         .from('blog_posts')
         .update({ status: action === 'trash' ? 'trashed' : 'draft' })
         .in('id', selectedIds);
+        
       if (error) throw error;
+      
       toast({
         title: "Success",
-        description: `Selected posts moved to ${action === 'trash' ? 'Trash' : 'Drafts'}`
+        description: `${selectedIds.length} posts moved to ${action === 'trash' ? 'trash' : 'drafts'}`
       });
+      
       fetchPosts(page);
     } catch (error) {
       console.error("Bulk action error:", error);
       toast({
         title: "Error",
-        description: `Failed to move posts to ${action === 'trash' ? 'Trash' : 'Drafts'}`,
+        description: `Failed to move posts to ${action === 'trash' ? 'trash' : 'drafts'}`,
         variant: "destructive"
       });
     }
@@ -144,9 +163,12 @@ const BlogAdmin = () => {
       setSelectAll(false);
     } else {
       setSelectedIds([...selectedIds, id]);
-      if (selectedIds.length + 1 === posts.length) setSelectAll(true);
+      if (selectedIds.length + 1 === posts.length) {
+        setSelectAll(true);
+      }
     }
   };
+  
   const handleSelectAll = () => {
     if (selectAll) {
       setSelectedIds([]);
@@ -155,10 +177,6 @@ const BlogAdmin = () => {
       setSelectedIds(posts.map((p) => p.id));
       setSelectAll(true);
     }
-  };
-
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
   };
 
   const handleSubmit = async (e: React.FormEvent, statusOverride?: 'draft' | 'published') => {
@@ -171,6 +189,7 @@ const BlogAdmin = () => {
       });
       return;
     }
+    
     const postData = {
       title,
       slug,
@@ -185,6 +204,7 @@ const BlogAdmin = () => {
       updated_date: new Date().toISOString(),
       status: statusOverride || 'published'
     };
+    
     try {
       let response;
       if (selectedPost) {
@@ -197,11 +217,16 @@ const BlogAdmin = () => {
           .from('blog_posts')
           .insert([{ ...postData, published_date: new Date().toISOString() }]);
       }
+      
       if (response.error) throw response.error;
+      
       toast({
         title: "Success",
-        description: selectedPost ? "Blog post updated successfully" : "Blog post created successfully"
+        description: selectedPost 
+          ? "Blog post updated successfully" 
+          : "Blog post created successfully"
       });
+      
       setIsDialogOpen(false);
       fetchPosts(page);
     } catch (error) {
@@ -227,18 +252,34 @@ const BlogAdmin = () => {
     setFocusKeyword("");
   };
 
-  // Pagination controls
+  // Calculate total pages for pagination
   const totalPages = Math.ceil(totalPosts / pageSize);
 
   return (
     <PageLayout>
       <div className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <BlogAdminHeader onCreatePost={handleCreatePost} />
+        
         <div className="mb-4 flex items-center gap-2">
-          <Button variant="outline" onClick={() => handleBulkAction('trash')} disabled={selectedIds.length === 0}>Move to Trash</Button>
-          <Button variant="outline" onClick={() => handleBulkAction('draft')} disabled={selectedIds.length === 0}>Save to Drafts</Button>
-          <span className="ml-4 text-sm text-gray-500">{selectedIds.length} selected</span>
+          <Button 
+            variant="outline" 
+            onClick={() => handleBulkAction('trash')} 
+            disabled={selectedIds.length === 0}
+          >
+            Move to Trash
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => handleBulkAction('draft')} 
+            disabled={selectedIds.length === 0}
+          >
+            Save to Drafts
+          </Button>
+          <span className="ml-4 text-sm text-gray-500">
+            {selectedIds.length} selected
+          </span>
         </div>
+        
         <BlogPostsTable 
           posts={posts}
           loading={loading}
@@ -249,16 +290,17 @@ const BlogAdmin = () => {
           selectAll={selectAll}
           onSelectAll={handleSelectAll}
         />
-        <div className="flex justify-between items-center mt-6">
-          <span className="text-sm text-gray-600">Page {page} of {totalPages}</span>
-          <div className="space-x-2">
-            <Button variant="ghost" disabled={page === 1} onClick={() => handlePageChange(page - 1)}>Previous</Button>
-            {[...Array(totalPages)].map((_, idx) => (
-              <Button key={idx} variant={page === idx + 1 ? 'default' : 'outline'} onClick={() => handlePageChange(idx + 1)}>{idx + 1}</Button>
-            ))}
-            <Button variant="ghost" disabled={page === totalPages} onClick={() => handlePageChange(page + 1)}>Next</Button>
+        
+        {totalPosts > pageSize && (
+          <div className="mt-6">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </div>
-        </div>
+        )}
+        
         <BlogPostForm 
           isOpen={isDialogOpen}
           onClose={() => setIsDialogOpen(false)}
