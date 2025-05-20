@@ -89,13 +89,32 @@ const RouteGuard = ({
         console.log("RouteGuard: Is user admin:", adminStatus);
         
         setIsAdmin(adminStatus);
-        
-        // Don't redirect here, we'll handle redirects in a separate effect
         setRoleChecked(true);
+        
+        // Handle admin route access immediately after check
+        if (requiresAdmin && !adminStatus) {
+          console.log("RouteGuard: Admin access denied, redirecting to home");
+          toast({
+            title: "Access Denied",
+            description: "You don't have permission to access the admin area.",
+            variant: "destructive"
+          });
+          navigate('/', { replace: true });
+        }
       } catch (error) {
         console.error("RouteGuard: Error checking admin role:", error);
         setIsAdmin(false);
         setRoleChecked(true);
+        
+        if (requiresAdmin) {
+          console.log("RouteGuard: Admin check failed, redirecting to home");
+          toast({
+            title: "Error",
+            description: "Failed to verify admin privileges.",
+            variant: "destructive"
+          });
+          navigate('/', { replace: true });
+        }
       }
     };
     
@@ -175,8 +194,8 @@ const RouteGuard = ({
         return;
       }
       
-      // Handle admin routes
-      if (requiresAdmin && !isAdmin && roleChecked) {
+      // Handle admin routes - only redirect if we've completed the role check
+      if (requiresAdmin && roleChecked && !isAdmin) {
         console.log('RouteGuard: User is not an admin, redirecting to home');
         toast({
           title: "Access Denied",
@@ -184,8 +203,6 @@ const RouteGuard = ({
           variant: "destructive"
         });
         navigate('/', { replace: true });
-        redirectingRef.current = false;
-        return;
       }
       
       redirectingRef.current = false;
