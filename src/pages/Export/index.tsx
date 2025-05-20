@@ -179,6 +179,9 @@ const Export = () => {
 
   // Export data
   const handleExport = async (format: "csv" | "json" = "csv") => {
+    let url: string | null = null;
+    let link: HTMLAnchorElement | null = null;
+    
     try {
       if (selectedFields.length === 0) {
         toast({
@@ -202,59 +205,45 @@ const Export = () => {
       // Process records based on selected fields
       const exportData = handleExportData(records, selectedFields, format);
       
+      // Log the export operation first
+      try {
+        await logOperation({
+          operationType: 'export',
+          entityType: selectedEntity || 'unknown',
+          status: 'success',
+          details: {
+            format,
+            recordCount: records.length,
+            fields: selectedFields,
+            timestamp: new Date().toISOString(),
+            selectedOnly: Object.keys(selectedRecords).length > 0
+          }
+        });
+        console.log('Export operation logged successfully');
+      } catch (logError) {
+        console.error("Error logging export operation:", logError);
+        // Continue with download even if logging fails
+      }
+
       // Create download link
       const fileExtension = format === "csv" ? "csv" : "json";
       const mimeType = format === "csv" ? "text/csv" : "application/json";
       const blob = new Blob([exportData], { type: `${mimeType};charset=utf-8;` });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${fileName || selectedEntity || 'export'}.${fileExtension}`);
-      link.style.visibility = 'hidden';
+      url = URL.createObjectURL(blob);
+      link = document.createElement('a');
+      link.href = url;
+      link.download = `${fileName || selectedEntity || 'export'}.${fileExtension}`;
+      link.style.display = 'none';
       document.body.appendChild(link);
-      
-      // Add event listener to handle cleanup after download starts
-      const handleDownload = async () => {
-        try {
-          // Log the successful export operation
-          await logOperation({
-            operationType: 'export',
-            entityType: selectedEntity || 'unknown',
-            status: 'success',
-            details: {
-              format,
-              recordCount: records.length,
-              fields: selectedFields,
-              timestamp: new Date().toISOString(),
-              selectedOnly: Object.keys(selectedRecords).length > 0
-            }
-          });
-          
-          toast({
-            title: "Export Successful",
-            description: `${records.length} records exported to ${format.toUpperCase()}`,
-          });
-        } catch (logError) {
-          console.error("Error logging export operation:", logError);
-          // Still show success message even if logging fails
-          toast({
-            title: "Export Completed",
-            description: `${records.length} records exported to ${format.toUpperCase()}, but failed to log operation.`,
-            variant: "default",
-          });
-        }
-        
-        // Cleanup
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        link.removeEventListener('click', handleDownload);
-      };
-      
-      // Add click event listener to handle the download and cleanup
-      link.addEventListener('click', handleDownload, { once: true });
       
       // Trigger the download
       link.click();
+      
+      // Show success message
+      toast({
+        title: "Export Successful",
+        description: `${records.length} records exported to ${format.toUpperCase()}`,
+      });
       
     } catch (error: any) {
       console.error("Export error:", error);
@@ -280,6 +269,19 @@ const Export = () => {
         description: error.message || "An error occurred while exporting data",
         variant: "destructive",
       });
+    } finally {
+      // Cleanup
+      if (link) {
+        // Use setTimeout to ensure the download has started before cleaning up
+        setTimeout(() => {
+          if (link && link.parentNode) {
+            link.parentNode.removeChild(link);
+          }
+          if (url) {
+            URL.revokeObjectURL(url);
+          }
+        }, 100);
+      }
     }
   };
 
