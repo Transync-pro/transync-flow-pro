@@ -17,15 +17,15 @@ const BlogAdminHeader: React.FC<BlogAdminHeaderProps> = ({ onCreatePost }) => {
       </div>
       
       <div className="flex flex-col sm:flex-row gap-2">
-        <Button
-          as={Link}
-          to="/admin/blog/import"
-          variant="outline"
-          className="flex items-center gap-2"
-        >
-          <Upload size={16} />
-          Import from WordPress
-        </Button>
+        <Link to="/admin/blog/import">
+          <Button 
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Upload size={16} />
+            Import from WordPress
+          </Button>
+        </Link>
         <Button onClick={onCreatePost} className="flex items-center gap-2">
           <Plus size={16} />
           Create New Post

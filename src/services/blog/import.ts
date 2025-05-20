@@ -56,13 +56,16 @@ export const createImportJob = async (
   userId: string
 ): Promise<ImportJob | null> => {
   try {
+    const initialStats = { total: 0, imported: 0, failed: 0 };
+    const initialErrors: Array<{postId?: string; title?: string; message: string}> = [];
+    
     const { data, error } = await supabase
       .from('blog_import_jobs')
       .insert({
         file_path: filePath,
         user_id: userId,
-        stats: { total: 0, imported: 0, failed: 0 },
-        errors: []
+        stats: initialStats,
+        errors: initialErrors
       })
       .select('*')
       .single();
@@ -72,12 +75,12 @@ export const createImportJob = async (
     return {
       id: data.id,
       userId: data.user_id,
-      status: data.status,
+      status: data.status as ImportJob['status'],
       filePath: data.file_path,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
-      stats: data.stats,
-      errors: data.errors
+      stats: data.stats as ImportJob['stats'],
+      errors: data.errors as ImportJob['errors']
     };
   } catch (error) {
     console.error("Error creating import job:", error);
@@ -102,12 +105,12 @@ export const getImportJobById = async (jobId: string): Promise<ImportJob | null>
     return {
       id: data.id,
       userId: data.user_id,
-      status: data.status,
+      status: data.status as ImportJob['status'],
       filePath: data.file_path,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
-      stats: data.stats,
-      errors: data.errors
+      stats: data.stats as ImportJob['stats'],
+      errors: data.errors as ImportJob['errors']
     };
   } catch (error) {
     console.error("Error fetching import job:", error);
@@ -130,12 +133,12 @@ export const getAllImportJobs = async (): Promise<ImportJob[]> => {
     return (data || []).map(job => ({
       id: job.id,
       userId: job.user_id,
-      status: job.status,
+      status: job.status as ImportJob['status'],
       filePath: job.file_path,
       createdAt: job.created_at,
       updatedAt: job.updated_at,
-      stats: job.stats,
-      errors: job.errors
+      stats: job.stats as ImportJob['stats'],
+      errors: job.errors as ImportJob['errors']
     }));
   } catch (error) {
     console.error("Error fetching import jobs:", error);
@@ -435,7 +438,7 @@ export const processWordPressPost = async (
     // Insert into database
     const { data: insertedPost, error: insertError } = await supabase
       .from('blog_posts')
-      .insert([blogPost])
+      .insert([blogPost as any])
       .select('id')
       .single();
       
