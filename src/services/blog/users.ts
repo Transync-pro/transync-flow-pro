@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export async function checkUserRole(): Promise<string | null> {
   try {
-    // Get current session with force refresh
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError || !session) {
@@ -14,22 +13,33 @@ export async function checkUserRole(): Promise<string | null> {
     }
     
     console.log("Checking role for user ID:", session.user.id);
-    console.log("Session user metadata:", session.user.user_metadata);
     
-    // Query user_roles table with more detailed logging
-    const { data, error } = await supabase
+    // First, check if user is admin using the database function
+    const { data: isAdmin, error: adminCheckError } = await supabase
+      .rpc('is_admin_user', { user_id: session.user.id });
+      
+    if (adminCheckError) {
+      console.error("Error checking admin status:", adminCheckError);
+      // Continue to check for other roles even if admin check fails
+    } else if (isAdmin) {
+      console.log("User is an admin");
+      return 'admin';
+    }
+    
+    // If not admin, check for other roles
+    const { data: roleData, error: roleError } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', session.user.id)
       .maybeSingle();
       
-    if (error) {
-      console.error("Error checking user role:", error);
+    if (roleError) {
+      console.error("Error checking user role:", roleError);
       return null;
     }
     
-    console.log("Database role query result:", data);
-    return data?.role || null;
+    console.log("User role:", roleData?.role || 'no role');
+    return roleData?.role || null;
   } catch (error) {
     console.error("Unexpected error checking user role:", error);
     return null;
