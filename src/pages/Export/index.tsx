@@ -212,45 +212,72 @@ const Export = () => {
       link.setAttribute('download', `${fileName || selectedEntity || 'export'}.${fileExtension}`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
       
-      // Log the successful export operation
-      await logOperation({
-        operationType: 'export',
-        entityType: selectedEntity || 'unknown',
-        status: 'success',
-        details: {
-          format,
-          recordCount: records.length,
-          fields: selectedFields,
-          timestamp: new Date().toISOString(),
-          selectedOnly: Object.keys(selectedRecords).length > 0
+      // Add event listener to handle cleanup after download starts
+      const handleDownload = async () => {
+        try {
+          // Log the successful export operation
+          await logOperation({
+            operationType: 'export',
+            entityType: selectedEntity || 'unknown',
+            status: 'success',
+            details: {
+              format,
+              recordCount: records.length,
+              fields: selectedFields,
+              timestamp: new Date().toISOString(),
+              selectedOnly: Object.keys(selectedRecords).length > 0
+            }
+          });
+          
+          toast({
+            title: "Export Successful",
+            description: `${records.length} records exported to ${format.toUpperCase()}`,
+          });
+        } catch (logError) {
+          console.error("Error logging export operation:", logError);
+          // Still show success message even if logging fails
+          toast({
+            title: "Export Completed",
+            description: `${records.length} records exported to ${format.toUpperCase()}, but failed to log operation.`,
+            variant: "default",
+          });
         }
-      });
+        
+        // Cleanup
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        link.removeEventListener('click', handleDownload);
+      };
       
-      toast({
-        title: "Export Successful",
-        description: `${records.length} records exported to ${format.toUpperCase()}`,
-      });
+      // Add click event listener to handle the download and cleanup
+      link.addEventListener('click', handleDownload, { once: true });
+      
+      // Trigger the download
+      link.click();
+      
     } catch (error: any) {
       console.error("Export error:", error);
       
       // Log the failed export operation
-      await logOperation({
-        operationType: 'export',
-        entityType: selectedEntity || 'unknown',
-        status: 'error',
-        details: {
-          error: error.message || 'Unknown error during export',
-          format,
-          timestamp: new Date().toISOString()
-        }
-      });
+      try {
+        await logOperation({
+          operationType: 'export',
+          entityType: selectedEntity || 'unknown',
+          status: 'error',
+          details: {
+            error: error.message || 'Unknown error during export',
+            format,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error("Error logging export error:", logError);
+      }
       
       toast({
         title: "Export Failed",
-        description: error.message || `Error generating ${format.toUpperCase()} file`,
+        description: error.message || "An error occurred while exporting data",
         variant: "destructive",
       });
     }
