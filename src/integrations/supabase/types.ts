@@ -9,6 +9,81 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      blog_import_jobs: {
+        Row: {
+          created_at: string
+          errors: Json | null
+          file_path: string
+          id: string
+          stats: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          errors?: Json | null
+          file_path: string
+          id?: string
+          stats?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          errors?: Json | null
+          file_path?: string
+          id?: string
+          stats?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      blog_import_mappings: {
+        Row: {
+          blog_post_id: string
+          created_at: string
+          id: string
+          job_id: string
+          original_url: string | null
+          wp_post_id: string
+        }
+        Insert: {
+          blog_post_id: string
+          created_at?: string
+          id?: string
+          job_id: string
+          original_url?: string | null
+          wp_post_id: string
+        }
+        Update: {
+          blog_post_id?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          original_url?: string | null
+          wp_post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_import_mappings_blog_post_id_fkey"
+            columns: ["blog_post_id"]
+            isOneToOne: false
+            referencedRelation: "blog_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_import_mappings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "blog_import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_posts: {
         Row: {
           author: string

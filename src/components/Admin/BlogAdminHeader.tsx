@@ -1,7 +1,8 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Plus, Upload } from "lucide-react";
 
 interface BlogAdminHeaderProps {
   onCreatePost: () => void;
@@ -15,10 +16,21 @@ const BlogAdminHeader: React.FC<BlogAdminHeaderProps> = ({ onCreatePost }) => {
         <p className="text-gray-600">Create and manage your blog posts</p>
       </div>
       
-      <Button onClick={onCreatePost} className="flex items-center gap-2">
-        <Plus size={16} />
-        Create New Post
-      </Button>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button
+          as={Link}
+          to="/admin/blog/import"
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <Upload size={16} />
+          Import from WordPress
+        </Button>
+        <Button onClick={onCreatePost} className="flex items-center gap-2">
+          <Plus size={16} />
+          Create New Post
+        </Button>
+      </div>
     </div>
   );
 };

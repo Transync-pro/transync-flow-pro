@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,6 +42,9 @@ import Tutorials from "./pages/Tutorials";
 import Support from "./pages/Support";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
+
+// Import the new BlogImportPage component
+import BlogImportPage from "./pages/Admin/BlogImportPage";
 
 // Configure the global error logger
 configureErrorLogger({
@@ -92,7 +94,7 @@ const queryClient = new QueryClient({
   }
 });
 
-const App = () => {
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -169,16 +171,14 @@ const App = () => {
                   } />
                   
                   {/* Admin routes */}
-                  <Route path="/admin/blog" element={
-                    <RouteGuard requiresAuth={true} requiresAdmin={true}>
-                      <BlogAdmin />
-                    </RouteGuard>
-                  } />
-                  <Route path="/admin/test" element={
-                    <RouteGuard requiresAuth={true} requiresAdmin={true}>
-                      <TestAdmin />
-                    </RouteGuard>
-                  } />
+                  <Route 
+                    path="/admin/blog" 
+                    element={<RouteGuard requiresAuth requiresAdmin><BlogAdmin /></RouteGuard>} 
+                  />
+                  <Route 
+                    path="/admin/blog/import" 
+                    element={<RouteGuard requiresAuth requiresAdmin><BlogImportPage /></RouteGuard>} 
+                  />
                   
                   {/* New public pages */}
                   <Route path="/features" element={<Features />} />
@@ -208,6 +208,6 @@ const App = () => {
       </TooltipProvider>
     </QueryClientProvider>
   );
-};
+}
 
 export default App;
