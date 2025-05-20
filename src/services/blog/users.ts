@@ -5,23 +5,29 @@ import { supabase } from "@/integrations/supabase/client";
  * Check the role of the current user
  */
 export async function checkUserRole(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session) {
-    return null;
-  }
-  
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', session.user.id);
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
     
-  if (error || !data || data.length === 0) {
-    console.error("Error checking user role:", error);
+    if (!session) {
+      return null;
+    }
+    
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+      
+    if (error) {
+      console.error("Error checking user role:", error);
+      return null;
+    }
+    
+    return data?.role || null;
+  } catch (error) {
+    console.error("Unexpected error checking user role:", error);
     return null;
   }
-  
-  return data[0].role;
 }
 
 /**
@@ -29,17 +35,17 @@ export async function checkUserRole(): Promise<string | null> {
  */
 export async function createAdminUser(email: string, password: string): Promise<{ success: boolean; message: string }> {
   try {
-    // Check if user exists
-    const { data: { user }, error: signUpError } = await supabase.auth.signUp({
+    // First try to sign up a new user
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password
     });
     
+    // Handle sign up results
     if (signUpError) {
-      // If error is "User already registered", try to get the user
+      // If user already exists, try to sign in
       if (signUpError.message.includes("User already registered")) {
-        // Sign in to get user
-        const { data: { user: existingUser }, error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password
         });
@@ -51,12 +57,14 @@ export async function createAdminUser(email: string, password: string): Promise<
           };
         }
         
-        // We found the user, check if they have admin role already
+        const userId = signInData.user?.id;
+        
+        // Check if user already has admin role
         const { data: existingRole } = await supabase
           .from('user_roles')
           .select('*')
-          .eq('user_id', existingUser?.id)
-          .single();
+          .eq('user_id', userId)
+          .maybeSingle();
           
         if (existingRole) {
           return { 
@@ -65,11 +73,11 @@ export async function createAdminUser(email: string, password: string): Promise<
           };
         }
         
-        // Create admin role for existing user using service key to bypass RLS
+        // Assign admin role to existing user
         const { error: roleError } = await supabase
           .from('user_roles')
           .insert([
-            { user_id: existingUser?.id, role: 'admin' }
+            { user_id: userId, role: 'admin' }
           ]);
           
         if (roleError) {
@@ -94,11 +102,13 @@ export async function createAdminUser(email: string, password: string): Promise<
     }
     
     // User created, add admin role
-    if (user) {
+    const userId = signUpData.user?.id;
+    
+    if (userId) {
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert([
-          { user_id: user.id, role: 'admin' }
+          { user_id: userId, role: 'admin' }
         ]);
         
       if (roleError) {
