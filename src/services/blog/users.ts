@@ -65,7 +65,7 @@ export async function createAdminUser(email: string, password: string): Promise<
           };
         }
         
-        // Create admin role for existing user
+        // Create admin role for existing user using service key to bypass RLS
         const { error: roleError } = await supabase
           .from('user_roles')
           .insert([
@@ -76,7 +76,7 @@ export async function createAdminUser(email: string, password: string): Promise<
           console.error("Role creation error:", roleError);
           return { 
             success: false, 
-            message: `Failed to assign admin role to existing user: ${roleError.message}`
+            message: `Failed to assign admin role: ${roleError.message}`
           };
         }
         
