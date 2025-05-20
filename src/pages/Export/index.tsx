@@ -179,11 +179,13 @@ const Export = () => {
 
   // Export data
   const handleExport = async (format: "csv" | "json" = "csv") => {
+    console.log('=== Starting export operation ===');
     let url: string | null = null;
     let link: HTMLAnchorElement | null = null;
     
     try {
       if (selectedFields.length === 0) {
+        console.log('No fields selected for export');
         toast({
           title: "No Fields Selected",
           description: "Please select at least one field to export",
@@ -193,7 +195,10 @@ const Export = () => {
       }
       
       const records = getEntityRecords();
+      console.log(`Preparing to export ${records.length} records`);
+      
       if (records.length === 0) {
+        console.log('No records to export');
         toast({
           title: "No Data Available",
           description: "No records to export",
@@ -203,11 +208,13 @@ const Export = () => {
       }
 
       // Process records based on selected fields
+      console.log('Processing export data...');
       const exportData = handleExportData(records, selectedFields, format);
       
       // Log the export operation first
       try {
-        await logOperation({
+        console.log('Attempting to log export operation...');
+        const logResult = await logOperation({
           operationType: 'export',
           entityType: selectedEntity || 'unknown',
           status: 'success',
@@ -219,13 +226,13 @@ const Export = () => {
             selectedOnly: Object.keys(selectedRecords).length > 0
           }
         });
-        console.log('Export operation logged successfully');
+        console.log('Export operation logged successfully:', logResult);
       } catch (logError) {
         console.error("Error logging export operation:", logError);
-        // Continue with download even if logging fails
       }
 
       // Create download link
+      console.log('Creating download link...');
       const fileExtension = format === "csv" ? "csv" : "json";
       const mimeType = format === "csv" ? "text/csv" : "application/json";
       const blob = new Blob([exportData], { type: `${mimeType};charset=utf-8;` });
@@ -236,10 +243,9 @@ const Export = () => {
       link.style.display = 'none';
       document.body.appendChild(link);
       
-      // Trigger the download
+      console.log('Triggering download...');
       link.click();
       
-      // Show success message
       toast({
         title: "Export Successful",
         description: `${records.length} records exported to ${format.toUpperCase()}`,
@@ -248,8 +254,8 @@ const Export = () => {
     } catch (error: any) {
       console.error("Export error:", error);
       
-      // Log the failed export operation
       try {
+        console.log('Attempting to log export error...');
         await logOperation({
           operationType: 'export',
           entityType: selectedEntity || 'unknown',
@@ -260,6 +266,7 @@ const Export = () => {
             timestamp: new Date().toISOString()
           }
         });
+        console.log('Export error logged successfully');
       } catch (logError) {
         console.error("Error logging export error:", logError);
       }
@@ -272,6 +279,7 @@ const Export = () => {
     } finally {
       // Cleanup
       if (link) {
+        console.log('Cleaning up download resources...');
         // Use setTimeout to ensure the download has started before cleaning up
         setTimeout(() => {
           if (link && link.parentNode) {
@@ -280,8 +288,10 @@ const Export = () => {
           if (url) {
             URL.revokeObjectURL(url);
           }
-        }, 100);
+          console.log('Cleanup complete');
+        }, 1000);
       }
+      console.log('=== Export operation completed ===');
     }
   };
 
