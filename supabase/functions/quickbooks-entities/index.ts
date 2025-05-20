@@ -426,7 +426,7 @@ serve(async (req) => {
           await logOperation(userId, 'import', entityType, 'success', {
             id: result[entityType]?.Id,
             name: result[entityType]?.Name || result[entityType]?.DisplayName
-          });
+          }, result[entityType]?.Id);
         } catch (error: any) {
           await logOperation(userId, 'import', entityType, 'error', {
             error: error.message
@@ -448,11 +448,11 @@ serve(async (req) => {
           await logOperation(userId, 'import', entityType, 'success', {
             id: result[entityType]?.Id,
             name: result[entityType]?.Name || result[entityType]?.DisplayName
-          });
+          }, result[entityType]?.Id);
         } catch (error: any) {
           await logOperation(userId, 'import', entityType, 'error', {
             error: error.message
-          });
+          }, params.id);
           throw error;
         }
         break;
@@ -471,7 +471,7 @@ serve(async (req) => {
         
         await logOperation(userId, 'delete', entityType, 'success', {
           id: params.id
-        });
+        }, params.id);
         break;
         
       default:
