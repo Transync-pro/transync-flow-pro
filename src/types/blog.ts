@@ -19,6 +19,8 @@ export interface BlogPost {
   seo_data?: Record<string, any>;
   content_blocks?: any[];
   tags?: BlogTag[];
+  // This will be removed during processing but is needed for TypeScript
+  blog_posts_tags?: any[];
 }
 
 export interface BlogTag {

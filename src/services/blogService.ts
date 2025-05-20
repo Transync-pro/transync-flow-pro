@@ -1,15 +1,15 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import type { BlogPost, BlogTag } from "@/types/blog";
+import type { BlogPost, BlogTag, SeoData } from "@/types/blog";
 
 export async function getAllBlogPosts() {
   const { data, error } = await supabase
     .from('blog_posts')
     .select(`
       *,
-      blog_posts_tags!inner (
+      blog_posts_tags (
         tag_id,
-        blog_tags!inner (
+        blog_tags (
           id,
           name
         )
@@ -32,9 +32,10 @@ export async function getAllBlogPosts() {
     if (!postMap.has(postId)) {
       const blogPost: BlogPost = {
         ...post,
-        tags: []
+        tags: [],
+        // Ensure seo_data is properly typed
+        seo_data: post.seo_data ? JSON.parse(JSON.stringify(post.seo_data)) : {},
       };
-      delete blogPost.blog_posts_tags;
       
       postMap.set(postId, blogPost);
       processedData.push(blogPost);
@@ -42,16 +43,20 @@ export async function getAllBlogPosts() {
     
     const currentPost = postMap.get(postId);
     
-    // Add tag if it exists
-    if (post.blog_posts_tags && post.blog_posts_tags.blog_tags) {
-      const tagExists = currentPost.tags.some(tag => tag.id === post.blog_posts_tags.blog_tags.id);
-      
-      if (!tagExists) {
-        currentPost.tags.push({
-          id: post.blog_posts_tags.blog_tags.id,
-          name: post.blog_posts_tags.blog_tags.name
-        });
-      }
+    // Add tags if they exist
+    if (post.blog_posts_tags && Array.isArray(post.blog_posts_tags)) {
+      post.blog_posts_tags.forEach(tagEntry => {
+        if (tagEntry.blog_tags) {
+          const tagExists = currentPost.tags?.some(tag => tag.id === tagEntry.blog_tags.id);
+          
+          if (!tagExists) {
+            currentPost.tags?.push({
+              id: tagEntry.blog_tags.id,
+              name: tagEntry.blog_tags.name
+            });
+          }
+        }
+      });
     }
   });
 
@@ -63,9 +68,9 @@ export async function getFeaturedBlogPosts() {
     .from('blog_posts')
     .select(`
       *,
-      blog_posts_tags!inner (
+      blog_posts_tags (
         tag_id,
-        blog_tags!inner (
+        blog_tags (
           id,
           name
         )
@@ -79,7 +84,7 @@ export async function getFeaturedBlogPosts() {
     throw new Error(error.message);
   }
 
-  // Process data to format tags correctly (same as above)
+  // Process data to format tags correctly
   const processedData: BlogPost[] = [];
   const postMap = new Map();
 
@@ -89,9 +94,10 @@ export async function getFeaturedBlogPosts() {
     if (!postMap.has(postId)) {
       const blogPost: BlogPost = {
         ...post,
-        tags: []
+        tags: [],
+        // Ensure seo_data is properly typed
+        seo_data: post.seo_data ? JSON.parse(JSON.stringify(post.seo_data)) : {},
       };
-      delete blogPost.blog_posts_tags;
       
       postMap.set(postId, blogPost);
       processedData.push(blogPost);
@@ -99,16 +105,20 @@ export async function getFeaturedBlogPosts() {
     
     const currentPost = postMap.get(postId);
     
-    // Add tag if it exists
-    if (post.blog_posts_tags && post.blog_posts_tags.blog_tags) {
-      const tagExists = currentPost.tags.some(tag => tag.id === post.blog_posts_tags.blog_tags.id);
-      
-      if (!tagExists) {
-        currentPost.tags.push({
-          id: post.blog_posts_tags.blog_tags.id,
-          name: post.blog_posts_tags.blog_tags.name
-        });
-      }
+    // Add tags if they exist
+    if (post.blog_posts_tags && Array.isArray(post.blog_posts_tags)) {
+      post.blog_posts_tags.forEach(tagEntry => {
+        if (tagEntry.blog_tags) {
+          const tagExists = currentPost.tags?.some(tag => tag.id === tagEntry.blog_tags.id);
+          
+          if (!tagExists) {
+            currentPost.tags?.push({
+              id: tagEntry.blog_tags.id,
+              name: tagEntry.blog_tags.name
+            });
+          }
+        }
+      });
     }
   });
 
@@ -137,12 +147,16 @@ export async function getBlogPostBySlug(slug: string) {
   }
 
   // Process tags to the correct format
+  const tags = data.blog_posts_tags.map((tagEntry: any) => ({
+    id: tagEntry.blog_tags.id,
+    name: tagEntry.blog_tags.name
+  }));
+
   const blogPost: BlogPost = {
     ...data,
-    tags: data.blog_posts_tags.map((tagEntry: any) => ({
-      id: tagEntry.blog_tags.id,
-      name: tagEntry.blog_tags.name
-    }))
+    tags,
+    // Ensure seo_data is properly typed
+    seo_data: data.seo_data ? JSON.parse(JSON.stringify(data.seo_data)) : {},
   };
   
   // Remove the raw join table data
@@ -155,15 +169,16 @@ export async function getBlogCategories() {
   const { data, error } = await supabase
     .from('blog_posts')
     .select('category')
-    .order('category')
-    .distinct();
+    .order('category');
 
   if (error) {
     console.error("Error fetching blog categories:", error);
     throw new Error(error.message);
   }
 
-  return data.map(item => item.category);
+  // Use a Set to get unique categories
+  const categories = [...new Set(data.map(item => item.category))];
+  return categories;
 }
 
 export async function getBlogTags() {
