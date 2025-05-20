@@ -40,6 +40,8 @@ interface BlogPostFormProps {
   focusKeyword: string;
   setFocusKeyword: (focusKeyword: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onSaveDraft: (e: React.FormEvent) => void;
+  onPublish: (e: React.FormEvent) => void;
 }
 
 const BlogPostForm: React.FC<BlogPostFormProps> = ({
@@ -67,6 +69,8 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
   focusKeyword,
   setFocusKeyword,
   onSubmit,
+  onSaveDraft,
+  onPublish,
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -205,10 +209,15 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
               className="min-h-[300px] font-mono text-sm"
             />
           </div>
-          
-          <DialogFooter className="pt-4">
-            <Button type="submit">
-              {post ? 'Update Post' : 'Create Post'}
+          <DialogFooter className="flex gap-2 pt-6">
+            <Button type="button" variant="outline" onClick={onSaveDraft}>
+              Save as Draft
+            </Button>
+            <Button type="button" variant="default" onClick={onPublish}>
+              Publish
+            </Button>
+            <Button type="submit" variant="secondary">
+              Save
             </Button>
           </DialogFooter>
         </form>

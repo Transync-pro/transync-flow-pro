@@ -19,13 +19,21 @@ interface BlogPostsTableProps {
   loading: boolean;
   onEditPost: (post: BlogPost) => void;
   onDeletePost: (id: string) => void;
+  selectedIds: string[];
+  onSelectPost: (id: string) => void;
+  selectAll: boolean;
+  onSelectAll: () => void;
 }
 
 const BlogPostsTable: React.FC<BlogPostsTableProps> = ({ 
   posts, 
   loading, 
   onEditPost, 
-  onDeletePost 
+  onDeletePost, 
+  selectedIds, 
+  onSelectPost, 
+  selectAll, 
+  onSelectAll 
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -63,6 +71,14 @@ const BlogPostsTable: React.FC<BlogPostsTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>
+                <input
+                  type="checkbox"
+                  checked={selectAll}
+                  onChange={onSelectAll}
+                  aria-label="Select all posts"
+                />
+              </TableHead>
               <TableHead>Title</TableHead>
               <TableHead>Author</TableHead>
               <TableHead>Category</TableHead>
@@ -74,15 +90,23 @@ const BlogPostsTable: React.FC<BlogPostsTableProps> = ({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">Loading...</TableCell>
+                <TableCell colSpan={7} className="text-center py-8">Loading...</TableCell>
               </TableRow>
             ) : filteredPosts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">No blog posts found</TableCell>
+                <TableCell colSpan={7} className="text-center py-8">No blog posts found</TableCell>
               </TableRow>
             ) : (
               filteredPosts.map((post) => (
                 <TableRow key={post.id}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(post.id)}
+                      onChange={() => onSelectPost(post.id)}
+                      aria-label={`Select post ${post.title}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{post.title}</TableCell>
                   <TableCell>{post.author}</TableCell>
                   <TableCell>{post.category}</TableCell>
