@@ -308,17 +308,25 @@ function extractPrimaryCategoryDOM(item: Element): string {
  */
 function extractImagesFromContent(content: string): string[] {
   try {
-    const images: string[] = [];
+    const images: Set<string> = new Set();
     const parser = new DOMParser();
     const doc = parser.parseFromString(`<div>${content}</div>`, 'text/html');
     const imgTags = doc.getElementsByTagName('img');
-    
     for (let i = 0; i < imgTags.length; i++) {
       const src = imgTags[i].getAttribute('src');
-      if (src) images.push(src);
+      if (src) images.add(src);
+      const dataSrc = imgTags[i].getAttribute('data-src');
+      if (dataSrc) images.add(dataSrc);
+      const srcset = imgTags[i].getAttribute('srcset');
+      if (srcset) {
+        // srcset can have multiple URLs, comma-separated
+        srcset.split(',').forEach(part => {
+          const url = part.trim().split(' ')[0];
+          if (url) images.add(url);
+        });
+      }
     }
-    
-    return images;
+    return Array.from(images);
   } catch (error) {
     console.error("Error extracting images:", error);
     return [];
@@ -476,9 +484,13 @@ export const processWordPressPost = async (
         error: `Post with WordPress ID ${wpPost.id} already imported` 
       };
     }
+    // Extract all possible images from content (src, data-src, srcset)
+    const allContentImages = extractImagesFromContent(wpPost.content);
+    // Merge with any images already in wpPost.images
+    const uniqueImages = Array.from(new Set([...(wpPost.images || []), ...allContentImages]));
     // Process all images in the post content
     const imageMap: Record<string, string> = {};
-    for (const imageUrl of wpPost.images) {
+    for (const imageUrl of uniqueImages) {
       const newUrl = await processImage(imageUrl, jobId);
       if (newUrl) {
         imageMap[imageUrl] = newUrl;
@@ -489,12 +501,12 @@ export const processWordPressPost = async (
       const newFeaturedImage = await processImage(wpPost.featuredImage, jobId);
       if (newFeaturedImage) {
         wpPost.featuredImage = newFeaturedImage;
-      } else if (wpPost.images.length > 0 && imageMap[wpPost.images[0]]) {
-        wpPost.featuredImage = imageMap[wpPost.images[0]];
+      } else if (uniqueImages.length > 0 && imageMap[uniqueImages[0]]) {
+        wpPost.featuredImage = imageMap[uniqueImages[0]];
       }
-    } else if (wpPost.images.length > 0 && imageMap[wpPost.images[0]]) {
+    } else if (uniqueImages.length > 0 && imageMap[uniqueImages[0]]) {
       // Use first image as featured if no featured image
-      wpPost.featuredImage = imageMap[wpPost.images[0]];
+      wpPost.featuredImage = imageMap[uniqueImages[0]];
     }
     // Replace image URLs in content
     const updatedContent = await replaceImageUrls(wpPost.content, imageMap);
