@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { parseStringPromise } from "xml2js";
 import { DOMParser } from "xmldom";
@@ -438,7 +437,7 @@ export const processWordPressPost = async (
     // Insert into database
     const { data: insertedPost, error: insertError } = await supabase
       .from('blog_posts')
-      .insert([blogPost as any])
+      .insert([blogPost])
       .select('id')
       .single();
       
