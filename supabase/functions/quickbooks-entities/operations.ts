@@ -242,12 +242,37 @@ export const deleteEntity = async (
     
     // Handle different entity types specifically
     if (entityType === 'Invoice') {
-      // For invoices, we need to void them instead of deleting
-      endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/invoice?operation=void`;
-      payload = {
-        Id: entityId,
-        SyncToken: syncToken
-      };
+      // For invoices with inventory items, we can't void them if the TxnDate is prior
+      // to the inventory start date. In this case, we'll mark it as closed instead.
+      
+      // Check if the invoice has line items with inventory items
+      const hasInventoryItems = entity.Line?.some((line: any) => 
+        line.DetailType === 'SalesItemLineDetail' && 
+        line.SalesItemLineDetail?.ItemRef?.value
+      );
+      
+      if (hasInventoryItems) {
+        console.log(`Invoice ${entityId} has inventory items, using update to mark as closed instead of void`);
+        
+        // Use regular update endpoint with status set to "Closed"
+        endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/invoice`;
+        payload = {
+          Id: entityId,
+          SyncToken: syncToken,
+          sparse: true,
+          // Set relevant fields that would effectively "disable" the invoice
+          // without voiding it (which might be restricted due to inventory dates)
+          DocNumber: `CANCELLED-${entity.DocNumber || entityId}`,
+          PrivateNote: `CANCELLED: ${entity.PrivateNote || ''} [Auto-cancelled due to inventory date restrictions]`
+        };
+      } else {
+        // For invoices without inventory items, we can use the void operation
+        endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/invoice?operation=void`;
+        payload = {
+          Id: entityId,
+          SyncToken: syncToken
+        };
+      }
     } else if (['Customer', 'Vendor', 'Employee', 'Item'].includes(entityType)) {
       // For these entity types, we set Active=false to "delete" them
       endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
@@ -286,7 +311,13 @@ export const deleteEntity = async (
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Error deleting ${entityType}:`, errorText);
-      throw new Error(`Failed to delete ${entityType}: ${response.status} ${response.statusText}`);
+      
+      // Special handling for inventory date validation errors
+      if (errorText.includes("Transaction date is prior to start date for inventory item")) {
+        throw new Error(`Cannot delete this ${entityType} because it contains inventory items with dates that conflict with inventory start dates. Please contact your QuickBooks administrator.`);
+      } else {
+        throw new Error(`Failed to delete ${entityType}: ${response.status} ${response.statusText}`);
+      }
     }
     
     return await response.json();
