@@ -33,8 +33,9 @@ export async function getAllBlogPosts() {
       const blogPost: BlogPost = {
         ...post,
         tags: [],
-        // Ensure seo_data is properly typed
+        // Ensure proper typing for JSON fields
         seo_data: post.seo_data ? JSON.parse(JSON.stringify(post.seo_data)) : {},
+        content_blocks: post.content_blocks ? JSON.parse(JSON.stringify(post.content_blocks)) : [],
       };
       
       postMap.set(postId, blogPost);
@@ -95,8 +96,9 @@ export async function getFeaturedBlogPosts() {
       const blogPost: BlogPost = {
         ...post,
         tags: [],
-        // Ensure seo_data is properly typed
+        // Ensure proper typing for JSON fields
         seo_data: post.seo_data ? JSON.parse(JSON.stringify(post.seo_data)) : {},
+        content_blocks: post.content_blocks ? JSON.parse(JSON.stringify(post.content_blocks)) : [],
       };
       
       postMap.set(postId, blogPost);
@@ -155,8 +157,9 @@ export async function getBlogPostBySlug(slug: string) {
   const blogPost: BlogPost = {
     ...data,
     tags,
-    // Ensure seo_data is properly typed
+    // Ensure proper typing for JSON fields
     seo_data: data.seo_data ? JSON.parse(JSON.stringify(data.seo_data)) : {},
+    content_blocks: data.content_blocks ? JSON.parse(JSON.stringify(data.content_blocks)) : [],
   };
   
   // Remove the raw join table data
