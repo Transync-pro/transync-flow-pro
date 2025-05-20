@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
 const QUICKBOOKS_CLIENT_ID = Deno.env.get('SANDBOX_ID') || '';
@@ -220,16 +221,21 @@ const saveUserIdentity = async (userId, realmId, userInfo) => {
 
 /**
  * Handle token exchange and user identity saving
+ * FIXED: Modified to avoid the "Body already consumed" error by parsing the request body only once
  */
-const handleTokenExchange = async (req: Request, path: string): Promise<Response> => {
+const handleTokenExchange = async (req) => {
   try {
-    const { code, redirectUri, userId, realmId } = await req.json();
+    // Parse the request body only once and store it in a variable
+    const reqBody = await req.json();
+    const { code, redirectUri, userId, realmId } = reqBody;
+    
     console.log('Token request with params:', {
       code: !!code,
       redirectUri,
       userId,
       realmId
     });
+    
     if (!code || !redirectUri || !userId || !realmId) {
       console.error('Missing required parameters:', {
         code: !!code,
@@ -239,9 +245,11 @@ const handleTokenExchange = async (req: Request, path: string): Promise<Response
       });
       throw new Error('Missing required parameters: code, redirectUri, userId, or realmId');
     }
+    
     if (!QUICKBOOKS_CLIENT_ID || !QUICKBOOKS_CLIENT_SECRET) {
       throw new Error('Missing QuickBooks credentials. Check environment configuration.');
     }
+    
     console.log(`Exchanging code for tokens with realmId ${realmId}`);
     // Exchange authorization code for tokens
     const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
@@ -257,6 +265,7 @@ const handleTokenExchange = async (req: Request, path: string): Promise<Response
         redirect_uri: redirectUri
       }).toString()
     });
+    
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('Token exchange failed:', errorText);
@@ -267,6 +276,7 @@ const handleTokenExchange = async (req: Request, path: string): Promise<Response
         throw new Error(`Failed to exchange code for tokens: ${errorText}`);
       }
     }
+    
     const tokenData = await tokenResponse.json();
     console.log('Token exchange successful, received access token and refresh token');
     
@@ -301,10 +311,10 @@ const handleTokenExchange = async (req: Request, path: string): Promise<Response
         const identityInfo = {
           user_id: userId,
           realm_id: realmId,
-          first_name: userInfo?.givenName || null,
-          last_name: userInfo?.familyName || null,
-          email: userInfo?.email || null,
-          phone: userInfo?.phoneNumber || null,
+          first_name: userIdentity.first_name || null,
+          last_name: userIdentity.last_name || null,
+          email: userIdentity.email || null,
+          phone: userIdentity.phone || null,
           updated_at: new Date().toISOString()
         };
         
@@ -367,8 +377,13 @@ serve(async (req)=>{
   try {
     console.log('Edge function received request. Environment:', QUICKBOOKS_ENVIRONMENT);
     console.log('Client ID configured:', QUICKBOOKS_CLIENT_ID ? 'Yes' : 'No');
-    const { path, ...params } = await req.json();
+    
+    // FIXED: Parse the request body only once
+    const reqBody = await req.json();
+    const { path, ...params } = reqBody;
+    
     console.log(`Request path: ${path}, params:`, params);
+    
     if (path === 'authorize') {
       const { redirectUri, userId } = params;
       if (!redirectUri || !userId) {
@@ -394,7 +409,8 @@ serve(async (req)=>{
         }
       });
     } else if (path === 'token') {
-      return handleTokenExchange(req, path);
+      // FIXED: Pass the entire request object to handleTokenExchange
+      return await handleTokenExchange(req);
     } else if (path === 'refresh') {
       const { refreshToken, userId } = params;
       if (!refreshToken || !userId) {

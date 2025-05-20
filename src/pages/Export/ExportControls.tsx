@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { logOperation } from "@/utils/operationLogger";
@@ -46,6 +47,20 @@ export const ExportControls = ({
       } else {
         onExportAll(format);
       }
+      
+      // Log successful completion
+      await logOperation({
+        operationType: 'export',
+        entityType: selectedEntity || 'unknown',
+        status: 'complete',
+        details: { 
+          format,
+          selectedOnly: isSelected,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      console.log("Export operation completed and logged successfully");
     } catch (error) {
       console.error("Error during export operation:", error);
       
