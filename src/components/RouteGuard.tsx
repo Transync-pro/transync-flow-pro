@@ -25,6 +25,7 @@ const RouteGuard = ({
   requiresAdmin = false
 }: RouteGuardProps) => {
   const { user, isLoading: isAuthLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const { isConnected, isLoading: isQBLoading, refreshConnection } = useQuickbooks();
   const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
@@ -80,6 +81,7 @@ const RouteGuard = ({
       if (!user) {
         setIsAdmin(false);
         setRoleChecked(true);
+        setIsLoading(false);
         return;
       }
       
@@ -90,10 +92,12 @@ const RouteGuard = ({
         
         setIsAdmin(adminStatus);
         setRoleChecked(true);
+        setIsLoading(false);
       } catch (error) {
         console.error("RouteGuard: Error checking admin role:", error);
         setIsAdmin(false);
         setRoleChecked(true);
+        setIsLoading(false);
       }
     };
     
@@ -101,6 +105,7 @@ const RouteGuard = ({
       checkAdminRole();
     } else {
       setRoleChecked(true);
+      setIsLoading(false);
     }
   }, [user, requiresAdmin, isAdminRoute]);
 
@@ -144,7 +149,7 @@ const RouteGuard = ({
   // Handle redirection based on connection status
   useEffect(() => {
     // Don't process redirects while still checking or for QB callback route
-    if (isChecking || isQbCallbackRoute || redirectingRef.current) return;
+    if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) return;
     
     // Set redirecting flag to prevent multiple redirects
     redirectingRef.current = true;
@@ -169,6 +174,17 @@ const RouteGuard = ({
         return;
       }
       
+      // Handle admin routes - only redirect if we've completed the role check
+      if (requiresAdmin && roleChecked && !isAdmin) {
+        console.log('RouteGuard: User is not an admin, redirecting to home');
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access the admin area.",
+          variant: "destructive"
+        });
+        navigate('/', { replace: true });
+      }
+      
       redirectingRef.current = false;
     }, 100);
   }, [
@@ -183,13 +199,14 @@ const RouteGuard = ({
     user,
     isQbCallbackRoute,
     isQBLoading,
+    isLoading,
     navigate,
     location.pathname
   ]);
 
   // Special admin route check - this ensures we don't redirect until admin check is complete
   useEffect(() => {
-    if (isAdminRoute && roleChecked && !isChecking) {
+    if (isAdminRoute && roleChecked && !isChecking && !isLoading) {
       if (!isAdmin) {
         console.log('RouteGuard: Admin route access denied after check completed');
         toast({
@@ -208,7 +225,7 @@ const RouteGuard = ({
   }
 
   // Show loading state while checking
-  if (isChecking || (requiresAdmin && !roleChecked)) {
+  if (isChecking || (requiresAdmin && !roleChecked) || isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
