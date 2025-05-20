@@ -184,61 +184,54 @@ export const processWordPressXml = async (xmlContent: string): Promise<WordPress
   try {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-    
     if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
       throw new Error("XML parsing error");
     }
-    
     const posts: WordPressPost[] = [];
-    const items = xmlDoc.querySelectorAll("item");
-    
+    const items = xmlDoc.getElementsByTagName("item");
     console.log(`Found ${items.length} items in WordPress XML`);
-    
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+      // Helper to get namespaced element text
+      const getNsText = (tag: string) => {
+        const el = item.getElementsByTagName(tag)[0];
+        return el ? el.textContent || '' : '';
+      };
       // Check if it's a post and published
-      const postType = getElementTextContent(item, "wp\\:post_type");
-      const postStatus = getElementTextContent(item, "wp\\:status");
-      
+      const postType = getNsText("wp:post_type");
+      const postStatus = getNsText("wp:status");
       if (postType !== 'post' || postStatus !== 'publish') {
         continue;
       }
-      
       // Extract post data
       const post: WordPressPost = {
-        id: getElementTextContent(item, "wp\\:post_id"),
-        title: getElementTextContent(item, "title") || 'Untitled',
-        content: getElementTextContent(item, "content\\:encoded") || '',
-        summary: getElementTextContent(item, "excerpt\\:encoded") || '',
-        pubDate: new Date(getElementTextContent(item, "pubDate") || '').toISOString(),
-        author: getElementTextContent(item, "dc\\:creator") || 'Unknown',
+        id: getNsText("wp:post_id"),
+        title: getNsText("title") || 'Untitled',
+        content: getNsText("content:encoded") || '',
+        summary: getNsText("excerpt:encoded") || '',
+        pubDate: new Date(getNsText("pubDate") || '').toISOString(),
+        author: getNsText("dc:creator") || 'Unknown',
         category: extractPrimaryCategoryDOM(item),
         featuredImage: null,
-        link: getElementTextContent(item, "link") || null,
-        postName: getElementTextContent(item, "wp\\:post_name") || '',
+        link: getNsText("link") || null,
+        postName: getNsText("wp:post_name") || '',
         status: postStatus || 'draft',
-        images: extractImagesFromContent(getElementTextContent(item, "content\\:encoded") || ''),
+        images: extractImagesFromContent(getNsText("content:encoded") || ''),
       };
-      
       // Extract Yoast SEO metadata if present
-      const postmetaElements = item.querySelectorAll("wp\\:postmeta");
+      const postmetaElements = item.getElementsByTagName("wp:postmeta");
       for (let j = 0; j < postmetaElements.length; j++) {
-        const metaKey = getElementTextContent(postmetaElements[j], "wp\\:meta_key");
-        const metaValue = getElementTextContent(postmetaElements[j], "wp\\:meta_value");
-        
+        const metaKey = postmetaElements[j].getElementsByTagName("wp:meta_key")[0]?.textContent || '';
+        const metaValue = postmetaElements[j].getElementsByTagName("wp:meta_value")[0]?.textContent || '';
         if (metaKey === '_yoast_wpseo_metadesc') {
           post.metaDescription = metaValue || '';
         }
-        
         if (metaKey === '_yoast_wpseo_focuskw') {
           post.focusKeyword = metaValue || '';
         }
       }
-      
       posts.push(post);
     }
-    
     console.log(`Processed ${posts.length} posts from WordPress XML`);
     return posts;
   } catch (error) {
@@ -254,9 +247,19 @@ export const processWordPressXml = async (xmlContent: string): Promise<WordPress
 /**
  * Helper function to safely get text content from XML element
  */
+// Deprecated: Use getElementsByTagName directly for WordPress XML with namespaces
 function getElementTextContent(parent: Element, selector: string): string {
   try {
-    const element = parent.querySelector(selector);
+    // Try both querySelector and getElementsByTagName for compatibility
+    let element = parent.querySelector(selector);
+    if (!element && selector.includes(':')) {
+      // Try without escaping colon
+      element = parent.querySelector(selector.replace('\\:', ':'));
+    }
+    if (!element && selector.includes(':')) {
+      // Try getElementsByTagName for namespaced elements
+      element = parent.getElementsByTagName(selector.replace('\\:', ':'))[0];
+    }
     return element ? element.textContent || '' : '';
   } catch (error) {
     return '';
