@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -89,38 +90,21 @@ const RouteGuard = ({
         
         setIsAdmin(adminStatus);
         
-        if (requiresAdmin && !adminStatus) {
-          console.log("RouteGuard: User does not have admin role, redirecting to homepage");
-          toast({
-            title: "Access Denied",
-            description: "You don't have permission to access the admin area.",
-            variant: "destructive"
-          });
-          navigate('/');
-        }
+        // Don't redirect here, we'll handle redirects in a separate effect
+        setRoleChecked(true);
       } catch (error) {
         console.error("RouteGuard: Error checking admin role:", error);
         setIsAdmin(false);
-        
-        if (requiresAdmin) {
-          toast({
-            title: "Access Error",
-            description: "Failed to verify admin permissions.",
-            variant: "destructive"
-          });
-          navigate('/');
-        }
-      } finally {
         setRoleChecked(true);
       }
     };
     
-    if (requiresAdmin || isAdminRoute) {
+    if ((requiresAdmin || isAdminRoute) && user) {
       checkAdminRole();
     } else {
       setRoleChecked(true);
     }
-  }, [user, requiresAdmin, isAdminRoute, navigate]);
+  }, [user, requiresAdmin, isAdminRoute]);
 
   // Check access on mount and when dependencies change
   useEffect(() => {
@@ -161,20 +145,14 @@ const RouteGuard = ({
 
   // Handle redirection based on connection status
   useEffect(() => {
-    // Only process redirects after initial check is complete and not already redirecting
-    if (isChecking || redirectingRef.current) return;
+    // Don't process redirects while still checking or for QB callback route
+    if (isChecking || isQbCallbackRoute || redirectingRef.current) return;
     
     // Set redirecting flag to prevent multiple redirects
     redirectingRef.current = true;
     
     // Use a timeout to ensure the component has time to update state before redirecting
     setTimeout(() => {
-      // If we're already on the callback route, don't redirect
-      if (isQbCallbackRoute) {
-        redirectingRef.current = false;
-        return;
-      }
-      
       // Handle disconnected page logic
       if (isDisconnectedRoute) {
         if (hasQbConnection || isConnected) {
@@ -193,12 +171,21 @@ const RouteGuard = ({
         // Store the current location to redirect back after connecting
         sessionStorage.setItem('qb_redirect_after_connect', location.pathname);
         navigate('/disconnected', { replace: true });
+        redirectingRef.current = false;
+        return;
       }
       
       // Handle admin routes
-      if (requiresAdmin && !isAdmin) {
+      if (requiresAdmin && !isAdmin && roleChecked) {
         console.log('RouteGuard: User is not an admin, redirecting to home');
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access the admin area.",
+          variant: "destructive"
+        });
         navigate('/', { replace: true });
+        redirectingRef.current = false;
+        return;
       }
       
       redirectingRef.current = false;
@@ -211,6 +198,7 @@ const RouteGuard = ({
     requiresQuickbooks,
     requiresAdmin,
     isAdmin,
+    roleChecked,
     user,
     isQbCallbackRoute,
     isQBLoading,
@@ -243,8 +231,9 @@ const RouteGuard = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
-  // Redirect non-admin users away from admin pages
-  if (requiresAdmin && !isAdmin) {
+  // For admin routes, only check if we've completed the role check
+  if (requiresAdmin && roleChecked && !isAdmin) {
+    console.log("RouteGuard: Admin route access denied, redirecting to home");
     return <Navigate to="/" replace />;
   }
   

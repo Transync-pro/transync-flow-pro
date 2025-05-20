@@ -16,6 +16,7 @@ const BlogAdmin = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminChecking, setIsAdminChecking] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<null | BlogPost>(null);
   const navigate = useNavigate();
@@ -35,21 +36,36 @@ const BlogAdmin = () => {
   useEffect(() => {
     const checkAdmin = async () => {
       console.log("BlogAdmin: Checking admin status");
-      const isAdmin = await isUserAdmin();
-      console.log("BlogAdmin: Is user admin:", isAdmin);
+      setIsAdminChecking(true);
       
-      if (!isAdmin) {
+      try {
+        const adminStatus = await isUserAdmin();
+        console.log("BlogAdmin: Is user admin:", adminStatus);
+        
+        if (!adminStatus) {
+          console.log("BlogAdmin: User is not admin, redirecting to homepage");
+          toast({
+            title: "Access Denied",
+            description: "You don't have permission to access the admin area.",
+            variant: "destructive"
+          });
+          navigate('/');
+          return;
+        }
+        
+        setIsAdmin(true);
+        fetchPosts();
+      } catch (error) {
+        console.error("BlogAdmin: Error checking admin status:", error);
         toast({
-          title: "Access Denied",
-          description: "You don't have permission to access the admin area.",
+          title: "Error",
+          description: "Failed to verify admin permissions",
           variant: "destructive"
         });
         navigate('/');
-        return;
+      } finally {
+        setIsAdminChecking(false);
       }
-      
-      setIsAdmin(true);
-      fetchPosts();
     };
     
     checkAdmin();
@@ -63,7 +79,7 @@ const BlogAdmin = () => {
         .order('published_date', { ascending: false });
         
       if (error) throw error;
-      setPosts(data);
+      setPosts(data || []);
     } catch (error) {
       console.error("Error fetching posts:", error);
       toast({
@@ -202,6 +218,17 @@ const BlogAdmin = () => {
     setFocusKeyword("");
   };
   
+  if (isAdminChecking) {
+    return (
+      <PageLayout>
+        <div className="py-16 max-w-7xl mx-auto px-4 flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mb-4"></div>
+          <p className="text-center text-gray-600">Verifying admin access...</p>
+        </div>
+      </PageLayout>
+    );
+  }
+
   if (!isAdmin) {
     return (
       <PageLayout>

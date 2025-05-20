@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -16,7 +17,7 @@ export async function checkUserRole(): Promise<string | null> {
     
     // First, check if user is admin using the database function
     const { data: isAdmin, error: adminCheckError } = await supabase
-      .rpc('is_admin_user', { user_id: session.user.id });
+      .rpc('is_user_admin', { user_id: session.user.id });
       
     if (adminCheckError) {
       console.error("Error checking admin status:", adminCheckError);
@@ -162,10 +163,25 @@ export async function createAdminUser(email: string, password: string): Promise<
 export async function isUserAdmin(): Promise<boolean> {
   try {
     console.log("Starting admin check...");
-    const role = await checkUserRole();
-    const isAdmin = role === 'admin';
-    console.log(`Admin check complete. Role: ${role}, Is Admin: ${isAdmin}`);
-    return isAdmin;
+    // Get current session
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session || !session.user) {
+      console.log("No active session found");
+      return false;
+    }
+    
+    // Use the RPC function directly for better reliability
+    const { data: isAdmin, error } = await supabase
+      .rpc('is_user_admin', { user_id: session.user.id });
+    
+    if (error) {
+      console.error("Admin check failed:", error.message);
+      return false;
+    }
+    
+    console.log(`Admin check complete. Is Admin: ${isAdmin}`);
+    return isAdmin === true;
   } catch (error) {
     console.error("Failed to check if user is admin:", error);
     return false;
