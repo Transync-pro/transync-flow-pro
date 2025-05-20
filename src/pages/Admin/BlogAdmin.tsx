@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +5,7 @@ import PageLayout from "@/components/PageLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { checkUserRole } from "@/services/blog/users";
+import { checkUserRole, isUserAdmin } from "@/services/blog/users";
 import type { BlogPost } from "@/types/blog";
 import BlogAdminHeader from "@/components/Admin/BlogAdminHeader";
 import BlogPostsTable from "@/components/Admin/BlogPostsTable";
@@ -36,10 +35,10 @@ const BlogAdmin = () => {
   useEffect(() => {
     const checkAdmin = async () => {
       console.log("BlogAdmin: Checking admin status");
-      const role = await checkUserRole();
-      console.log("BlogAdmin: User role:", role);
+      const isAdmin = await isUserAdmin();
+      console.log("BlogAdmin: Is user admin:", isAdmin);
       
-      if (role !== 'admin') {
+      if (!isAdmin) {
         toast({
           title: "Access Denied",
           description: "You don't have permission to access the admin area.",

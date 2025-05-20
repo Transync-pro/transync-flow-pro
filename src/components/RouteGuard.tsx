@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,7 +5,7 @@ import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { Loader2 } from "lucide-react";
 import { logError } from "@/utils/errorLogger";
 import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
-import { checkUserRole } from "@/services/blog/users";
+import { isUserAdmin } from "@/services/blog/users";
 import { toast } from "@/components/ui/use-toast";
 
 interface RouteGuardProps {
@@ -84,15 +83,14 @@ const RouteGuard = ({
       }
       
       try {
-        console.log("Checking admin role for user:", user.id);
-        const role = await checkUserRole();
-        console.log("User role result:", role);
+        console.log("RouteGuard: Checking admin role for user:", user.id);
+        const adminStatus = await isUserAdmin();
+        console.log("RouteGuard: Is user admin:", adminStatus);
         
-        const hasAdminRole = role === 'admin';
-        setIsAdmin(hasAdminRole);
+        setIsAdmin(adminStatus);
         
-        if (requiresAdmin && !hasAdminRole) {
-          console.log("User does not have admin role, redirecting to homepage");
+        if (requiresAdmin && !adminStatus) {
+          console.log("RouteGuard: User does not have admin role, redirecting to homepage");
           toast({
             title: "Access Denied",
             description: "You don't have permission to access the admin area.",
@@ -101,7 +99,7 @@ const RouteGuard = ({
           navigate('/');
         }
       } catch (error) {
-        console.error("Error checking admin role:", error);
+        console.error("RouteGuard: Error checking admin role:", error);
         setIsAdmin(false);
         
         if (requiresAdmin) {
