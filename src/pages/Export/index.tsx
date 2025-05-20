@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { logOperation } from "@/utils/operationLogger";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ChevronLeft } from "lucide-react";
 import { EntityRecord } from "@/contexts/quickbooks/types";
@@ -177,7 +178,7 @@ const Export = () => {
   const selectedRecordsCount = Object.values(selectedRecords).filter(Boolean).length;
 
   // Export data
-  const handleExport = (format: "csv" | "json" = "csv") => {
+  const handleExport = async (format: "csv" | "json" = "csv") => {
     try {
       if (selectedFields.length === 0) {
         toast({
@@ -214,12 +215,42 @@ const Export = () => {
       link.click();
       document.body.removeChild(link);
       
+      // Log the successful export operation
+      try {
+        await logOperation({
+          operationType: 'export',
+          entityType: selectedEntity || 'unknown',
+          status: 'success',
+          details: {
+            format,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log export success:', logError);
+      }
+      
       toast({
         title: "Export Successful",
         description: `${records.length} records exported to ${format.toUpperCase()}`,
       });
     } catch (error: any) {
-      console.error("Export error:", error);
+      // Log the failed export operation
+      try {
+        await logOperation({
+          operationType: 'export',
+          entityType: selectedEntity || 'unknown',
+          status: 'error',
+          details: {
+            error: error.message || 'Unknown error during export',
+            format,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log export error:', logError);
+      }
+      
       toast({
         title: "Export Failed",
         description: error.message || `Error generating ${format.toUpperCase()} file`,

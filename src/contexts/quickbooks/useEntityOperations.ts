@@ -250,17 +250,23 @@ export const useEntityOperations = (
         throw new Error(`Error from function: ${data.error}`);
       }
       
-      // Log the deletion operation
-      await logOperation({
-        operationType: 'delete',
-        entityType: typeToDelete,
-        recordId: entityId,
-        status: 'success',
-        details: {
-          entityId,
-          action: 'delete'
-        }
-      });
+      // Log the successful deletion
+      try {
+        await logOperation({
+          operationType: 'delete',
+          entityType: typeToDelete,
+          recordId: entityId,
+          status: 'success',
+          details: {
+            entityId,
+            action: 'delete',
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log delete operation:', logError);
+        // Continue even if logging fails
+      }
       
       // Show success message
       toast({
@@ -273,16 +279,21 @@ export const useEntityOperations = (
       console.error(`Error deleting ${typeToDelete}:`, error);
       
       // Log the failed deletion
-      await logOperation({
-        operationType: 'delete',
-        entityType: typeToDelete,
-        recordId: entityId,
-        status: 'error',
-        details: {
-          entityId,
-          error: error.message
-        }
-      });
+      try {
+        await logOperation({
+          operationType: 'delete',
+          entityType: typeToDelete,
+          recordId: entityId,
+          status: 'error',
+          details: {
+            entityId,
+            error: error.message || 'Unknown error during deletion',
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log delete error:', logError);
+      }
       
       toast({
         title: "Deletion Failed",
@@ -298,74 +309,75 @@ export const useEntityOperations = (
     const typeToDelete = entityType || selectedEntity;
     if (!typeToDelete || entityIds.length === 0) return;
     
-    setIsDeleting(true);
-    setDeleteProgress({
+    // Initialize progress
+    const progress = {
       total: entityIds.length,
       current: 0,
       success: 0,
       failed: 0,
-      details: []
-    });
+      details: [] as Array<{id: string, status: string, error?: string}>
+    };
+    
+    setIsDeleting(true);
+    setDeleteProgress(progress);
     
     try {
-      // Log the bulk deletion start
+      // Log the start of batch deletion
       await logOperation({
         operationType: 'delete',
         entityType: typeToDelete,
         status: 'pending',
         details: {
-          count: entityIds.length,
-          operation: 'bulk-delete'
+          batch: true,
+          totalCount: entityIds.length,
+          timestamp: new Date().toISOString()
         }
       });
       
+      // Process each entity deletion
       for (let i = 0; i < entityIds.length; i++) {
         const id = entityIds[i];
         try {
           const success = await deleteEntity(typeToDelete, id);
           
           if (success) {
-            setDeleteProgress(prev => ({
-              ...prev,
-              current: i + 1,
-              success: prev.success + 1,
-              details: [...prev.details, { id, status: "success" }]
-            }));
+            progress.success++;
+            progress.details.push({ id, status: 'success' });
           } else {
-            setDeleteProgress(prev => ({
-              ...prev,
-              current: i + 1,
-              failed: prev.failed + 1,
-              details: [...prev.details, { 
-                id, 
-                status: "error", 
-                error: "Failed to delete" 
-              }]
-            }));
+            progress.failed++;
+            progress.details.push({ 
+              id, 
+              status: 'error', 
+              error: 'Failed to delete' 
+            });
           }
         } catch (error: any) {
-          setDeleteProgress(prev => ({
-            ...prev,
-            current: i + 1,
-            failed: prev.failed + 1,
-            details: [...prev.details, { 
-              id, 
-              status: "error", 
-              error: error.message 
-            }]
-          }));
+          progress.failed++;
+          progress.details.push({ 
+            id, 
+            status: 'error', 
+            error: error.message || 'Unknown error during deletion' 
+          });
+        } finally {
+          progress.current = i + 1;
+          setDeleteProgress({...progress});
         }
       }
       
-      // Log the bulk deletion completion
+      // Log the completion of batch deletion
+      const status = progress.failed === 0 ? 'success' : 
+                    progress.success === 0 ? 'error' : 'partial';
+      
       await logOperation({
         operationType: 'delete',
         entityType: typeToDelete,
-        status: entityIds.length === deleteProgress.success ? 'success' : 'partial',
+        status,
         details: {
-          total: entityIds.length,
-          success: deleteProgress.success,
-          failed: deleteProgress.failed
+          batch: true,
+          total: progress.total,
+          success: progress.success,
+          failed: progress.failed,
+          timestamp: new Date().toISOString()
         }
       });
       
@@ -394,7 +406,7 @@ export const useEntityOperations = (
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteEntity, fetchEntities, selectedEntity]);
+  }, [deleteEntity, selectedEntity, deleteProgress]);
 
   return {
     fetchEntities,
