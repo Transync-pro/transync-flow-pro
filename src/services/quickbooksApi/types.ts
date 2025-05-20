@@ -1,38 +1,41 @@
-
-// Types for QuickBooks API operations
-
-export interface QuickbooksEntity {
-  id?: string;
-  [key: string]: any;
+export interface QBConnection {
+  user_id: string;
+  realm_id: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_at: string;
+  x_refresh_token_expires_in: number;
+  id_token: string;
+  environment: string;
+  company_name: string;
 }
 
-export interface QuickbooksQueryParams {
-  entity: string;
-  fields?: string[];
-  conditions?: string;
-  maxResults?: number;
+export interface QBEntity {
+  name: string;
+  value: string;
 }
 
-export interface QuickbooksSchema {
-  required: string[];
-  fields: string[];
-}
-
-// Add the QBEntityResponse type that was missing
-export interface QBEntityResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-// These are the ONLY valid operation types according to the database constraint
 export type OperationType = 'import' | 'export' | 'delete' | 'fetch';
+
 export type OperationStatus = 'success' | 'error' | 'pending' | 'partial';
 
 export interface LogOperationParams {
-  operationType: OperationType | string; // Allow string input that will be validated
+  operationType: OperationType;
   entityType: string;
-  recordId?: string | null; // Make recordId optional
+  recordId?: string | null;
   status: OperationStatus;
-  details?: any;
+  details?: Record<string, any>;
+}
+
+export interface QuickbooksError {
+  Fault: {
+    Error: {
+      code: string;
+      Detail: string;
+      Message: string;
+    }[];
+    type: string;
+  };
+  time: string;
 }
