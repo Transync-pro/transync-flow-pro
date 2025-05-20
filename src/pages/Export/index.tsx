@@ -216,40 +216,37 @@ const Export = () => {
       document.body.removeChild(link);
       
       // Log the successful export operation
-      try {
-        await logOperation({
-          operationType: 'export',
-          entityType: selectedEntity || 'unknown',
-          status: 'success',
-          details: {
-            format,
-            timestamp: new Date().toISOString()
-          }
-        });
-      } catch (logError) {
-        console.error('Failed to log export success:', logError);
-      }
+      await logOperation({
+        operationType: 'export',
+        entityType: selectedEntity || 'unknown',
+        status: 'success',
+        details: {
+          format,
+          recordCount: records.length,
+          fields: selectedFields,
+          timestamp: new Date().toISOString(),
+          selectedOnly: Object.keys(selectedRecords).length > 0
+        }
+      });
       
       toast({
         title: "Export Successful",
         description: `${records.length} records exported to ${format.toUpperCase()}`,
       });
     } catch (error: any) {
+      console.error("Export error:", error);
+      
       // Log the failed export operation
-      try {
-        await logOperation({
-          operationType: 'export',
-          entityType: selectedEntity || 'unknown',
-          status: 'error',
-          details: {
-            error: error.message || 'Unknown error during export',
-            format,
-            timestamp: new Date().toISOString()
-          }
-        });
-      } catch (logError) {
-        console.error('Failed to log export error:', logError);
-      }
+      await logOperation({
+        operationType: 'export',
+        entityType: selectedEntity || 'unknown',
+        status: 'error',
+        details: {
+          error: error.message || 'Unknown error during export',
+          format,
+          timestamp: new Date().toISOString()
+        }
+      });
       
       toast({
         title: "Export Failed",

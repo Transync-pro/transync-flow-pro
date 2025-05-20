@@ -1,4 +1,3 @@
-
 import { getQBApiBaseUrl } from './config.ts';
 import { supabase } from './connection.ts';
 
@@ -242,37 +241,17 @@ export const deleteEntity = async (
     
     // Handle different entity types specifically
     if (entityType === 'Invoice') {
-      // For invoices with inventory items, we can't void them if the TxnDate is prior
-      // to the inventory start date. In this case, we'll mark it as closed instead.
-      
-      // Check if the invoice has line items with inventory items
-      const hasInventoryItems = entity.Line?.some((line: any) => 
-        line.DetailType === 'SalesItemLineDetail' && 
-        line.SalesItemLineDetail?.ItemRef?.value
-      );
-      
-      if (hasInventoryItems) {
-        console.log(`Invoice ${entityId} has inventory items, using update to mark as closed instead of void`);
-        
-        // Use regular update endpoint with status set to "Closed"
-        endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/invoice`;
-        payload = {
-          Id: entityId,
-          SyncToken: syncToken,
-          sparse: true,
-          // Set relevant fields that would effectively "disable" the invoice
-          // without voiding it (which might be restricted due to inventory dates)
-          DocNumber: `CANCELLED-${entity.DocNumber || entityId}`,
-          PrivateNote: `CANCELLED: ${entity.PrivateNote || ''} [Auto-cancelled due to inventory date restrictions]`
-        };
-      } else {
-        // For invoices without inventory items, we can use the void operation
-        endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/invoice?operation=void`;
-        payload = {
-          Id: entityId,
-          SyncToken: syncToken
-        };
-      }
+      // For invoices, we'll use update to mark as cancelled instead of void
+      // This avoids inventory date validation issues
+      endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/invoice`;
+      payload = {
+        Id: entityId,
+        SyncToken: syncToken,
+        sparse: true,
+        // Set relevant fields that would effectively "disable" the invoice
+        DocNumber: `CANCELLED-${entity.DocNumber || entityId}`,
+        PrivateNote: `CANCELLED: ${entity.PrivateNote || ''} [Auto-cancelled ${new Date().toISOString()}]`
+      };
     } else if (['Customer', 'Vendor', 'Employee', 'Item'].includes(entityType)) {
       // For these entity types, we set Active=false to "delete" them
       endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
@@ -283,24 +262,42 @@ export const deleteEntity = async (
         sparse: true
       };
     } else if (entityType === "Check" || entityType === "CreditCardCredit") {
-      // For checks and credit card credits, use Purchase endpoint
+      // For checks and credit card credits, use Purchase endpoint with special handling
       endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/purchase`;
       payload = {
         Id: entityId,
         SyncToken: syncToken,
-        Active: false,
+        // Set relevant fields to mark as inactive or cancelled
+        DocNumber: `CANCELLED-${entity.DocNumber || entityId}`,
+        PrivateNote: `CANCELLED: ${entity.PrivateNote || ''} [Auto-cancelled ${new Date().toISOString()}]`,
         sparse: true
+      };
+    } else if (entityType === "Bill" || entityType === "VendorCredit") {
+      // Special handling for bills and vendor credits
+      endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
+      payload = {
+        Id: entityId,
+        SyncToken: syncToken,
+        sparse: true,
+        // Mark as private note to indicate cancellation
+        PrivateNote: `CANCELLED: ${entity.PrivateNote || ''} [Auto-cancelled ${new Date().toISOString()}]`
       };
     } else {
       // Default approach - try to set Active=false
       try {
         endpoint = `${getQBApiBaseUrl()}/v3/company/${realmId}/${entityType.toLowerCase()}`;
+        
+        // Default deletion approach
         payload = {
           Id: entityId,
           SyncToken: syncToken,
-          Active: false,
           sparse: true
         };
+        
+        // Add Active=false for entities that support it (most do)
+        // This is the most common way to "delete" in QuickBooks
+        payload.Active = false;
+        
         console.log(`Attempting generic deletion approach for ${entityType}`);
       } catch (error) {
         throw new Error(`Deletion not implemented for entity type: ${entityType}`);

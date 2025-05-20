@@ -16,6 +16,9 @@ export const deleteQuickbooksEntity = async <T = any>(
       throw new Error("User not authenticated");
     }
 
+    console.log(`Attempting to delete ${entityType} with ID ${entityId}`);
+    
+    // Call our edge function to delete the entity
     const { data, error } = await supabase.functions.invoke("quickbooks-entities", {
       body: {
         operation: "delete",
@@ -49,24 +52,38 @@ export const deleteQuickbooksEntity = async <T = any>(
   } catch (error: any) {
     console.error(`Error deleting ${entityType}:`, error);
     
+    // Enhanced error handling with more specific messages
+    let errorMessage = error.message || "An unknown error occurred";
+    
+    // Check for specific QuickBooks API errors and provide better user messages
+    if (errorMessage.includes("Transaction date is prior to start date for inventory item")) {
+      errorMessage = `Cannot delete this ${entityType} because it contains inventory items with dates that conflict with inventory start dates. Please contact your QuickBooks administrator.`;
+    } else if (errorMessage.includes("Object not found")) {
+      errorMessage = `The ${entityType} could not be found. It may have been already deleted.`;
+    } else if (errorMessage.includes("stale object")) {
+      errorMessage = `This ${entityType} has been modified since it was last retrieved. Please refresh and try again.`;
+    } else if (errorMessage.includes("has a payment")) {
+      errorMessage = `Cannot delete this ${entityType} because it has linked payments. Please void or delete the payments first.`;
+    }
+    
     // Log the failed deletion with validated operation type
     await logOperation({
       operationType: validateOperationType('delete'),
       entityType,
       recordId: entityId,
       status: 'error',
-      details: { action: 'delete', error: error.message || "An unknown error occurred" }
+      details: { action: 'delete', error: errorMessage }
     });
     
     toast({
       title: `Failed to delete ${entityType}`,
-      description: error.message || "An unknown error occurred",
+      description: errorMessage,
       variant: "destructive"
     });
 
     return {
       success: false,
-      error: error.message || "An unknown error occurred"
+      error: errorMessage
     };
   }
 };
