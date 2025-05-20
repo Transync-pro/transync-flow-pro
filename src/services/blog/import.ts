@@ -174,8 +174,6 @@ export const updateImportJobStatus = async (
     console.error("Error updating import job:", error);
     return false;
   }
-};
-
 /**
  * Process WordPress XML file and extract post data
  * Using a browser-compatible approach for XML parsing
@@ -189,6 +187,7 @@ export const processWordPressXml = async (xmlContent: string): Promise<WordPress
     }
     const posts: WordPressPost[] = [];
     const items = xmlDoc.getElementsByTagName("item");
+    const attachmentMap: Record<string, string> = {};
     console.log(`Found ${items.length} items in WordPress XML`);
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
@@ -200,7 +199,12 @@ export const processWordPressXml = async (xmlContent: string): Promise<WordPress
       // Check if it's a post and published
       const postType = getNsText("wp:post_type");
       const postStatus = getNsText("wp:status");
-      if (postType !== 'post' || postStatus !== 'publish') {
+      if (postType === 'attachment') {
+        // Build attachment map
+        const attachmentId = getNsText("wp:post_id");
+        const attachmentUrl = getNsText("link");
+        attachmentMap[attachmentId] = attachmentUrl;
+      } else if (postType !== 'post' || postStatus !== 'publish') {
         continue;
       }
       // Extract post data
@@ -229,6 +233,10 @@ export const processWordPressXml = async (xmlContent: string): Promise<WordPress
         if (metaKey === '_yoast_wpseo_focuskw') {
           post.focusKeyword = metaValue || '';
         }
+        if (metaKey === '_thumbnail_id') {
+          const thumbnailId = metaValue;
+          post.featuredImage = attachmentMap[thumbnailId] || null;
+        }
       }
       posts.push(post);
     }
@@ -243,11 +251,6 @@ export const processWordPressXml = async (xmlContent: string): Promise<WordPress
     return [];
   }
 };
-
-/**
- * Helper function to safely get text content from XML element
- */
-// Deprecated: Use getElementsByTagName directly for WordPress XML with namespaces
 function getElementTextContent(parent: Element, selector: string): string {
   try {
     // Try both querySelector and getElementsByTagName for compatibility
