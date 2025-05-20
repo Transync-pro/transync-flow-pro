@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "@/components/ui/use-toast";
@@ -174,6 +173,7 @@ export const updateImportJobStatus = async (
     console.error("Error updating import job:", error);
     return false;
   }
+}
 /**
  * Process WordPress XML file and extract post data
  * Using a browser-compatible approach for XML parsing
