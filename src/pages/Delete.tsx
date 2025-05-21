@@ -32,6 +32,7 @@ const Delete = () => {
   const [dateError, setDateError] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   const {
     selectedEntity,
@@ -112,20 +113,17 @@ const Delete = () => {
     setPageIndex(0);
   };
 
-  // Handle checkbox select all on current page
+  // Handle checkbox select all - modified to select all records across all pages
   const handleSelectAll = (checked: boolean) => {
     setSelectedAll(checked);
-    selectAllEntities(checked, paginatedRecords);
-  };
-
-  // Handle select all records across all pages
-  const handleSelectAllPages = () => {
-    setSelectedAll(true);
-    selectAllEntities(true, filteredRecords);
-    toast({
-      title: "Selection Complete",
-      description: `Selected all ${filteredRecords.length} records across all pages.`,
-    });
+    selectAllEntities(checked, filteredRecords); // Now selects all records, not just current page
+    
+    if (checked && filteredRecords.length > 0) {
+      toast({
+        title: "Selection Complete",
+        description: `Selected all ${filteredRecords.length} records.`,
+      });
+    }
   };
 
   // Handle delete confirmation
@@ -170,26 +168,17 @@ const Delete = () => {
       {
         id: "select",
         header: ({ table }) => (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center">
             <Checkbox
-              checked={selectedAll && paginatedRecords.every(record => 
-                selectedEntityIds.includes(record.Id))}
+              checked={selectedAll}
               onCheckedChange={(checked) => {
                 handleSelectAll(!!checked);
               }}
-              aria-label="Select all on this page"
+              aria-label="Select all records"
             />
-            {filteredRecords.length > pageSize && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-2 text-xs"
-                onClick={handleSelectAllPages}
-                data-testid="select-all-pages"
-              >
-                Select all pages
-              </Button>
-            )}
+            <span className="ml-2 text-xs text-muted-foreground">
+              {selectedAll ? "All selected" : "Select all"}
+            </span>
           </div>
         ),
         cell: ({ row }) => (
@@ -310,14 +299,14 @@ const Delete = () => {
               </div>
               <div className="flex flex-col space-y-2 flex-grow">
                 <Label>Date Range <span className="text-red-500">*</span></Label>
-                <Popover>
+                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       id="date"
                       variant={"outline"}
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !dateRange?.from && "text-muted-foreground border-red-500"
+                        (!dateRange?.from && true) && "border-red-500"
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
@@ -350,6 +339,10 @@ const Delete = () => {
                             from: range.from, 
                             to: range.to 
                           });
+                          // Close the popover if both from and to dates are selected
+                          if (range.from && range.to) {
+                            setIsCalendarOpen(false);
+                          }
                         }
                       }}
                       numberOfMonths={2}

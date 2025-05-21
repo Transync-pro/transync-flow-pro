@@ -171,55 +171,38 @@ const Export = () => {
         [recordId]: !prev[recordId]
       };
       
-      // Update selectAllRecords state for current page
-      const allPageItemsSelected = paginatedRecords.every(
-        record => !record.Id || newState[record.Id]
-      );
-      
-      setSelectAllRecords(allPageItemsSelected && paginatedRecords.length > 0);
+      // Update selectAllRecords state based on total selection
+      const totalSelected = Object.values(newState).filter(Boolean).length;
+      setSelectAllRecords(totalSelected === filteredRecords.length);
       
       return newState;
     });
   };
 
-  // Handle select all records on current page
+  // Handle select all records across all pages - modified to select/deselect all records
   const toggleSelectAllRecords = useCallback(() => {
     const newSelectAll = !selectAllRecords;
     setSelectAllRecords(newSelectAll);
     
-    const newSelectedRecords = { ...selectedRecords };
+    const newSelectedRecords: Record<string, boolean> = {};
     
-    paginatedRecords.forEach(record => {
+    // Select/deselect all records across all pages
+    filteredRecords.forEach(record => {
       if (record.Id) {
         newSelectedRecords[record.Id] = newSelectAll;
       }
     });
     
     setSelectedRecords(newSelectedRecords);
-  }, [selectAllRecords, selectedRecords, paginatedRecords]);
-
-  // Handle select all records across all pages
-  const handleSelectAllPages = useCallback(() => {
-    const allIds: Record<string, boolean> = {};
-    filteredRecords.forEach(record => {
-      if (record.Id) {
-        allIds[record.Id] = true;
-      }
-    });
-    setSelectedRecords(allIds);
-    setSelectAllRecords(true);
-    toast({
-      title: "Selection Complete",
-      description: `Selected all ${filteredRecords.length} records across all pages.`,
-    });
     
-    // Dispatch a custom event for other components to listen for
-    const event = new CustomEvent('select-all-records', {
-      detail: { selectedIds: allIds }
-    });
-    document.dispatchEvent(event);
-    
-  }, [filteredRecords]);
+    // Show toast notification
+    if (newSelectAll) {
+      toast({
+        title: "Selection Complete",
+        description: `Selected all ${filteredRecords.length} records.`,
+      });
+    }
+  }, [selectAllRecords, filteredRecords]);
 
   // Count selected records
   const selectedRecordsCount = Object.values(selectedRecords).filter(Boolean).length;
@@ -508,7 +491,6 @@ const Export = () => {
           toggleRecordSelection={toggleRecordSelection}
           toggleSelectAllRecords={toggleSelectAllRecords}
           selectedRecordsCount={selectedRecordsCount}
-          handleSelectAllPages={handleSelectAllPages}
         />
       </div>
     </DashboardLayout>

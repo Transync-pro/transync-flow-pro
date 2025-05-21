@@ -28,7 +28,7 @@ interface ExportTableProps {
   toggleRecordSelection: (recordId: string) => void;
   toggleSelectAllRecords: () => void;
   selectedRecordsCount: number;
-  handleSelectAllPages: () => void;
+  handleSelectAllPages?: () => void;
 }
 
 export const ExportTable: React.FC<ExportTableProps> = ({
@@ -46,7 +46,6 @@ export const ExportTable: React.FC<ExportTableProps> = ({
   toggleRecordSelection,
   toggleSelectAllRecords,
   selectedRecordsCount,
-  handleSelectAllPages,
 }) => {
   const totalPages = Math.ceil(filteredRecords.length / pageSize);
 
@@ -56,28 +55,20 @@ export const ExportTable: React.FC<ExportTableProps> = ({
       return [];
     }
 
-    // Add checkbox column as first column
+    // Add checkbox column as first column - updated to select all records across all pages
     const columns: ColumnDef<EntityRecord>[] = [
       {
         id: "select",
         header: ({ table }) => (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center">
             <Checkbox
               checked={selectAllRecords}
               onCheckedChange={toggleSelectAllRecords}
-              aria-label="Select all on this page"
+              aria-label="Select all records across all pages"
             />
-            {filteredRecords.length > pageSize && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-2 text-xs"
-                onClick={handleSelectAllPages}
-                data-testid="select-all-pages"
-              >
-                Select all pages
-              </Button>
-            )}
+            <span className="ml-2 text-xs text-muted-foreground">
+              {selectAllRecords ? "All pages selected" : "Select all"}
+            </span>
           </div>
         ),
         cell: ({ row }) => {
@@ -90,7 +81,7 @@ export const ExportTable: React.FC<ExportTableProps> = ({
             />
           ) : null;
         },
-        size: 150, // Increased to accommodate the new button
+        size: 150,
       },
       {
         accessorFn: (_, index) => pageIndex * pageSize + index + 1,

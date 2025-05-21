@@ -17,7 +17,7 @@ interface EntitySelectProps {
   dateRange: DateRange | undefined;
   setDateRange: (dateRange: DateRange | undefined) => void;
   isRequired?: boolean;
-  onFetchData?: () => void; // Added to control fetch button behavior
+  onFetchData?: () => void;
 }
 
 export const EntitySelect = ({ 
@@ -110,7 +110,7 @@ export const EntitySelect = ({
             <Calendar
               initialFocus
               mode="range"
-              defaultMonth={dateRange?.from}
+              defaultMonth={dateRange?.from || undefined}
               selected={dateRange}
               onSelect={(range) => {
                 setDateRange(range);
