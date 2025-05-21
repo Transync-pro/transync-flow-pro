@@ -156,6 +156,7 @@ const Export = () => {
           description: "Please select a date range before fetching data.",
           variant: "destructive",
         });
+        setDateRange((prev) => ({ ...prev, error: true }));
         return;
       }
       
@@ -211,6 +212,22 @@ const Export = () => {
     
     setSelectedRecords(newSelectedRecords);
   }, [selectAllRecords, selectedRecords, paginatedRecords]);
+
+  // Handle select all records across all pages
+  const handleSelectAllPages = useCallback(() => {
+    const allIds: Record<string, boolean> = {};
+    filteredRecords.forEach(record => {
+      if (record.Id) {
+        allIds[record.Id] = true;
+      }
+    });
+    setSelectedRecords(allIds);
+    setSelectAllRecords(true);
+    toast({
+      title: "Selection Complete",
+      description: `Selected all ${filteredRecords.length} records across all pages.`,
+    });
+  }, [filteredRecords]);
 
   // Count selected records
   const selectedRecordsCount = Object.values(selectedRecords).filter(Boolean).length;
@@ -321,199 +338,3 @@ const Export = () => {
         // Use setTimeout to ensure the download has started before cleaning up
         setTimeout(() => {
           if (link && link.parentNode) {
-            link.parentNode.removeChild(link);
-          }
-          if (url) {
-            URL.revokeObjectURL(url);
-          }
-          console.log('Cleanup complete');
-        }, 1000);
-      }
-      console.log('=== Export operation completed ===');
-    }
-  };
-
-  // Handle export of selected records
-  const handleExportSelected = (format: "csv" | "json") => (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (selectedRecordsCount === 0) {
-      toast({
-        title: "No Records Selected",
-        description: "Please select at least one record to export",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    handleExport(format);
-  };
-
-  // Convert data to CSV or JSON
-  const handleExportData = (records: EntityRecord[], fields: string[], format: "csv" | "json") => {
-    if (format === "json") {
-      const jsonData = records.map(record => {
-        const item: Record<string, any> = {};
-        fields.forEach(field => {
-          const value = getNestedValue(record, field);
-          // Use the display name for the field
-          const displayName = formatDisplayName(field);
-          item[displayName] = value;
-        });
-        return item;
-      });
-      return JSON.stringify(jsonData, null, 2);
-    } else {
-      // Generate CSV
-      const headers = fields.map(field => formatDisplayName(field));
-      let csv = headers.join(',') + '\n';
-      
-      records.forEach(record => {
-        const values = fields.map(field => {
-          const value = getNestedValue(record, field);
-          // Format value for CSV
-          if (value === null || value === undefined) return '';
-          if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`;
-          if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
-          return value;
-        });
-        csv += values.join(',') + '\n';
-      });
-      
-      return csv;
-    }
-  };
-
-  // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setPageIndex(newPage);
-  };
-
-  return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <Button 
-          variant="outline" 
-          onClick={() => navigate('/dashboard')} 
-          className="flex items-center gap-2"
-        >
-          <ChevronLeft size={16} />
-          Back to Dashboard
-        </Button>
-        <h1 className="text-2xl font-semibold">Export QuickBooks Data</h1>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Select Data to Export</CardTitle>
-            <CardDescription>
-              Choose an entity type and fetch records to export
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <EntitySelect 
-              selectedEntity={selectedEntity}
-              entityOptions={entityOptions}
-              onChange={handleEntitySelect}
-              dateRange={dateRange}
-              setDateRange={setDateRange}
-              isRequired={true} // Mark date range as required
-            />
-
-            {selectedEntity && (
-              <Button
-                onClick={handleFetchData}
-                disabled={isLoading || !dateRange?.from || !dateRange?.to}
-                className="flex items-center"
-              >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {isLoading ? "Loading Data..." : "Fetch Data"}
-              </Button>
-            )}
-
-            {selectedEntity && !isLoading && filteredRecords.length > 0 && (
-              <FilterControls
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                onSearch={handleSearch}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Export Options</CardTitle>
-            <CardDescription>
-              Configure your export settings
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col space-y-2">
-              <label htmlFor="file-name" className="text-sm font-medium">
-                File Name
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  id="file-name"
-                  value={fileName}
-                  onChange={(e) => setFileName(e.target.value)}
-                  placeholder="Enter file name"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <span className="text-sm text-muted-foreground">.csv/.json</span>
-              </div>
-            </div>
-            
-            {selectedRecordsCount > 0 && (
-              <div className="bg-muted p-2 rounded-md text-sm">
-                <p>{selectedRecordsCount} record(s) selected for export</p>
-              </div>
-            )}
-            
-            <ExportControls 
-              onExportAll={handleExport}
-              onExportSelected={handleExportSelected}
-              isLoading={isLoading}
-              hasData={filteredRecords.length > 0}
-              hasSelection={selectedRecordsCount > 0}
-              selectedEntity={selectedEntity}
-            />
-            
-            {getAvailableFields().length > 0 && (
-              <FieldSelectionPanel 
-                availableFields={getAvailableFields()}
-                selectedFields={selectedFields}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                onFieldToggle={toggleFieldSelection}
-                onSelectAll={handleSelectAllFields}
-                filteredFields={getFilteredFields()}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <ExportTable 
-        selectedEntity={selectedEntity}
-        isLoading={isLoading}
-        error={error}
-        paginatedRecords={paginatedRecords}
-        filteredRecords={filteredRecords}
-        pageIndex={pageIndex}
-        pageSize={pageSize}
-        setPageSize={setPageSize}
-        onPageChange={handlePageChange}
-        selectedRecords={selectedRecords}
-        selectAllRecords={selectAllRecords}
-        toggleRecordSelection={toggleRecordSelection}
-        toggleSelectAllRecords={toggleSelectAllRecords}
-        selectedRecordsCount={selectedRecordsCount}
-      />
-    </div>
-  );
-};
-
-export default Export;
