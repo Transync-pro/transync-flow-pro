@@ -49,10 +49,6 @@ export const ExportTable: React.FC<ExportTableProps> = ({
   handleSelectAllPages,
 }) => {
   const totalPages = Math.ceil(filteredRecords.length / pageSize);
-  
-  // Remove local handleSelectAllPages and selectAllRecordsAcrossPages.
-  // These will be handled by the parent via a prop.
-
 
   // Generate columns for the data table
   const generateColumns = (): ColumnDef<EntityRecord>[] => {

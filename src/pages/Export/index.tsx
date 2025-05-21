@@ -17,6 +17,7 @@ import { ExportControls } from "./ExportControls";
 import { FieldSelectionPanel } from "./FieldSelectionPanel";
 import { ExportTable } from "./ExportTable";
 import { formatDisplayName, getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
+import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 
 const Export = () => {
   const navigate = useNavigate();
@@ -29,6 +30,7 @@ const Export = () => {
   const [selectedRecords, setSelectedRecords] = useState<Record<string, boolean>>({});
   const [selectAllRecords, setSelectAllRecords] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateError, setDateError] = useState<string | null>(null);
   
   const {
     selectedEntity,
@@ -54,6 +56,7 @@ const Export = () => {
   useEffect(() => {
     if (dateRange?.from && dateRange?.to) {
       setSelectedDateRange({ from: dateRange.from, to: dateRange.to });
+      setDateError(null);
     }
   }, [dateRange, setSelectedDateRange]);
 
@@ -65,21 +68,6 @@ const Export = () => {
     setSelectAllRecords(false);
     setSearchQuery("");
   }, [selectedEntity, entityState]);
-
-  // Listen for select-all-records custom event
-  useEffect(() => {
-    const handleSelectAllRecords = (event: Event) => {
-      const customEvent = event as CustomEvent<{ selectedIds: Record<string, boolean> }>;
-      setSelectedRecords(customEvent.detail.selectedIds);
-      setSelectAllRecords(true);
-    };
-
-    document.addEventListener('select-all-records', handleSelectAllRecords);
-    
-    return () => {
-      document.removeEventListener('select-all-records', handleSelectAllRecords);
-    };
-  }, [filteredRecords]);
 
   // Get entity records with applied filters
   const getEntityRecords = (): EntityRecord[] => {
@@ -148,8 +136,9 @@ const Export = () => {
   const handleFetchData = async () => {
     try {
       if (!selectedEntity) return;
-      // Check if date range is selected
+      // Check if date range is selected - now required
       if (!dateRange?.from || !dateRange?.to) {
+        setDateError("Date Range Required");
         toast({
           title: "Date Range Required",
           description: "Please select a date range before fetching data.",
@@ -224,6 +213,13 @@ const Export = () => {
       title: "Selection Complete",
       description: `Selected all ${filteredRecords.length} records across all pages.`,
     });
+    
+    // Dispatch a custom event for other components to listen for
+    const event = new CustomEvent('select-all-records', {
+      detail: { selectedIds: allIds }
+    });
+    document.dispatchEvent(event);
+    
   }, [filteredRecords]);
 
   // Count selected records
@@ -335,3 +331,166 @@ const Export = () => {
         // Use setTimeout to ensure the download has started before cleaning up
         setTimeout(() => {
           if (link && link.parentNode) {
+            document.body.removeChild(link);
+          }
+          if (url) {
+            URL.revokeObjectURL(url);
+          }
+        }, 200);
+      }
+    }
+  };
+
+  // Handle export data formatting
+  const handleExportData = (records: EntityRecord[], fields: string[], format: "csv" | "json"): string => {
+    if (format === "json") {
+      // JSON export
+      const jsonData = records.map(record => {
+        const exportRecord: Record<string, any> = {};
+        fields.forEach(field => {
+          exportRecord[field] = getNestedValue(record, field);
+        });
+        return exportRecord;
+      });
+      
+      return JSON.stringify(jsonData, null, 2);
+    } else {
+      // CSV export
+      const headers = fields.map(field => {
+        const displayName = formatDisplayName(field);
+        // Escape commas in header
+        return displayName.includes(',') ? `"${displayName}"` : displayName;
+      });
+      
+      let csv = headers.join(',') + '\n';
+      
+      records.forEach(record => {
+        const values = fields.map(field => {
+          const value = getNestedValue(record, field);
+          
+          // Format value for CSV
+          if (value === null || value === undefined) return '';
+          
+          // Handle dates specially
+          if (value instanceof Date) {
+            return value.toISOString();
+          }
+          
+          // Convert to string and escape for CSV
+          const strValue = String(value);
+          
+          // If contains commas, quotes, or newlines, wrap in quotes and escape internal quotes
+          if (strValue.includes(',') || strValue.includes('"') || strValue.includes('\n')) {
+            return `"${strValue.replace(/"/g, '""')}"`;
+          }
+          
+          return strValue;
+        });
+        
+        csv += values.join(',') + '\n';
+      });
+      
+      return csv;
+    }
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    setPageIndex(newPage);
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-center mb-6">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/dashboard')} 
+            className="flex items-center gap-2"
+          >
+            <ChevronLeft size={16} />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-2xl font-semibold">Export QuickBooks Data</h1>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Select Data to Export</CardTitle>
+              <CardDescription>
+                Choose an entity type and fetch records to export
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <EntitySelect 
+                selectedEntity={selectedEntity} 
+                entityOptions={entityOptions}
+                onChange={handleEntitySelect}
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+                isRequired={true}
+                onFetchData={handleFetchData}
+              />
+
+              {selectedEntity && !isLoading && filteredRecords.length > 0 && (
+                <FilterControls 
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  onSearch={handleSearch}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Export Options</CardTitle>
+              <CardDescription>
+                Configure your export settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ExportControls 
+                fileName={fileName}
+                setFileName={setFileName}
+                selectedRecordsCount={selectedRecordsCount}
+                onExport={handleExport}
+                disableExport={filteredRecords.length === 0 || selectedFields.length === 0}
+              />
+              
+              <FieldSelectionPanel 
+                availableFields={getFilteredFields()}
+                selectedFields={selectedFields}
+                toggleFieldSelection={toggleFieldSelection}
+                handleSelectAllFields={handleSelectAllFields}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        <ExportTable 
+          selectedEntity={selectedEntity}
+          isLoading={isLoading}
+          error={error}
+          paginatedRecords={paginatedRecords}
+          filteredRecords={filteredRecords}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          onPageChange={handlePageChange}
+          selectedRecords={selectedRecords}
+          selectAllRecords={selectAllRecords}
+          toggleRecordSelection={toggleRecordSelection}
+          toggleSelectAllRecords={toggleSelectAllRecords}
+          selectedRecordsCount={selectedRecordsCount}
+          handleSelectAllPages={handleSelectAllPages}
+        />
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default Export;

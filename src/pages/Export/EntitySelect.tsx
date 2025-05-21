@@ -8,7 +8,7 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface EntitySelectProps {
   selectedEntity: string | null;
@@ -17,6 +17,7 @@ interface EntitySelectProps {
   dateRange: DateRange | undefined;
   setDateRange: (dateRange: DateRange | undefined) => void;
   isRequired?: boolean;
+  onFetchData?: () => void; // Added to control fetch button behavior
 }
 
 export const EntitySelect = ({ 
@@ -25,9 +26,31 @@ export const EntitySelect = ({
   onChange, 
   dateRange, 
   setDateRange,
-  isRequired = true // Changed default to true
+  isRequired = true,
+  onFetchData
 }: EntitySelectProps) => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
+
+  // Clear error when dateRange changes
+  useEffect(() => {
+    if (dateRange?.from && dateRange?.to) {
+      setDateError(null);
+    }
+  }, [dateRange]);
+
+  // Function to validate date before fetching data
+  const validateAndFetch = () => {
+    if (isRequired && (!dateRange?.from || !dateRange?.to)) {
+      setDateError("Date range is required");
+      return false;
+    }
+    
+    if (onFetchData) {
+      onFetchData();
+    }
+    return true;
+  };
 
   return (
     <div className="space-y-4">
@@ -54,7 +77,7 @@ export const EntitySelect = ({
 
       <div>
         <Label className="block mb-2">
-          Date Range <span className="text-red-500">*</span>
+          Date Range {isRequired && <span className="text-red-500">*</span>}
         </Label>
         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
           <PopoverTrigger asChild>
@@ -63,7 +86,7 @@ export const EntitySelect = ({
               variant={"outline"}
               className={cn(
                 "w-full justify-start text-left font-normal",
-                !dateRange?.from && "text-muted-foreground border-red-500"
+                (!dateRange?.from && isRequired) && "border-red-500"
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
@@ -77,7 +100,9 @@ export const EntitySelect = ({
                   format(dateRange.from, "LLL dd, y")
                 )
               ) : (
-                <span className="text-red-500">Select a date range (required)</span>
+                <span className={isRequired ? "text-red-500" : ""}>
+                  {isRequired ? "Select a date range (required)" : "Select a date range (optional)"}
+                </span>
               )}
             </Button>
           </PopoverTrigger>
@@ -95,14 +120,30 @@ export const EntitySelect = ({
                 }
               }}
               numberOfMonths={2}
-              className="p-3"
+              className="p-3 pointer-events-auto"
+              captionLayout="dropdown-buttons"
+              fromYear={2000}
+              toYear={2030}
             />
           </PopoverContent>
         </Popover>
-        {!dateRange?.from && (
+        {dateError && isRequired && (
+          <p className="text-red-500 text-sm mt-1">{dateError}</p>
+        )}
+        {(!dateRange?.from && isRequired) && (
           <p className="text-red-500 text-sm mt-1">Date range is required</p>
         )}
       </div>
+      
+      {onFetchData && selectedEntity && (
+        <Button 
+          onClick={validateAndFetch}
+          className="mt-2"
+          disabled={isRequired && (!dateRange?.from || !dateRange?.to)}
+        >
+          Fetch Data
+        </Button>
+      )}
     </div>
   );
 };

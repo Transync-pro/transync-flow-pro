@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +17,7 @@ import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { logError } from "@/utils/errorLogger";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import DatePicker from "react-datepicker";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import "react-datepicker/dist/react-datepicker.css";
 import { Pagination } from "@/components/ui/pagination";
 import { getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
@@ -28,6 +29,7 @@ const Delete = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedAll, setSelectedAll] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date | null, to: Date | null }>({ from: null, to: null });
+  const [dateError, setDateError] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   
@@ -64,6 +66,7 @@ const Delete = () => {
   useEffect(() => {
     if (dateRange?.from && dateRange?.to) {
       setSelectedDateRange({ from: dateRange.from, to: dateRange.to });
+      setDateError(null);
     }
   }, [dateRange, setSelectedDateRange]);
 
@@ -84,6 +87,7 @@ const Delete = () => {
         return;
       }
       if (!dateRange?.from || !dateRange?.to) {
+        setDateError("Date range is required");
         toast({
           title: "Date Range Required",
           description: "Please select a date range before fetching data.",
@@ -108,10 +112,20 @@ const Delete = () => {
     setPageIndex(0);
   };
 
-  // Handle checkbox select all
+  // Handle checkbox select all on current page
   const handleSelectAll = (checked: boolean) => {
     setSelectedAll(checked);
     selectAllEntities(checked, paginatedRecords);
+  };
+
+  // Handle select all records across all pages
+  const handleSelectAllPages = () => {
+    setSelectedAll(true);
+    selectAllEntities(true, filteredRecords);
+    toast({
+      title: "Selection Complete",
+      description: `Selected all ${filteredRecords.length} records across all pages.`,
+    });
   };
 
   // Handle delete confirmation
@@ -156,16 +170,28 @@ const Delete = () => {
       {
         id: "select",
         header: ({ table }) => (
-  <Checkbox
-    checked={selectedAll && selectedEntityIds.length === filteredRecords.length}
-    onCheckedChange={(checked) => {
-      setSelectedAll(!!checked);
-      selectAllEntities(!!checked, filteredRecords);
-    }}
-    aria-label="Select all records across all pages"
-    data-testid="select-all-pages-checkbox"
-  />
-),
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              checked={selectedAll && paginatedRecords.every(record => 
+                selectedEntityIds.includes(record.Id))}
+              onCheckedChange={(checked) => {
+                handleSelectAll(!!checked);
+              }}
+              aria-label="Select all on this page"
+            />
+            {filteredRecords.length > pageSize && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-2 text-xs"
+                onClick={handleSelectAllPages}
+                data-testid="select-all-pages"
+              >
+                Select all pages
+              </Button>
+            )}
+          </div>
+        ),
         cell: ({ row }) => (
           <Checkbox
             checked={selectedEntityIds.includes(row.original.Id)}
@@ -174,6 +200,7 @@ const Delete = () => {
         ),
         enableSorting: false,
         enableHiding: false,
+        size: 150,
       },
       {
         accessorFn: (_, index) => pageIndex * pageSize + index + 1,
@@ -282,44 +309,104 @@ const Delete = () => {
                 </Select>
               </div>
               <div className="flex flex-col space-y-2 flex-grow">
-                <Label>Date Range (Required)</Label>
-                <DatePicker
-                  selectsRange
-                  startDate={dateRange.from}
-                  endDate={dateRange.to}
-                  onChange={(dates) => {
-                    const [start, end] = dates as [Date | null, Date | null];
-                    setDateRange({ from: start, to: end });
-                  }}
-                />
+                <Label>Date Range <span className="text-red-500">*</span></Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="date"
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dateRange?.from && "text-muted-foreground border-red-500"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                            {format(dateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span className="text-red-500">Select a date range (required)</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from || undefined}
+                      selected={{ 
+                        from: dateRange?.from || undefined, 
+                        to: dateRange?.to || undefined 
+                      }}
+                      onSelect={(range) => {
+                        if (range) {
+                          setDateRange({ 
+                            from: range.from, 
+                            to: range.to 
+                          });
+                        }
+                      }}
+                      numberOfMonths={2}
+                      className="p-3 pointer-events-auto"
+                      captionLayout="dropdown-buttons"
+                      fromYear={2000}
+                      toYear={2030}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {(!dateRange?.from || dateError) && (
+                  <p className="text-red-500 text-sm mt-1">Date range is required</p>
+                )}
               </div>
             </div>
-          )}
-        </CardContent>
-        {selectedEntityIds.length > 0 && (
-          <CardFooter className="flex justify-between">
-            <p className="text-sm text-gray-500">
-              {selectedEntityIds.length} item(s) selected
-            </p>
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              className="flex items-center"
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
-              )}
-              Delete Selected
-            </Button>
-          </CardFooter>
-        )}
-      </Card>
-    </div>
-  </DashboardLayout>
-);
+
+            {selectedEntity && (
+              <Button
+                onClick={handleFetchData}
+                disabled={isLoading || !dateRange?.from || !dateRange?.to}
+                className="flex items-center"
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {isLoading ? "Loading Data..." : "Fetch Data"}
+              </Button>
+            )}
+
+            {selectedEntity && !isLoading && filteredRecords.length > 0 && (
+              <div className="flex space-x-2">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search by name or ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleSearch}
+                  className="flex items-center"
+                >
+                  <Search className="h-4 w-4" />
+                  <span className="ml-2 hidden md:inline">Search</span>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+          {selectedEntityIds.length > 0 && (
+            <CardFooter className="flex justify-between">
+              <p className="text-sm text-gray-500">
+                {selectedEntityIds.length} item(s) selected
+              </p>
+              <Button
+                variant="destructive"
                 onClick={confirmDelete}
                 className="flex items-center"
                 disabled={isDeleting}
@@ -334,9 +421,68 @@ const Delete = () => {
             </CardFooter>
           )}
         </Card>
+
+        {filteredRecords.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {selectedEntity} Records
+                {` (${filteredRecords.length})`}
+                {selectedEntityIds.length > 0 && ` • ${selectedEntityIds.length} selected`}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <DataTable
+                  columns={generateColumns()}
+                  data={paginatedRecords}
+                  pageSize={pageSize}
+                  className="w-full"
+                />
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-500">
+                    Showing {pageIndex * pageSize + 1} to{" "}
+                    {Math.min((pageIndex + 1) * pageSize, filteredRecords.length)} of{" "}
+                    {filteredRecords.length} records
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(value) => {
+                        setPageSize(Number(value));
+                        setPageIndex(0);
+                      }}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue placeholder="Page size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10 / page</SelectItem>
+                        <SelectItem value="25">25 / page</SelectItem>
+                        <SelectItem value="50">50 / page</SelectItem>
+                        <SelectItem value="100">100 / page</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Pagination
+                      currentPage={pageIndex}
+                      totalPages={totalPages}
+                      onPageChange={handlePageChange}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );
 };
 
 export default Delete;
+
+// Helper to merge tailwind classes
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}
