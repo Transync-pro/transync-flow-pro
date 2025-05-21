@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
 import { toast } from "@/components/ui/use-toast";
@@ -49,7 +50,7 @@ const Export = () => {
   const totalPages = Math.ceil(filteredRecords.length / pageSize);
   const paginatedRecords = filteredRecords.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
-  // Handle date range change
+  // Handle date range change - now required
   useEffect(() => {
     if (dateRange?.from && dateRange?.to) {
       setSelectedDateRange({ from: dateRange.from, to: dateRange.to });
@@ -64,6 +65,21 @@ const Export = () => {
     setSelectAllRecords(false);
     setSearchQuery("");
   }, [selectedEntity, entityState]);
+
+  // Listen for select-all-records custom event
+  useEffect(() => {
+    const handleSelectAllRecords = (event: Event) => {
+      const customEvent = event as CustomEvent<{ selectedIds: Record<string, boolean> }>;
+      setSelectedRecords(customEvent.detail.selectedIds);
+      setSelectAllRecords(true);
+    };
+
+    document.addEventListener('select-all-records', handleSelectAllRecords);
+    
+    return () => {
+      document.removeEventListener('select-all-records', handleSelectAllRecords);
+    };
+  }, [filteredRecords]);
 
   // Get entity records with applied filters
   const getEntityRecords = (): EntityRecord[] => {
@@ -132,6 +148,17 @@ const Export = () => {
   const handleFetchData = async () => {
     try {
       if (!selectedEntity) return;
+      
+      // Check if date range is selected
+      if (!selectedDateRange?.from || !selectedDateRange?.to) {
+        toast({
+          title: "Date Range Required",
+          description: "Please select a date range before fetching data.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       await fetchEntities();
     } catch (error: any) {
       console.error(`Error fetching ${selectedEntity} data:`, error);
@@ -152,14 +179,25 @@ const Export = () => {
 
   // Handle record selection
   const toggleRecordSelection = (recordId: string) => {
-    setSelectedRecords(prev => ({
-      ...prev,
-      [recordId]: !prev[recordId]
-    }));
+    setSelectedRecords(prev => {
+      const newState = {
+        ...prev,
+        [recordId]: !prev[recordId]
+      };
+      
+      // Update selectAllRecords state for current page
+      const allPageItemsSelected = paginatedRecords.every(
+        record => !record.Id || newState[record.Id]
+      );
+      
+      setSelectAllRecords(allPageItemsSelected && paginatedRecords.length > 0);
+      
+      return newState;
+    });
   };
 
   // Handle select all records on current page
-  const toggleSelectAllRecords = () => {
+  const toggleSelectAllRecords = useCallback(() => {
     const newSelectAll = !selectAllRecords;
     setSelectAllRecords(newSelectAll);
     
@@ -172,7 +210,7 @@ const Export = () => {
     });
     
     setSelectedRecords(newSelectedRecords);
-  };
+  }, [selectAllRecords, selectedRecords, paginatedRecords]);
 
   // Count selected records
   const selectedRecordsCount = Object.values(selectedRecords).filter(Boolean).length;
@@ -378,12 +416,13 @@ const Export = () => {
               onChange={handleEntitySelect}
               dateRange={dateRange}
               setDateRange={setDateRange}
+              isRequired={true} // Mark date range as required
             />
 
             {selectedEntity && (
               <Button
                 onClick={handleFetchData}
-                disabled={isLoading}
+                disabled={isLoading || !dateRange?.from || !dateRange?.to}
                 className="flex items-center"
               >
                 {isLoading ? (

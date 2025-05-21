@@ -1,3 +1,4 @@
+
 import React from "react";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
@@ -9,6 +10,8 @@ import { getNestedValue } from "@/contexts/quickbooks/entityUtils";
 import { EntityRecord } from "@/contexts/quickbooks/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination } from "@/components/ui/pagination";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
 
 interface ExportTableProps {
   selectedEntity: string | null;
@@ -44,6 +47,52 @@ export const ExportTable: React.FC<ExportTableProps> = ({
   selectedRecordsCount,
 }) => {
   const totalPages = Math.ceil(filteredRecords.length / pageSize);
+  
+  // New function to select all records across all pages
+  const handleSelectAllPages = () => {
+    // Create confirmation message
+    if (filteredRecords.length > 500) {
+      toast({
+        title: "Selecting Large Dataset",
+        description: `You're about to select ${filteredRecords.length} records. This might affect performance. Are you sure?`,
+        action: (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => selectAllRecordsAcrossPages()}
+          >
+            Confirm
+          </Button>
+        ),
+      });
+    } else {
+      selectAllRecordsAcrossPages();
+    }
+  };
+  
+  // Function to actually select all records across pages
+  const selectAllRecordsAcrossPages = () => {
+    const allIds: Record<string, boolean> = {};
+    
+    filteredRecords.forEach(record => {
+      if (record.Id) {
+        allIds[record.Id] = true;
+      }
+    });
+    
+    // Create a custom event with the selected IDs
+    const selectAllEvent = new CustomEvent('select-all-records', { 
+      detail: { selectedIds: allIds } 
+    });
+    
+    // Dispatch the event to be handled by the parent
+    document.dispatchEvent(selectAllEvent);
+    
+    toast({
+      title: "Selection Complete",
+      description: `Selected all ${filteredRecords.length} records across all pages.`
+    });
+  };
 
   // Generate columns for the data table
   const generateColumns = (): ColumnDef<EntityRecord>[] => {
@@ -56,11 +105,23 @@ export const ExportTable: React.FC<ExportTableProps> = ({
       {
         id: "select",
         header: ({ table }) => (
-          <Checkbox
-            checked={selectAllRecords}
-            onCheckedChange={toggleSelectAllRecords}
-            aria-label="Select all"
-          />
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              checked={selectAllRecords}
+              onCheckedChange={toggleSelectAllRecords}
+              aria-label="Select all on this page"
+            />
+            {filteredRecords.length > pageSize && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="ml-2 text-xs" 
+                onClick={handleSelectAllPages}
+              >
+                Select all pages
+              </Button>
+            )}
+          </div>
         ),
         cell: ({ row }) => {
           const recordId = row.original.Id;
@@ -72,7 +133,7 @@ export const ExportTable: React.FC<ExportTableProps> = ({
             />
           ) : null;
         },
-        size: 40,
+        size: 150, // Increased to accommodate the new button
       },
       {
         accessorFn: (_, index) => pageIndex * pageSize + index + 1,

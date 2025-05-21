@@ -15,8 +15,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  ArrowUp,
   ArrowDown,
+  ArrowUp,
   Trash2,
   LayoutDashboard,
   Search,
@@ -212,7 +212,7 @@ const DashboardSidebar = () => {
                       className={`flex items-center ${isActivePath('/dashboard/import') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
                     >
                       <div className={`p-1.5 rounded-md ${isActivePath('/dashboard/import') ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
-                        <ArrowDown size={16} />
+                        <ArrowUp size={16} />
                       </div>
                       {!isCollapsed && <span className="ml-2 font-medium">Import</span>}
                     </Link>
@@ -225,7 +225,7 @@ const DashboardSidebar = () => {
                       className={`flex items-center ${isActivePath('/dashboard/export') && !isCollapsed ? 'bg-purple-100 text-purple-800' : ''} hover:bg-purple-50 transition-colors rounded-md`}
                     >
                       <div className={`p-1.5 rounded-md ${isActivePath('/dashboard/export') ? 'bg-green-200 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                        <ArrowUp size={16} />
+                        <ArrowDown size={16} />
                       </div>
                       {!isCollapsed && <span className="ml-2 font-medium">Export</span>}
                     </Link>
