@@ -177,7 +177,7 @@ const Delete = () => {
               }}
               aria-label="Select all records"
             />
-            <span className="ml-2 text-xs text-muted-foreground">
+            <span className="ml-2 text-xs text-muted-foreground whitespace-nowrap">
               {selectedAll ? "All selected" : "Select all"}
             </span>
           </div>
@@ -206,7 +206,11 @@ const Delete = () => {
     const entityColumns: ColumnDef<any>[] = entityColumnConfigs.map(config => {
       return {
         accessorKey: config.field,
-        header: config.header,
+        header: () => (
+          <div className="whitespace-nowrap overflow-hidden text-ellipsis">
+            {config.header}
+          </div>
+        ),
         cell: ({ row }) => {
           const value = config.accessor 
             ? config.accessor(row.original)
@@ -286,9 +290,9 @@ const Delete = () => {
               Choose an entity type, fetch records, then select items to delete
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-4">
-              <div className="flex flex-col space-y-2 flex-grow">
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 gap-6">
+              <div className="flex flex-col space-y-2">
                 <Label htmlFor="entity-type">Entity Type</Label>
                 <Select
                   value={selectedEntity || ""}
@@ -306,13 +310,14 @@ const Delete = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex flex-col space-y-2 flex-grow">
+              
+              <div className="flex flex-col space-y-2">
                 <Label>Date Range <span className="text-red-500">*</span></Label>
                 
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col gap-4">
                   {/* Start Date */}
-                  <div className="flex-1">
-                    <Label className="text-sm text-muted-foreground mb-1 block">Start Date</Label>
+                  <div className="w-full">
+                    <Label className="text-sm text-muted-foreground mb-1.5 block">Start Date</Label>
                     <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -356,8 +361,8 @@ const Delete = () => {
                   </div>
                   
                   {/* End Date */}
-                  <div className="flex-1">
-                    <Label className="text-sm text-muted-foreground mb-1 block">End Date</Label>
+                  <div className="w-full">
+                    <Label className="text-sm text-muted-foreground mb-1.5 block">End Date</Label>
                     <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -407,7 +412,7 @@ const Delete = () => {
               <Button
                 onClick={handleFetchData}
                 disabled={isLoading || !dateRange?.from || !dateRange?.to}
-                className="flex items-center"
+                className="flex items-center mt-2"
               >
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -438,7 +443,7 @@ const Delete = () => {
             )}
           </CardContent>
           {selectedEntityIds.length > 0 && (
-            <CardFooter className="flex justify-between">
+            <CardFooter className="flex justify-between pt-4">
               <p className="text-sm text-gray-500">
                 {selectedEntityIds.length} item(s) selected
               </p>
@@ -476,13 +481,13 @@ const Delete = () => {
                   pageSize={pageSize}
                   className="w-full"
                 />
-                <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center justify-between mt-6">
                   <div className="text-sm text-gray-500">
                     Showing {pageIndex * pageSize + 1} to{" "}
                     {Math.min((pageIndex + 1) * pageSize, filteredRecords.length)} of{" "}
                     {filteredRecords.length} records
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3">
                     <Select
                       value={String(pageSize)}
                       onValueChange={(value) => {

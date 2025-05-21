@@ -54,7 +54,7 @@ export const EntitySelect = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <Label htmlFor="entity" className="block mb-2">
           Entity Type
@@ -76,15 +76,15 @@ export const EntitySelect = ({
         </Select>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <Label className="block">
           Date Range {isRequired && <span className="text-red-500">*</span>}
         </Label>
         
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col gap-4">
           {/* Start Date Picker */}
-          <div className="flex-1">
-            <Label className="text-sm text-muted-foreground mb-1 block">Start Date</Label>
+          <div className="w-full">
+            <Label className="text-sm text-muted-foreground mb-1.5 block">Start Date</Label>
             <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -128,8 +128,8 @@ export const EntitySelect = ({
           </div>
           
           {/* End Date Picker */}
-          <div className="flex-1">
-            <Label className="text-sm text-muted-foreground mb-1 block">End Date</Label>
+          <div className="w-full">
+            <Label className="text-sm text-muted-foreground mb-1.5 block">End Date</Label>
             <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -181,7 +181,7 @@ export const EntitySelect = ({
       {onFetchData && selectedEntity && (
         <Button 
           onClick={validateAndFetch}
-          className="mt-2"
+          className="mt-4"
           disabled={isRequired && (!dateRange?.from || !dateRange?.to)}
         >
           Fetch Data

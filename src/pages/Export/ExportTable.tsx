@@ -66,7 +66,7 @@ export const ExportTable: React.FC<ExportTableProps> = ({
               onCheckedChange={toggleSelectAllRecords}
               aria-label="Select all records across all pages"
             />
-            <span className="ml-2 text-xs text-muted-foreground">
+            <span className="ml-2 text-xs text-muted-foreground whitespace-nowrap">
               {selectAllRecords ? "All selected" : "Select all"}
             </span>
           </div>
@@ -97,7 +97,11 @@ export const ExportTable: React.FC<ExportTableProps> = ({
     const entityColumns = entityColumnConfigs.map(config => {
       return {
         accessorKey: config.field,
-        header: config.header,
+        header: () => (
+          <div className="whitespace-nowrap overflow-hidden text-ellipsis">
+            {config.header}
+          </div>
+        ),
         cell: ({ row }) => {
           const value = config.accessor 
             ? config.accessor(row.original)
@@ -155,7 +159,6 @@ export const ExportTable: React.FC<ExportTableProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Modified to show more results without scrolling */}
         <div className="overflow-x-auto">
           {isLoading ? (
             <div className="flex flex-col items-center py-8">
@@ -184,13 +187,13 @@ export const ExportTable: React.FC<ExportTableProps> = ({
           )}
         </div>
         {filteredRecords.length > 0 && (
-          <div className="flex items-center justify-between mt-4">
+          <div className="flex items-center justify-between mt-6">
             <div className="text-sm text-gray-500">
               Showing {pageIndex * pageSize + 1} to{" "}
               {Math.min((pageIndex + 1) * pageSize, filteredRecords.length)} of{" "}
               {filteredRecords.length} records
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <Select
                 value={String(pageSize)}
                 onValueChange={(value) => {
