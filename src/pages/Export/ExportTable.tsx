@@ -72,11 +72,12 @@ export const ExportTable: React.FC<ExportTableProps> = ({
               aria-label="Select all on this page"
             />
             {filteredRecords.length > pageSize && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="ml-2 text-xs" 
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-2 text-xs"
                 onClick={handleSelectAllPages}
+                data-testid="select-all-pages"
               >
                 Select all pages
               </Button>

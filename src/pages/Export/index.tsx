@@ -148,18 +148,15 @@ const Export = () => {
   const handleFetchData = async () => {
     try {
       if (!selectedEntity) return;
-      
       // Check if date range is selected
-      if (!selectedDateRange?.from || !selectedDateRange?.to) {
+      if (!dateRange?.from || !dateRange?.to) {
         toast({
           title: "Date Range Required",
           description: "Please select a date range before fetching data.",
           variant: "destructive",
         });
-        setDateRange((prev) => ({ ...prev, error: true }));
         return;
       }
-      
       await fetchEntities();
     } catch (error: any) {
       console.error(`Error fetching ${selectedEntity} data:`, error);

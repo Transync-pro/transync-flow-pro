@@ -297,7 +297,7 @@ const Delete = () => {
               </div>
 
               <div className="flex flex-col space-y-2 flex-grow">
-                <Label>Date Range (Optional)</Label>
+                <Label>Date Range (Required)</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -345,7 +345,7 @@ const Delete = () => {
             {selectedEntity && (
               <Button
                 onClick={handleFetchData}
-                disabled={isLoading}
+                disabled={isLoading || !dateRange?.from || !dateRange?.to}
                 className="flex items-center"
               >
                 {isLoading ? (
