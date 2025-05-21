@@ -165,18 +165,19 @@ const Delete = () => {
               aria-label="Select all on this page"
             />
             {filteredRecords.length > pageSize && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-2 text-xs"
-                onClick={() => {
-                  setSelectedAll(true);
-                  selectAllEntities(true, filteredRecords);
-                }}
-                data-testid="select-all-pages"
-              >
-                Select all pages
-              </Button>
+              <div className="flex items-center ml-2">
+                <Checkbox
+                  checked={selectedAll && selectedEntityIds.length === filteredRecords.length}
+                  onCheckedChange={(checked) => {
+                    setSelectedAll(!!checked);
+                    selectAllEntities(!!checked, filteredRecords);
+                  }}
+                  aria-label="Select all records across all pages"
+                  data-testid="select-all-pages-checkbox"
+                />
+                <span className="sr-only">Select all records across all pages</span>
+                {/* Optionally, add a tooltip for clarity */}
+              </div>
             )}
           </div>
         ),
