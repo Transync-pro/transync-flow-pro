@@ -14,6 +14,9 @@ interface FieldSelectionPanelProps {
   onFieldToggle: (field: string) => void;
   onSelectAll: (select: boolean) => void;
   filteredFields: string[];
+  // Add the props being passed from index.tsx
+  toggleFieldSelection?: (field: string) => void;
+  handleSelectAllFields?: (select: boolean) => void;
 }
 
 export const FieldSelectionPanel = ({
@@ -23,8 +26,17 @@ export const FieldSelectionPanel = ({
   setSearchQuery,
   onFieldToggle,
   onSelectAll,
-  filteredFields
+  filteredFields,
+  // Include the new props and set them to use the original props if provided
+  toggleFieldSelection,
+  handleSelectAllFields
 }: FieldSelectionPanelProps) => {
+  // Use the provided toggle function or fall back to the original
+  const handleFieldToggle = toggleFieldSelection || onFieldToggle;
+  
+  // Use the provided select all function or fall back to the original
+  const handleSelectAll = handleSelectAllFields || onSelectAll;
+  
   const isAllSelected = availableFields.length > 0 && 
                         selectedFields.length === availableFields.length;
                         
@@ -48,7 +60,7 @@ export const FieldSelectionPanel = ({
             id="select-all-fields"
             checked={isAllSelected}
             data-state={isPartiallySelected ? "indeterminate" : isAllSelected ? "checked" : "unchecked"}
-            onCheckedChange={(checked) => onSelectAll(!!checked)}
+            onCheckedChange={(checked) => handleSelectAll(!!checked)}
           />
           <Label htmlFor="select-all-fields">Select All Fields</Label>
         </div>
@@ -60,7 +72,7 @@ export const FieldSelectionPanel = ({
                 <Checkbox
                   id={`field-${field}`}
                   checked={selectedFields.includes(field)}
-                  onCheckedChange={() => onFieldToggle(field)}
+                  onCheckedChange={() => handleFieldToggle(field)}
                 />
                 <Label htmlFor={`field-${field}`} className="text-sm">
                   {formatDisplayName(field)}
