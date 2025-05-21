@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -63,6 +64,19 @@ const Export = () => {
     setSelectAllRecords(false);
     setSearchQuery("");
   }, [selectedEntity, entityState]);
+
+  // Add event listener for select-all-records event
+  useEffect(() => {
+    const handleSelectAllRecords = (event: CustomEvent<{ selectedIds: Record<string, boolean> }>) => {
+      setSelectedRecords(event.detail.selectedIds);
+    };
+
+    document.addEventListener('select-all-records', handleSelectAllRecords as EventListener);
+
+    return () => {
+      document.removeEventListener('select-all-records', handleSelectAllRecords as EventListener);
+    };
+  }, []);
 
   // Get entity records with applied filters
   const getEntityRecords = (): EntityRecord[] => {
@@ -131,6 +145,17 @@ const Export = () => {
   const handleFetchData = async () => {
     try {
       if (!selectedEntity) return;
+      
+      // Check if date range is selected
+      if (!dateRange?.from || !dateRange?.to) {
+        toast({
+          title: "Date Range Required",
+          description: "Please select a date range before fetching data",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       await fetchEntities();
     } catch (error: any) {
       console.error(`Error fetching ${selectedEntity} data:`, error);
@@ -344,6 +369,7 @@ const Export = () => {
               onChange={handleEntitySelect}
               dateRange={dateRange}
               setDateRange={setDateRange}
+              isRequired={true}  // Make it required
             />
 
             {selectedEntity && (

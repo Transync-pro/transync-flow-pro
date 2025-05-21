@@ -25,7 +25,7 @@ export const EntitySelect = ({
   onChange, 
   dateRange, 
   setDateRange,
-  isRequired = false 
+  isRequired = true // Changed default to true
 }: EntitySelectProps) => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
@@ -54,7 +54,7 @@ export const EntitySelect = ({
 
       <div>
         <Label className="block mb-2">
-          Date Range {isRequired && <span className="text-red-500">*</span>}
+          Date Range <span className="text-red-500">*</span>
         </Label>
         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
           <PopoverTrigger asChild>
@@ -63,8 +63,7 @@ export const EntitySelect = ({
               variant={"outline"}
               className={cn(
                 "w-full justify-start text-left font-normal",
-                !dateRange?.from && "text-muted-foreground",
-                isRequired && !dateRange?.from && "border-red-500"
+                !dateRange?.from && "text-muted-foreground border-red-500"
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
@@ -77,10 +76,8 @@ export const EntitySelect = ({
                 ) : (
                   format(dateRange.from, "LLL dd, y")
                 )
-              ) : isRequired ? (
-                <span className="text-red-500">Select a date range (required)</span>
               ) : (
-                <span>Select a date range</span>
+                <span className="text-red-500">Select a date range (required)</span>
               )}
             </Button>
           </PopoverTrigger>
@@ -102,7 +99,7 @@ export const EntitySelect = ({
             />
           </PopoverContent>
         </Popover>
-        {isRequired && !dateRange?.from && (
+        {!dateRange?.from && (
           <p className="text-red-500 text-sm mt-1">Date range is required</p>
         )}
       </div>
