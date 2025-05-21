@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -394,6 +393,17 @@ const Export = () => {
     }
   };
 
+  // Legacy export functions for compatibility with ExportControls props
+  const handleExportAll = (format: "csv" | "json") => {
+    return handleExport(format);
+  };
+  
+  const handleExportSelected = (format: "csv" | "json") => {
+    return (e: React.MouseEvent<HTMLButtonElement>) => {
+      handleExport(format);
+    };
+  };
+
   // Handle page change
   const handlePageChange = (newPage: number) => {
     setPageIndex(newPage);
@@ -457,15 +467,27 @@ const Export = () => {
                 selectedRecordsCount={selectedRecordsCount}
                 onExport={handleExport}
                 disableExport={filteredRecords.length === 0 || selectedFields.length === 0}
+                // Add required props from interface
+                onExportAll={handleExportAll}
+                onExportSelected={handleExportSelected}
+                isLoading={isLoading}
+                hasData={filteredRecords.length > 0}
+                hasSelection={selectedRecordsCount > 0}
+                selectedEntity={selectedEntity}
               />
               
               <FieldSelectionPanel 
-                availableFields={getFilteredFields()}
+                availableFields={getAvailableFields()}
                 selectedFields={selectedFields}
-                toggleFieldSelection={toggleFieldSelection}
-                handleSelectAllFields={handleSelectAllFields}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
+                // Add the new props
+                toggleFieldSelection={toggleFieldSelection}
+                handleSelectAllFields={handleSelectAllFields}
+                // Add required props from interface
+                onFieldToggle={toggleFieldSelection}
+                onSelectAll={handleSelectAllFields}
+                filteredFields={getFilteredFields()}
               />
             </CardContent>
           </Card>
