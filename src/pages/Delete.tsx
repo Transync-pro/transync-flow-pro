@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,14 @@ const Delete = () => {
       if (!selectedEntity) {
         return;
       }
-      
+      if (!dateRange?.from || !dateRange?.to) {
+        toast({
+          title: "Date Range Required",
+          description: "Please select a date range before fetching data.",
+          variant: "destructive",
+        });
+        return;
+      }
       await fetchEntities();
     } catch (error) {
       logError(`Error fetching ${selectedEntity} data for deletion`, {
@@ -148,12 +156,29 @@ const Delete = () => {
       {
         id: "select",
         header: ({ table }) => (
-          <Checkbox
-            checked={selectedAll}
-            onCheckedChange={(checked) => {
-              handleSelectAll(!!checked);
-            }}
-          />
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              checked={selectedAll}
+              onCheckedChange={(checked) => {
+                handleSelectAll(!!checked);
+              }}
+              aria-label="Select all on this page"
+            />
+            {filteredRecords.length > pageSize && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-2 text-xs"
+                onClick={() => {
+                  setSelectedAll(true);
+                  selectAllEntities(true, filteredRecords);
+                }}
+                data-testid="select-all-pages"
+              >
+                Select all pages
+              </Button>
+            )}
+          </div>
         ),
         cell: ({ row }) => (
           <Checkbox
