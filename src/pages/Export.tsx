@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
@@ -32,6 +33,7 @@ const Export = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedRecords, setSelectedRecords] = useState<Record<string, boolean>>({});
   const [selectAllRecords, setSelectAllRecords] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   const {
     selectedEntity,
@@ -160,9 +162,10 @@ const Export = () => {
     const newSelectAll = !selectAllRecords;
     setSelectAllRecords(newSelectAll);
     
+    // Select all records across all pages, not just current page
     const newSelectedRecords = { ...selectedRecords };
     
-    paginatedRecords.forEach(record => {
+    filteredRecords.forEach(record => {
       if (record.Id) {
         newSelectedRecords[record.Id] = newSelectAll;
       }
@@ -254,11 +257,16 @@ const Export = () => {
       {
         id: "select",
         header: ({ table }) => (
-          <Checkbox
-            checked={selectAllRecords}
-            onCheckedChange={toggleSelectAllRecords}
-            aria-label="Select all"
-          />
+          <div className="flex items-center">
+            <Checkbox
+              checked={selectAllRecords}
+              onCheckedChange={toggleSelectAllRecords}
+              aria-label="Select all records"
+            />
+            <span className="ml-2 text-xs text-muted-foreground">
+              {selectAllRecords ? "All selected" : "Select all"}
+            </span>
+          </div>
         ),
         cell: ({ row }) => {
           const recordId = row.original.Id;
@@ -376,8 +384,8 @@ const Export = () => {
                 </div>
                 
                 <div className="flex flex-col space-y-2 flex-grow">
-                  <Label>Date Range (Optional)</Label>
-                  <Popover>
+                  <Label>Date Range <span className="text-gray-500">(Optional)</span></Label>
+                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -404,8 +412,18 @@ const Export = () => {
                         mode="range"
                         defaultMonth={dateRange?.from}
                         selected={dateRange}
-                        onSelect={setDateRange}
+                        onSelect={(range) => {
+                          setDateRange(range);
+                          // Close the popover if both from and to dates are selected
+                          if (range?.from && range?.to) {
+                            setIsCalendarOpen(false);
+                          }
+                        }}
                         numberOfMonths={2}
+                        className="p-3 pointer-events-auto"
+                        captionLayout="dropdown"
+                        fromYear={2000}
+                        toYear={2030}
                       />
                     </PopoverContent>
                   </Popover>
@@ -609,3 +627,8 @@ const Export = () => {
 };
 
 export default Export;
+
+// Helper to merge tailwind classes
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}

@@ -320,7 +320,7 @@ const Delete = () => {
                           format(dateRange.from, "LLL dd, y")
                         )
                       ) : (
-                        <span className="text-red-500">Select a date range (required)</span>
+                        <span>Select a date range</span>
                       )}
                     </Button>
                   </PopoverTrigger>
@@ -347,14 +347,14 @@ const Delete = () => {
                       }}
                       numberOfMonths={2}
                       className="p-3 pointer-events-auto"
-                      captionLayout="dropdown-buttons"
+                      captionLayout="dropdown"
                       fromYear={2000}
                       toYear={2030}
                     />
                   </PopoverContent>
                 </Popover>
-                {(!dateRange?.from || dateError) && (
-                  <p className="text-red-500 text-sm mt-1">Date range is required</p>
+                {dateError && (
+                  <p className="text-red-500 text-sm mt-1">{dateError}</p>
                 )}
               </div>
             </div>

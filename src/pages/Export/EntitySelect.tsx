@@ -100,9 +100,7 @@ export const EntitySelect = ({
                   format(dateRange.from, "LLL dd, y")
                 )
               ) : (
-                <span className={isRequired ? "text-red-500" : ""}>
-                  {isRequired ? "Select a date range (required)" : "Select a date range (optional)"}
-                </span>
+                <span>Select a date range</span>
               )}
             </Button>
           </PopoverTrigger>
@@ -121,7 +119,7 @@ export const EntitySelect = ({
               }}
               numberOfMonths={2}
               className="p-3 pointer-events-auto"
-              captionLayout="dropdown-buttons"
+              captionLayout="dropdown"
               fromYear={2000}
               toYear={2030}
             />
@@ -129,9 +127,6 @@ export const EntitySelect = ({
         </Popover>
         {dateError && isRequired && (
           <p className="text-red-500 text-sm mt-1">{dateError}</p>
-        )}
-        {(!dateRange?.from && isRequired) && (
-          <p className="text-red-500 text-sm mt-1">Date range is required</p>
         )}
       </div>
       
