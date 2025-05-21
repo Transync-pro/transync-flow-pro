@@ -67,7 +67,7 @@ export const ExportTable: React.FC<ExportTableProps> = ({
               aria-label="Select all records across all pages"
             />
             <span className="ml-2 text-xs text-muted-foreground">
-              {selectAllRecords ? "All pages selected" : "Select all"}
+              {selectAllRecords ? "All selected" : "Select all"}
             </span>
           </div>
         ),
@@ -103,33 +103,41 @@ export const ExportTable: React.FC<ExportTableProps> = ({
             ? config.accessor(row.original)
             : getNestedValue(row.original, config.field);
           
+          let displayValue: string | number | React.ReactNode = "N/A";
+          
           // Format dates
           if (typeof value === 'string' && 
               (config.field.includes('Date') || config.field.includes('Expiration') || config.field.includes('Time'))) {
             try {
-              return new Date(value).toLocaleDateString();
+              displayValue = new Date(value).toLocaleDateString();
             } catch (e) {
-              return value || "N/A";
+              displayValue = value || "N/A";
             }
           }
-          
           // Format currency amounts
-          if ((typeof value === 'number' || !isNaN(parseFloat(value))) && 
+          else if ((typeof value === 'number' || !isNaN(parseFloat(value))) && 
               (config.field.includes('Amt') || config.field.includes('Balance') || 
                config.field.includes('Price') || config.field.includes('Amount'))) {
             try {
-              return `$${parseFloat(value).toFixed(2)}`;
+              displayValue = `$${parseFloat(value).toFixed(2)}`;
             } catch (e) {
-              return value || "N/A";
+              displayValue = value || "N/A";
             }
           }
-          
           // Boolean values
-          if (typeof value === 'boolean') {
-            return value ? "Yes" : "No";
+          else if (typeof value === 'boolean') {
+            displayValue = value ? "Yes" : "No";
+          }
+          else {
+            displayValue = value || "N/A";
           }
           
-          return value || "N/A";
+          // Apply no-wrap styling
+          return (
+            <div className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]" title={String(displayValue)}>
+              {displayValue}
+            </div>
+          );
         },
       };
     });

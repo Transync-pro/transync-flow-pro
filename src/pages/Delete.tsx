@@ -32,7 +32,8 @@ const Delete = () => {
   const [dateError, setDateError] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [startDateOpen, setStartDateOpen] = useState(false);
+  const [endDateOpen, setEndDateOpen] = useState(false);
   
   const {
     selectedEntity,
@@ -211,33 +212,41 @@ const Delete = () => {
             ? config.accessor(row.original)
             : getNestedValue(row.original, config.field);
           
+          let displayValue: string | number | React.ReactNode = "N/A";
+          
           // Format dates
           if (typeof value === 'string' && 
               (config.field.includes('Date') || config.field.includes('Expiration') || config.field.includes('Time'))) {
             try {
-              return new Date(value).toLocaleDateString();
+              displayValue = new Date(value).toLocaleDateString();
             } catch (e) {
-              return value || "N/A";
+              displayValue = value || "N/A";
             }
           }
-          
           // Format currency amounts
-          if ((typeof value === 'number' || !isNaN(parseFloat(value))) && 
+          else if ((typeof value === 'number' || !isNaN(parseFloat(value))) && 
               (config.field.includes('Amt') || config.field.includes('Balance') || 
                config.field.includes('Price') || config.field.includes('Amount'))) {
             try {
-              return `$${parseFloat(value).toFixed(2)}`;
+              displayValue = `$${parseFloat(value).toFixed(2)}`;
             } catch (e) {
-              return value || "N/A";
+              displayValue = value || "N/A";
             }
           }
-          
           // Boolean values
-          if (typeof value === 'boolean') {
-            return value ? "Yes" : "No";
+          else if (typeof value === 'boolean') {
+            displayValue = value ? "Yes" : "No";
+          }
+          else {
+            displayValue = value || "N/A";
           }
           
-          return value || "N/A";
+          // Apply no-wrap styling
+          return (
+            <div className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]" title={String(displayValue)}>
+              {displayValue}
+            </div>
+          );
         },
       };
     });
@@ -299,63 +308,98 @@ const Delete = () => {
               </div>
               <div className="flex flex-col space-y-2 flex-grow">
                 <Label>Date Range <span className="text-red-500">*</span></Label>
-                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      id="date"
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        (!dateRange?.from && true) && "border-red-500"
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {dateRange?.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "LLL dd, y")} -{" "}
-                            {format(dateRange.to, "LLL dd, y")}
-                          </>
-                        ) : (
-                          format(dateRange.from, "LLL dd, y")
-                        )
-                      ) : (
-                        <span>Select a date range</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from || undefined}
-                      selected={{ 
-                        from: dateRange?.from || undefined, 
-                        to: dateRange?.to || undefined 
-                      }}
-                      onSelect={(range) => {
-                        if (range) {
-                          setDateRange({ 
-                            from: range.from, 
-                            to: range.to 
-                          });
-                          // Close the popover if both from and to dates are selected
-                          if (range.from && range.to) {
-                            setIsCalendarOpen(false);
-                          }
-                        }
-                      }}
-                      numberOfMonths={2}
-                      className="p-3 pointer-events-auto"
-                      captionLayout="dropdown"
-                      fromYear={2000}
-                      toYear={2030}
-                    />
-                  </PopoverContent>
-                </Popover>
-                {dateError && (
-                  <p className="text-red-500 text-sm mt-1">{dateError}</p>
-                )}
+                
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {/* Start Date */}
+                  <div className="flex-1">
+                    <Label className="text-sm text-muted-foreground mb-1 block">Start Date</Label>
+                    <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            (!dateRange?.from) && "border-red-500"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {dateRange?.from ? (
+                            format(dateRange.from, "LLL dd, y")
+                          ) : (
+                            <span>Select start date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          initialFocus
+                          mode="single"
+                          defaultMonth={dateRange?.from || undefined}
+                          selected={dateRange?.from || undefined}
+                          onSelect={(date) => {
+                            setDateRange({
+                              from: date,
+                              to: dateRange.to
+                            });
+                            if (date) {
+                              setStartDateOpen(false);
+                            }
+                          }}
+                          numberOfMonths={1}
+                          className="p-3 pointer-events-auto"
+                          captionLayout="dropdown"
+                          fromYear={2000}
+                          toYear={2030}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  {/* End Date */}
+                  <div className="flex-1">
+                    <Label className="text-sm text-muted-foreground mb-1 block">End Date</Label>
+                    <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            (!dateRange?.to) && "border-red-500"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {dateRange?.to ? (
+                            format(dateRange.to, "LLL dd, y")
+                          ) : (
+                            <span>Select end date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          initialFocus
+                          mode="single"
+                          defaultMonth={dateRange?.to || dateRange?.from || undefined}
+                          selected={dateRange?.to || undefined}
+                          onSelect={(date) => {
+                            setDateRange({
+                              from: dateRange.from,
+                              to: date
+                            });
+                            if (date) {
+                              setEndDateOpen(false);
+                            }
+                          }}
+                          numberOfMonths={1}
+                          className="p-3 pointer-events-auto"
+                          captionLayout="dropdown"
+                          fromYear={2000}
+                          toYear={2030}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
               </div>
             </div>
 
