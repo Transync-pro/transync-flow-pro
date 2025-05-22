@@ -81,12 +81,12 @@ export const EntitySelect = ({
           Date Range {isRequired && <span className="text-red-500">*</span>}
         </Label>
         
-        <div className="flex flex-col gap-3">
-          {/* Start Date Picker - removed label */}
+        <div className="flex flex-col gap-2">
+          {/* Start Date Picker Button */}
           <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
             <PopoverTrigger asChild>
               <Button
-                variant={"outline"}
+                variant="outline"
                 className={cn(
                   "w-full justify-start text-left font-normal",
                   (!dateRange?.from && isRequired) && "border-red-500"
