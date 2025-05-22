@@ -82,7 +82,7 @@ export const EntitySelect = ({
         </Label>
         
         <div className="flex flex-col gap-2">
-          {/* Start Date Picker Button */}
+          {/* Start Date Picker Button - Removed label */}
           <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
             <PopoverTrigger asChild>
               <Button
