@@ -6,7 +6,7 @@ import { CheckCircle, Loader2 } from "lucide-react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
+import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickbooksApi/connections";
 import { toast } from "@/components/ui/use-toast";
 import PageLayout from "@/components/PageLayout";
 
@@ -28,12 +28,18 @@ const Disconnected = () => {
       }
       
       try {
-        // Immediate check using the optimized function
+        // Clear any stale cache first
+        clearConnectionCache(user.id);
+        
+        // Now refresh the connection status
+        await refreshConnection();
+        
+        // After refresh, do a direct DB check as well
         const hasConnection = await checkQBConnectionExists(user.id);
         
         if (!isMounted) return;
         
-        if (hasConnection) {
+        if (hasConnection || isConnected) {
           console.log("Direct DB check found a connection, redirecting to dashboard");
           // Show success message
           toast({
@@ -44,6 +50,7 @@ const Disconnected = () => {
           // Redirect immediately to dashboard
           navigate('/dashboard', { replace: true });
         } else {
+          console.log("No QuickBooks connection found");
           // Connection not found, allow display of the connect button
           setIsCheckingConnection(false);
         }
@@ -58,13 +65,7 @@ const Disconnected = () => {
     return () => {
       isMounted = false;
     };
-  }, [user, navigate]);
-  
-  // Handle redirection after connecting
-  const handleRedirectAfterConnect = () => {
-    // Always redirect to dashboard after connecting
-    navigate('/dashboard', { replace: true });
-  };
+  }, [user, navigate, refreshConnection, isConnected]);
   
   // Handle connection
   const handleConnect = async () => {
@@ -75,6 +76,9 @@ const Disconnected = () => {
         navigate('/login', { state: { redirectAfter: '/connect-quickbooks' } });
         return;
       }
+      
+      // Clear any stale connection cache before connecting
+      clearConnectionCache(user.id);
       
       await connect();
       // The connect function will handle the redirection to QuickBooks auth

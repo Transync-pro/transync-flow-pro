@@ -1,9 +1,11 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { processLoginAttempt } from "@/services/loginSecurity";
+import { clearConnectionCache } from "@/services/quickbooksApi/connections";
 
 interface AuthContextType {
   session: Session | null;
@@ -36,8 +38,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        const previousUserId = user?.id;
+        const currentUserId = currentSession?.user?.id;
+        
+        // Update session and user state
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        
+        // Clear connection cache if user changed or signed out
+        if (previousUserId !== currentUserId) {
+          console.log(`User changed from ${previousUserId} to ${currentUserId}, clearing connection cache`);
+          clearConnectionCache();
+        }
         
         // Handle auth events
         if (event === 'SIGNED_IN') {
@@ -46,8 +58,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             title: "Signed in successfully",
             description: "Welcome back!"
           });
-          navigate('/dashboard');
+          
+          // After a brief delay to allow connection checks to complete
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 100);
         } else if (event === 'SIGNED_OUT') {
+          clearConnectionCache(); // Ensure cache is cleared on sign out
           navigate('/login');
         } else if (event === 'USER_UPDATED') {
           // Check if email was just verified
@@ -72,11 +89,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, user?.id]);
 
   // Sign in with Google
   const signInWithGoogle = async () => {
     try {
+      // Clear any existing connection cache before OAuth flow
+      clearConnectionCache();
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

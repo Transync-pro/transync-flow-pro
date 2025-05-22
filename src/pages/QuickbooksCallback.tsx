@@ -136,14 +136,14 @@ const QuickbooksCallback = () => {
         setProcessingComplete(true);
         
         // Force multiple connection refreshes with increasing delays to ensure the state is updated
-        setTimeout(() => refreshConnection(), 500);
+        setTimeout(() => refreshConnection(), 200);
         setTimeout(() => {
           refreshConnection();
           // Wait before navigating to give the context time to update
           setTimeout(() => {
-            navigate(redirectPath, { replace: true });
-          }, 1000);
-        }, 1500);
+            navigate('/dashboard', { replace: true });
+          }, 500);
+        }, 800);
         
       } catch (err: any) {
         logError("QuickBooks callback error", {

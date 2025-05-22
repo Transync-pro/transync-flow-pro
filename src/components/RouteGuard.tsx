@@ -1,11 +1,10 @@
-
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { Loader2 } from "lucide-react";
 import { logError } from "@/utils/errorLogger";
-import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
+import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickbooksApi/connections";
 import { isUserAdmin } from "@/services/blog/users";
 import { toast } from "@/components/ui/use-toast";
 
@@ -39,6 +38,8 @@ const RouteGuard = ({
   const isDisconnectedRoute = location.pathname === "/disconnected";
   const isDashboardRoute = location.pathname === "/dashboard";
   const isAdminRoute = location.pathname.startsWith("/admin");
+  const isLoginPage = location.pathname === "/login";
+  const isSignupPage = location.pathname === "/signup";
 
   // Flag to prevent multiple redirects
   const redirectingRef = useRef(false);
@@ -46,21 +47,44 @@ const RouteGuard = ({
   // Track if this is the first check after mount
   const isInitialCheck = useRef(true);
   
-  // Direct database check for QuickBooks connection with better caching
+  // For tracking previous user ID to detect changes
+  const prevUserIdRef = useRef<string | null>(null);
+  
+  // Direct database check for QuickBooks connection with better error handling and retry
   const checkQbConnectionDirectly = useCallback(async () => {
     if (!user) {
+      console.log("RouteGuard: No user available for QB connection check");
       return false;
     }
     
+    // If user ID changed, clear the connection cache
+    if (prevUserIdRef.current && prevUserIdRef.current !== user.id) {
+      console.log(`RouteGuard: User changed from ${prevUserIdRef.current} to ${user.id}, clearing cache`);
+      clearConnectionCache();
+    }
+    prevUserIdRef.current = user.id;
+    
     try {
-      // Use the optimized connection check function
-      const connectionExists = await checkQBConnectionExists(user.id);
+      console.log(`RouteGuard: Checking QB connection for user ${user.id}`);
+      
+      // Use the optimized connection check function with retry
+      let connectionExists = await checkQBConnectionExists(user.id);
+      
+      // If connection is not found but should exist, try refreshing and checking again
+      if (!connectionExists && isConnected) {
+        console.log("RouteGuard: Connection not found but context says connected, refreshing...");
+        await refreshConnection();
+        // Try one more time after refresh
+        connectionExists = await checkQBConnectionExists(user.id);
+      }
+      
       console.log('RouteGuard: Direct QB connection check result:', connectionExists);
       
       setHasQbConnection(connectionExists);
       
-      // If we found a connection but the context doesn't know yet, refresh it once
+      // If we found a connection but the context doesn't know yet, refresh it
       if (connectionExists && !isConnected && !isQBLoading) {
+        console.log("RouteGuard: Found connection in DB but context isn't aware, refreshing context");
         refreshConnection();
       }
       
@@ -172,14 +196,14 @@ const RouteGuard = ({
 
   // Handle redirection based on connection status
   useEffect(() => {
-    // Don't process redirects while still checking or for QB callback route
-    if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) return;
-    
-    // Set redirecting flag to prevent multiple redirects
-    redirectingRef.current = true;
-    
-    // Use a timeout to ensure the component has time to update state before redirecting
-    setTimeout(() => {
+    // Add debounce to prevent redirect loops
+    const timeoutId = setTimeout(() => {
+      // Don't process redirects while still checking or for QB callback route
+      if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) return;
+      
+      // Set redirecting flag to prevent multiple redirects
+      redirectingRef.current = true;
+      
       // Handle disconnected page logic
       if (isDisconnectedRoute) {
         if (hasQbConnection || isConnected) {
@@ -198,28 +222,24 @@ const RouteGuard = ({
         return;
       }
       
-      // Admin route redirection is now handled in the checkAdminRole function
-      
       redirectingRef.current = false;
-    }, 100);
+    }, 200); // Small delay to prevent rapid redirects
+    
+    return () => clearTimeout(timeoutId);
   }, [
     isChecking,
     hasQbConnection,
     isConnected,
     isDisconnectedRoute,
     requiresQuickbooks,
-    requiresAdmin,
-    isAdmin,
-    roleChecked,
     user,
     isQbCallbackRoute,
     isQBLoading,
     isLoading,
-    navigate,
-    location.pathname
+    navigate
   ]);
 
-  // Special admin route check - this ensures we don't redirect until admin check is complete
+  // Special admin route check
   useEffect(() => {
     if (isAdminRoute && roleChecked && !isChecking && !isLoading) {
       if (!isAdmin) {
