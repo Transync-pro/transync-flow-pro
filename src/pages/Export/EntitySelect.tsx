@@ -77,13 +77,12 @@ export const EntitySelect = ({
       </div>
 
       <div className="space-y-3">
-        <Label className="block">
-          Date Range {isRequired && <span className="text-red-500">*</span>}
-        </Label>
-        
-        <div className="flex flex-col gap-2">
-          {/* Start Date Picker Button - Removed label */}
-          <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
+  <Label className="block">
+    Date Range {isRequired && <span className="text-red-500">*</span>}
+  </Label>
+  <div className="flex flex-col gap-2">
+  {/* Start Date Picker Button */}
+  <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
