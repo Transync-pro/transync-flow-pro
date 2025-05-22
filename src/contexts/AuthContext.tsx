@@ -42,6 +42,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Handle auth events
         if (event === 'SIGNED_IN') {
           // Don't navigate here - that's handled by the sign-in function
+          toast({
+            title: "Signed in successfully",
+            description: "Welcome back!"
+          });
+          navigate('/dashboard');
         } else if (event === 'SIGNED_OUT') {
           navigate('/login');
         } else if (event === 'USER_UPDATED') {
@@ -75,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}/dashboard`,
         }
       });
       
