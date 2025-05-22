@@ -81,7 +81,7 @@ export const EntitySelect = ({
           Date Range {isRequired && <span className="text-red-500">*</span>}
         </Label>
         
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           {/* Start Date Picker */}
           <div className="w-full">
             <Label className="text-sm text-muted-foreground mb-1.5 block">Start Date</Label>

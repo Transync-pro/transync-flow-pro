@@ -170,17 +170,14 @@ const Delete = () => {
         id: "select",
         header: ({ table }) => (
           <div className="flex items-center">
-            <Checkbox
-              checked={selectedAll}
-              onCheckedChange={(checked) => {
-                handleSelectAll(!!checked);
-              }}
-              aria-label="Select all records"
-            />
-            <span className="ml-2 text-xs text-muted-foreground whitespace-nowrap">
-              {selectedAll ? "All selected" : "Select all"}
-            </span>
-          </div>
+  <Checkbox
+    checked={selectedAll}
+    onCheckedChange={(checked) => {
+      handleSelectAll(!!checked);
+    }}
+    aria-label="Select all records"
+  />
+</div>
         ),
         cell: ({ row }) => (
           <Checkbox
@@ -291,29 +288,31 @@ const Delete = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Entity Type */}
               <div className="flex flex-col space-y-2">
                 <Label htmlFor="entity-type">Entity Type</Label>
                 <Select
                   value={selectedEntity || ""}
                   onValueChange={handleEntitySelect}
+                  disabled={isLoading || isDeleting}
+                  id="entity-type"
                 >
-                  <SelectTrigger id="entity-type">
-                    <SelectValue placeholder="Select an entity type" />
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select entity type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {entityOptions.map((entity) => (
-                      <SelectItem key={entity.value} value={entity.value}>
-                        {entity.label}
+                    {entityOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              
+              {/* Date Range */}
               <div className="flex flex-col space-y-2">
                 <Label>Date Range <span className="text-red-500">*</span></Label>
-                
                 <div className="flex flex-col gap-4">
                   {/* Start Date */}
                   <div className="w-full">
@@ -359,7 +358,6 @@ const Delete = () => {
                       </PopoverContent>
                     </Popover>
                   </div>
-                  
                   {/* End Date */}
                   <div className="w-full">
                     <Label className="text-sm text-muted-foreground mb-1.5 block">End Date</Label>

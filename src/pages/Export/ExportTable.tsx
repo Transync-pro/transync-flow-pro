@@ -61,15 +61,12 @@ export const ExportTable: React.FC<ExportTableProps> = ({
         id: "select",
         header: ({ table }) => (
           <div className="flex items-center">
-            <Checkbox
-              checked={selectAllRecords}
-              onCheckedChange={toggleSelectAllRecords}
-              aria-label="Select all records across all pages"
-            />
-            <span className="ml-2 text-xs text-muted-foreground whitespace-nowrap">
-              {selectAllRecords ? "All selected" : "Select all"}
-            </span>
-          </div>
+  <Checkbox
+    checked={selectAllRecords}
+    onCheckedChange={toggleSelectAllRecords}
+    aria-label="Select all records across all pages"
+  />
+</div>
         ),
         cell: ({ row }) => {
           const recordId = row.original.Id;
