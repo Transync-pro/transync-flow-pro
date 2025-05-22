@@ -55,7 +55,7 @@ export const ExportTable: React.FC<ExportTableProps> = ({
       return [];
     }
 
-    // Add checkbox column as first column - updated to select all records across all pages
+    // Add checkbox column as first column - updated to remove "Select all" text
     const columns: ColumnDef<EntityRecord>[] = [
       {
         id: "select",
@@ -66,9 +66,6 @@ export const ExportTable: React.FC<ExportTableProps> = ({
               onCheckedChange={toggleSelectAllRecords}
               aria-label="Select all records across all pages"
             />
-            <span className="ml-2 text-xs text-muted-foreground whitespace-nowrap">
-              {selectAllRecords ? "All selected" : "Select all"}
-            </span>
           </div>
         ),
         cell: ({ row }) => {
@@ -81,7 +78,7 @@ export const ExportTable: React.FC<ExportTableProps> = ({
             />
           ) : null;
         },
-        size: 150,
+        size: 70,
       },
       {
         accessorFn: (_, index) => pageIndex * pageSize + index + 1,

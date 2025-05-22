@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -177,9 +176,6 @@ const Delete = () => {
               }}
               aria-label="Select all records"
             />
-            <span className="ml-2 text-xs text-muted-foreground whitespace-nowrap">
-              {selectedAll ? "All selected" : "Select all"}
-            </span>
           </div>
         ),
         cell: ({ row }) => (
@@ -190,7 +186,7 @@ const Delete = () => {
         ),
         enableSorting: false,
         enableHiding: false,
-        size: 150,
+        size: 70,
       },
       {
         accessorFn: (_, index) => pageIndex * pageSize + index + 1,
@@ -291,7 +287,9 @@ const Delete = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 gap-6">
+            {/* Reorganized to have Entity Type and Date Range side by side */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Entity Type Selection */}
               <div className="flex flex-col space-y-2">
                 <Label htmlFor="entity-type">Entity Type</Label>
                 <Select
@@ -311,6 +309,7 @@ const Delete = () => {
                 </Select>
               </div>
               
+              {/* Date Range Selection */}
               <div className="flex flex-col space-y-2">
                 <Label>Date Range <span className="text-red-500">*</span></Label>
                 
@@ -324,7 +323,7 @@ const Delete = () => {
                           variant={"outline"}
                           className={cn(
                             "w-full justify-start text-left font-normal",
-                            (!dateRange?.from) && "border-red-500"
+                            (!dateRange?.from && isRequired) && "border-red-500"
                           )}
                         >
                           <Calendar className="mr-2 h-4 w-4" />
@@ -369,7 +368,7 @@ const Delete = () => {
                           variant={"outline"}
                           className={cn(
                             "w-full justify-start text-left font-normal",
-                            (!dateRange?.to) && "border-red-500"
+                            (!dateRange?.to && isRequired) && "border-red-500"
                           )}
                         >
                           <Calendar className="mr-2 h-4 w-4" />
@@ -522,9 +521,9 @@ const Delete = () => {
   );
 };
 
-export default Delete;
-
 // Helper to merge tailwind classes
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
+
+export default Delete;
