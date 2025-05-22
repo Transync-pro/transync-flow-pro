@@ -4,6 +4,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
+import { processLoginAttempt } from "@/services/loginSecurity";
 
 interface AuthContextType {
   session: Session | null;
@@ -71,14 +72,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // Check if account is locked or rate-limited
+      const canProceed = await processLoginAttempt(email, false);
+      
+      if (!canProceed) {
+        toast({
+          title: "Login temporarily unavailable",
+          description: "Please try again later.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        // Process failed login attempt
+        await processLoginAttempt(email, false);
         throw error;
       }
+
+      // Process successful login
+      await processLoginAttempt(email, true);
 
       toast({
         title: "Sign in successful",

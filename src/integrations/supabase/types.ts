@@ -195,6 +195,36 @@ export type Database = {
         }
         Relationships: []
       }
+      login_security: {
+        Row: {
+          attempt_count: number | null
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          last_attempt_at: string | null
+          locked_until: string | null
+          user_identifier: string
+        }
+        Insert: {
+          attempt_count?: number | null
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          last_attempt_at?: string | null
+          locked_until?: string | null
+          user_identifier: string
+        }
+        Update: {
+          attempt_count?: number | null
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          last_attempt_at?: string | null
+          locked_until?: string | null
+          user_identifier?: string
+        }
+        Relationships: []
+      }
       operation_logs: {
         Row: {
           created_at: string | null
@@ -332,6 +362,10 @@ export type Database = {
       check_admin_role: {
         Args: { user_id: string }
         Returns: boolean
+      }
+      cleanup_login_security: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       get_blog_posts: {
         Args: Record<PropertyKey, never>
