@@ -394,6 +394,18 @@ const Export = () => {
 
   return (
     <DashboardLayout>
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-center mb-6">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/dashboard')} 
+            className="flex items-center gap-2"
+          >
+            <ChevronLeft size={16} />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-2xl font-semibold">Export QuickBooks Data</h1>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card className="md:col-span-2">
@@ -483,6 +495,6 @@ const Export = () => {
       </div>
     </DashboardLayout>
   );
-}
+};
 
 export default Export;
