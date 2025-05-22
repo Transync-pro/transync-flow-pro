@@ -55,7 +55,7 @@ export const ExportTable: React.FC<ExportTableProps> = ({
       return [];
     }
 
-    // Add checkbox column as first column - updated to remove "Select all" text
+    // Add checkbox column as first column - removed "Select all" text
     const columns: ColumnDef<EntityRecord>[] = [
       {
         id: "select",
@@ -78,7 +78,7 @@ export const ExportTable: React.FC<ExportTableProps> = ({
             />
           ) : null;
         },
-        size: 70,
+        size: 40, // Reduced size
       },
       {
         accessorFn: (_, index) => pageIndex * pageSize + index + 1,
