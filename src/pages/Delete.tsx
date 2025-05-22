@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -290,7 +291,7 @@ const Delete = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               <div className="flex flex-col space-y-2">
                 <Label htmlFor="entity-type">Entity Type</Label>
                 <Select

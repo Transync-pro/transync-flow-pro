@@ -1,3 +1,4 @@
+
 import React from "react";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
@@ -65,6 +66,9 @@ export const ExportTable: React.FC<ExportTableProps> = ({
               onCheckedChange={toggleSelectAllRecords}
               aria-label="Select all records across all pages"
             />
+            <span className="ml-2 text-xs text-muted-foreground whitespace-nowrap">
+              {selectAllRecords ? "All selected" : "Select all"}
+            </span>
           </div>
         ),
         cell: ({ row }) => {
@@ -77,7 +81,7 @@ export const ExportTable: React.FC<ExportTableProps> = ({
             />
           ) : null;
         },
-        size: 50,
+        size: 150,
       },
       {
         accessorFn: (_, index) => pageIndex * pageSize + index + 1,
