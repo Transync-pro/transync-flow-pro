@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +12,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, metadata?: object) => Promise<void>;
   signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -68,6 +68,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, [navigate]);
+
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+      
+      if (error) {
+        toast({
+          title: "Google Sign In Failed",
+          description: "There was an error signing in with Google.",
+          variant: "destructive"
+        });
+        console.error("Error signing in with Google:", error);
+      }
+    } catch (error) {
+      toast({
+        title: "Google Sign In Failed",
+        description: "There was an error signing in with Google.",
+        variant: "destructive"
+      });
+      console.error("Error signing in with Google:", error);
+    }
+  };
 
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
@@ -203,6 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signUp,
     signOut,
+    signInWithGoogle,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
