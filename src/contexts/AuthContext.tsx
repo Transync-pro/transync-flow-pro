@@ -92,7 +92,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         // Process failed login attempt
         await processLoginAttempt(email, false);
-        throw error;
+        
+        // Use a generic error message that doesn't reveal whether the account exists
+        toast({
+          title: "Sign in failed",
+          description: "The email and password entered do not match.",
+          variant: "destructive"
+        });
+        
+        // Still log the actual error for debugging
+        console.error("Error signing in:", error);
+        return;
       }
 
       // Process successful login
@@ -105,11 +115,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       navigate('/dashboard');
     } catch (error) {
+      // Use a generic error message for all other errors as well
       toast({
         title: "Sign in failed",
-        description: error.message,
+        description: "The email and password entered do not match.",
         variant: "destructive"
       });
+      
+      // Still log the actual error for debugging
       console.error("Error signing in:", error);
     }
   };

@@ -23,6 +23,10 @@ export async function processLoginAttempt(
     // Get client IP if available (will be empty in some environments)
     const clientIp = ""; // In a real app, you'd get this from the request
     
+    // Apply a small consistent delay for all requests to mitigate timing attacks
+    // This helps prevent username enumeration via timing differences
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     // Check if account is locked
     const { data: lockData, error: lockError } = await supabase
       .from("login_security")
