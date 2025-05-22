@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -323,7 +324,7 @@ const Delete = () => {
                           variant={"outline"}
                           className={cn(
                             "w-full justify-start text-left font-normal",
-                            (!dateRange?.from && isRequired) && "border-red-500"
+                            !dateRange?.from && "border-red-500"
                           )}
                         >
                           <Calendar className="mr-2 h-4 w-4" />
@@ -368,7 +369,7 @@ const Delete = () => {
                           variant={"outline"}
                           className={cn(
                             "w-full justify-start text-left font-normal",
-                            (!dateRange?.to && isRequired) && "border-red-500"
+                            !dateRange?.to && "border-red-500"
                           )}
                         >
                           <Calendar className="mr-2 h-4 w-4" />
