@@ -1,5 +1,5 @@
 
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import DashboardHome from "@/components/Dashboard/DashboardHome";
 import { useToast } from "@/components/ui/use-toast";
@@ -22,7 +22,7 @@ const Dashboard = () => {
     const checkConnectionOnMount = async () => {
       console.log("Dashboard: Checking QB connection on mount");
       // Use silent mode to prevent UI flickering
-      await refreshConnection(true); // true = silent mode
+      await refreshConnection(true, true); // force=true, silent=true
       
       // Direct DB check as a fallback
       if (user && !isConnected) {
@@ -32,7 +32,7 @@ const Dashboard = () => {
         if (hasConnection && isMounted) {
           console.log("Dashboard: Found connection in DB but context says not connected, refreshing again");
           // Found connection in DB but context doesn't reflect it, refresh again
-          await refreshConnection(true); // true = silent mode
+          await refreshConnection(true, true); // force=true, silent=true
         }
       }
     };
@@ -53,10 +53,14 @@ const Dashboard = () => {
       return;
     }
     
-    console.log("Dashboard: Checking connection on route change");
-    // Use silent mode to prevent UI flickering during navigation
-    checkConnection(false, true); // false = not forced, true = silent
-  }, [location.pathname, checkConnection]);
+    const checkConnectionOnRouteChange = async () => {
+      console.log("Dashboard: Checking QB connection on route change");
+      // Use silent mode to prevent UI flickering
+      await refreshConnection(true, true); // force=true, silent=true
+    };
+    
+    checkConnectionOnRouteChange();
+  }, [location.pathname, refreshConnection]);
   
   // Handle disconnection case - redirect to disconnected page if not connected
   useEffect(() => {
@@ -68,11 +72,11 @@ const Dashboard = () => {
   
   // Add document visibility change listener to check connection when user returns to the app
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        console.log("Dashboard: User returned to the app, checking connection silently");
+        console.log("Dashboard: Checking QB connection on visibility change");
         // Use silent mode to prevent UI flickering
-        checkConnection(false, true); // false = not forced, true = silent
+        await refreshConnection(true, true); // force=true, silent=true
       }
     };
     
@@ -81,7 +85,7 @@ const Dashboard = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [checkConnection]);
+  }, [refreshConnection]);
   
   // Show welcome message when connected
   useEffect(() => {

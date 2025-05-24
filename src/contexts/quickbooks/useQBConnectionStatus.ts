@@ -122,7 +122,9 @@ export const useQBConnectionStatus = (user: User | null) => {
         };
         
         if (data) {
-          // Connection found
+          // Cache duration in milliseconds (30 minutes for normal operations)
+          // We're extending this significantly since we're only checking on user actions
+          const CACHE_DURATION = 30 * 60 * 1000;
           const qbConnection = data as QuickbooksConnection;
           setConnection(qbConnection);
           setIsConnected(true);
@@ -178,39 +180,24 @@ export const useQBConnectionStatus = (user: User | null) => {
     }
   }, [user, resetConnectionState]);
 
-  // Check connection on mount and when user changes
+  // Initial connection check on mount only
   useEffect(() => {
-    // Reset circuit breaker when user changes
-    maxConsecutiveChecks.current = 0;
-    connectionCheckAttempts.current = 0;
-    
-    // Reset cache when user changes
-    if (connectionCache.current.userId !== user?.id) {
-      connectionCache.current = {
-        userId: null,
-        data: null,
-        timestamp: 0
-      };
-      cachedConnectedState.current = null;
+    // Check connection immediately on mount
+    if (user) {
+      checkConnectionStatus(false, true); // silent mode on initial load
     }
     
-    // Check connection status immediately on mount
-    checkConnectionStatus(true);
-    
-    // Clear throttling on unmount
-    return () => {
-      lastCheckTime.current = 0;
-    };
+    // No interval-based checking - we only check on explicit actions
   }, [user, checkConnectionStatus]);
 
   // Public refresh method - force a check
-  const refreshConnection = useCallback(async () => {
+  const refreshConnection = useCallback(async (force = true, silent = false) => {
     // Reset throttling and circuit breaker to ensure immediate check
     lastCheckTime.current = 0;
     maxConsecutiveChecks.current = 0;
     connectionCheckAttempts.current += 1;
     console.log(`Manual refresh connection requested #${connectionCheckAttempts.current}`);
-    await checkConnectionStatus(true);
+    await checkConnectionStatus(force, silent);
   }, [checkConnectionStatus]);
 
   return {

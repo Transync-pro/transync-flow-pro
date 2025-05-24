@@ -131,11 +131,13 @@ const DashboardHeader = () => {
 const QuickbooksConnectionButton = () => {
   // Track explicit user actions separately from background checks
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  // Only use isConnected state, ignore isLoading completely
   const { isConnected, disconnect } = useQuickbooks();
   const navigate = useNavigate();
 
   const handleDisconnect = async () => {
     try {
+      // Only show loading during explicit user action
       setIsDisconnecting(true);
       await disconnect();
       // Explicitly navigate to disconnected page after disconnection
