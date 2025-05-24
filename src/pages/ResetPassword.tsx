@@ -15,22 +15,63 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
+  const [isValidToken, setIsValidToken] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we have the necessary tokens in the URL
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
+    const validateResetToken = async () => {
+      // Check if we have the necessary tokens in the URL
+      const accessToken = searchParams.get('access_token');
+      const refreshToken = searchParams.get('refresh_token');
+      const type = searchParams.get('type');
 
-    if (!accessToken || !refreshToken) {
-      toast({
-        title: "Invalid reset link",
-        description: "This password reset link is invalid or has expired.",
-        variant: "destructive"
-      });
-      navigate('/forgot-password');
-    }
+      if (!accessToken || !refreshToken || type !== 'recovery') {
+        toast({
+          title: "Invalid reset link",
+          description: "This password reset link is invalid or has expired.",
+          variant: "destructive"
+        });
+        setIsValidating(false);
+        navigate('/forgot-password');
+        return;
+      }
+
+      try {
+        // Set the session using the tokens from the URL
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data.session) {
+          setIsValidToken(true);
+          toast({
+            title: "Email verified",
+            description: "Please enter your new password below.",
+          });
+        } else {
+          throw new Error("Invalid session");
+        }
+      } catch (error: any) {
+        console.error("Error validating reset token:", error);
+        toast({
+          title: "Invalid reset link",
+          description: "This password reset link is invalid or has expired.",
+          variant: "destructive"
+        });
+        navigate('/forgot-password');
+      } finally {
+        setIsValidating(false);
+      }
+    };
+
+    validateResetToken();
   }, [searchParams, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,6 +120,8 @@ const ResetPassword = () => {
         description: "Your password has been successfully updated.",
       });
 
+      // Sign out the user so they can log in with their new password
+      await supabase.auth.signOut();
       navigate('/login');
     } catch (error: any) {
       toast({
@@ -90,6 +133,25 @@ const ResetPassword = () => {
       setIsLoading(false);
     }
   };
+
+  if (isValidating) {
+    return (
+      <PageLayout>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+          <Card className="w-full max-w-md">
+            <CardContent className="flex flex-col items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600">Verifying reset link...</p>
+            </CardContent>
+          </Card>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (!isValidToken) {
+    return null; // Will redirect to forgot-password
+  }
 
   return (
     <PageLayout>
