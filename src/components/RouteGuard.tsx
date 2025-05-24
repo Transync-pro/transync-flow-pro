@@ -157,6 +157,9 @@ const RouteGuard = ({
     }
   }, [user, requiresAdmin, isAdminRoute, isAuthLoading, navigate]);
 
+  // Track if we've already checked the connection for this user
+  const connectionCheckedRef = useRef(false);
+  
   // Check access on mount and when dependencies change
   useEffect(() => {
     const checkAccess = async () => {
@@ -170,8 +173,11 @@ const RouteGuard = ({
       }
       
       // If we need QuickBooks and are not yet on the disconnected page, do direct DB check
-      if (user && requiresQuickbooks && !isDisconnectedRoute) {
+      // But only if we haven't already checked for this user
+      if (user && requiresQuickbooks && !isDisconnectedRoute && !connectionCheckedRef.current) {
         await checkQbConnectionDirectly();
+        // Mark that we've checked the connection for this user
+        connectionCheckedRef.current = true;
       } 
       
       if (!requiresAdmin || roleChecked) {
@@ -183,6 +189,13 @@ const RouteGuard = ({
     };
     
     checkAccess();
+    
+    // Reset the connection checked flag when user changes
+    return () => {
+      if (user?.id !== prevUserIdRef.current) {
+        connectionCheckedRef.current = false;
+      }
+    };
   }, [
     isAuthLoading, 
     requiresQuickbooks, 

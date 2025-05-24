@@ -100,9 +100,15 @@ const Dashboard = () => {
     };
   }, [refreshConnection]);
   
-  // Show welcome message when connected
+  // Track if we've already shown the welcome message
+  const welcomeShownRef = useRef(false);
+  
+  // Show welcome message when connected, but only once
   useEffect(() => {
-    if (isConnected && companyName) {
+    if (isConnected && companyName && !welcomeShownRef.current) {
+      // Mark that we've shown the welcome message
+      welcomeShownRef.current = true;
+      
       toast({
         title: `Connected to ${companyName}`,
         description: "Your QuickBooks account is successfully connected.",
