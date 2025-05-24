@@ -75,7 +75,7 @@ const Navbar = () => {
             <div className="flex items-center">
               <Link to="/" className="flex-shrink-0 flex items-center">
                 <img 
-                  src="/TransyncPro Logo.png" 
+                  src="/TransyncProLogo.png" 
                   alt="TransyncPro" 
                   className="h-8"
                 />
@@ -97,7 +97,7 @@ const Navbar = () => {
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center">
               <img 
-                src="/TransyncPro Logo.png" 
+                src="/TransyncProLogo.png" 
                 alt="TransyncPro" 
                 className="h-8"
               />

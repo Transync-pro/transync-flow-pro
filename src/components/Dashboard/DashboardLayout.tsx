@@ -109,7 +109,7 @@ const DashboardHeader = () => {
         <SidebarTrigger className="mr-4" />
         <Link to="/dashboard" className="flex items-center">
           <img 
-            src="/TransyncPro Logo.png" 
+            src="/TransyncProLogo.png" 
             alt="TransyncPro" 
             className="h-8"
           />

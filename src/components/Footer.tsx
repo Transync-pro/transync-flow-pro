@@ -10,7 +10,7 @@ const Footer = () => {
           <div className="lg:col-span-2">
             <Link to="/" className="inline-block mb-4">
               <img 
-                src="/Transync Pro Logo White .png" 
+                src="/TransyncProLogoWhite.png" 
                 alt="TransyncPro" 
                 className="h-8"
               />
