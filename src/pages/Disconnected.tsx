@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/use-toast";
 import PageLayout from "@/components/PageLayout";
 
 const Disconnected = () => {
+  const [buttonHover, setButtonHover] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [isCheckingConnection, setIsCheckingConnection] = useState(true);
   const { connect, isConnected, isLoading, refreshConnection } = useQuickbooks();
@@ -166,11 +167,13 @@ const Disconnected = () => {
     </div>
   ) : (
     <img
-      src="/ConnecttoQuickBooksButton.svg"
+      src={buttonHover ? "/connecttoquickbooksbutton.png_hover.png" : "/connecttoquickbooksbutton.png"}
       alt="Connect to QuickBooks"
       className="w-full h-auto cursor-pointer"
       draggable="false"
       style={{ pointerEvents: (isLoading || isReconnecting) ? 'none' : 'auto', opacity: (isLoading || isReconnecting) ? 0.6 : 1 }}
+      onMouseEnter={() => setButtonHover(true)}
+      onMouseLeave={() => setButtonHover(false)}
     />
   )}
 </button>

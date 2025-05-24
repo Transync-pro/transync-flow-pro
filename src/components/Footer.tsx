@@ -76,7 +76,7 @@ const Footer = () => {
           <p>© {currentYear} TransyncPro. All rights reserved.</p>
           <div className="mt-4 md:mt-0">
             <img 
-              src="/Quickbooks_certified_proadvisor_logo.png" 
+              src="/QuickBooksLogoReversed.png" 
               alt="QuickBooks Certified" 
               className="h-10 inline-block mr-4"
             />
