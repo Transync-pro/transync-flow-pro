@@ -44,12 +44,14 @@ const Dashboard = () => {
     };
   }, [refreshConnection, user, isConnected]);
   
+  // Create ref outside the effect for tracking initial mount
+  const isInitialRouteChange = useRef(true);
+  
   // Check connection on location/route changes
   useEffect(() => {
     // Skip the initial check since we already do it in the mount effect
-    const isInitialMount = useRef(true);
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    if (isInitialRouteChange.current) {
+      isInitialRouteChange.current = false;
       return;
     }
     
@@ -72,11 +74,13 @@ const Dashboard = () => {
   
   // Add document visibility change listener to check connection when user returns to the app
   useEffect(() => {
-    const handleVisibilityChange = async () => {
+    // We need to wrap the async function since event listeners can't be async directly
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         console.log("Dashboard: Checking QB connection on visibility change");
         // Use silent mode to prevent UI flickering
-        await refreshConnection(true, true); // force=true, silent=true
+        // We don't need to await this since we don't do anything with the result
+        refreshConnection(true, true); // force=true, silent=true
       }
     };
     
