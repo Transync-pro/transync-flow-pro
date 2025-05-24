@@ -1,4 +1,3 @@
-
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -8,7 +7,7 @@ const Integrations = () => {
   const integrations = [
     {
       name: "QuickBooks Online",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/e/e1/QuickBooks_Logo.svg",
+      logo: "/Connect to QuickBooks Button.svg",
       description: "Connect directly to QuickBooks Online for seamless data management across all your company files.",
       features: [
         "Real-time data synchronization",
@@ -20,7 +19,7 @@ const Integrations = () => {
     },
     {
       name: "QuickBooks Desktop",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/7/73/Quickbooks_Logo_2022.svg",
+      logo: "/Connect to QuickBooks Button.svg",
       description: "Connect to QuickBooks Desktop via our secure sync agent to manage your locally-stored company data.",
       features: [
         "Secure desktop sync agent",
@@ -32,7 +31,7 @@ const Integrations = () => {
     },
     {
       name: "Microsoft Excel",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/3/34/Microsoft_Office_Excel_%282019%E2%80%93present%29.svg",
+      logo: "/Microsoft_logo.svg",
       description: "Import and export data directly to and from Excel files with smart column mapping and data validation.",
       features: [
         "Smart column mapping",
@@ -121,7 +120,7 @@ const Integrations = () => {
           <div className="text-center mb-16">
             <div className="flex justify-center mb-6">
               <img 
-                src="https://upload.wikimedia.org/wikipedia/commons/e/e1/QuickBooks_Logo.svg" 
+                src="/Connect to QuickBooks Button.svg" 
                 alt="QuickBooks Logo" 
                 className="h-16"
               />
@@ -137,7 +136,7 @@ const Integrations = () => {
             <div className="bg-white rounded-xl shadow-md p-8 border border-gray-100 card-hover">
               <div className="flex items-center mb-6">
                 <img 
-                  src="https://upload.wikimedia.org/wikipedia/commons/e/e1/QuickBooks_Logo.svg" 
+                  src="/Connect to QuickBooks Button.svg" 
                   alt="QuickBooks Online Logo" 
                   className="h-10 mr-4"
                 />
@@ -175,7 +174,7 @@ const Integrations = () => {
             <div className="bg-white rounded-xl shadow-md p-8 border border-gray-100 card-hover">
               <div className="flex items-center mb-6">
                 <img 
-                  src="https://upload.wikimedia.org/wikipedia/commons/7/73/Quickbooks_Logo_2022.svg" 
+                  src="/Connect to QuickBooks Button.svg" 
                   alt="QuickBooks Desktop Logo" 
                   className="h-10 mr-4"
                 />
