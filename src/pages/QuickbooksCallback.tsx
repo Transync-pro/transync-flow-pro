@@ -319,7 +319,7 @@ const QuickbooksCallback = () => {
             </Alert>
             <div className="flex flex-col space-y-2">
               <Button
-                onClick={() => navigate("/disconnected")}
+                onClick={() => navigate("/authenticate")}
                 className="w-full"
               >
                 Try Again

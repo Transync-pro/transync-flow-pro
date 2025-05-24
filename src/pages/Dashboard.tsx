@@ -117,7 +117,7 @@ const Dashboard = () => {
     checkConnectionOnRouteChange();
   }, [location.pathname, refreshConnection]);
   
-  // Handle disconnection case - redirect to disconnected page if not connected
+  // Handle disconnection case - redirect to authenticate page if not connected
   // Using a ref to track if we've already redirected to avoid excessive checks
   const hasRedirected = useRef(false);
   
@@ -125,9 +125,9 @@ const Dashboard = () => {
     // Only redirect if we're definitely not connected (not during loading)
     // And we haven't already redirected
     if (isConnected === false && !hasRedirected.current) {
-      console.log("Dashboard detected disconnected state, redirecting to /disconnected");
+      console.log("Dashboard detected disconnected state, redirecting to /authenticate");
       hasRedirected.current = true;
-      navigate('/disconnected', { replace: true });
+      navigate('/authenticate', { replace: true });
     } else if (isConnected === true) {
       // Reset the flag if we're connected again
       hasRedirected.current = false;
