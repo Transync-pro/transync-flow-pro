@@ -133,20 +133,37 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
     return () => clearInterval(countdownInterval);
   }, [showWarning, user, signOut, toast]);
   
-  // Track user activity to start the idle timer, but not reset it
-  // The timer should only be reset by clicking the "Keep Me Logged In" button
+  // Track user activity to reset the idle timer
   useEffect(() => {
-    if (!user) return; // Only track activity for authenticated users
-    
-    // We no longer reset the timer on general user activity
-    // The idle timer will start when the component mounts and only the explicit
-    // button click in the warning dialog will reset it
-    
-    // We also don't reset on tab visibility changes anymore
-    // This ensures the logout flow isn't interrupted by tab switching
-    
-    // No event listeners needed since we don't reset on general activity
-  }, [user]);
+    if (!user) return;
+
+    let lastMouseMove = 0;
+
+    const activityHandler = (e: Event) => {
+      // If warning is active, only explicit button resets timer
+      if (showWarning) return;
+      // Throttle mousemove events
+      if (e.type === 'mousemove') {
+        const now = Date.now();
+        if (now - lastMouseMove < 1000) return; // 1s throttle for mousemove
+        lastMouseMove = now;
+      }
+      setIsIdle(false);
+      setShowWarning(false);
+    };
+
+    window.addEventListener('mousemove', activityHandler);
+    window.addEventListener('mousedown', activityHandler);
+    window.addEventListener('keydown', activityHandler);
+    window.addEventListener('touchstart', activityHandler);
+
+    return () => {
+      window.removeEventListener('mousemove', activityHandler);
+      window.removeEventListener('mousedown', activityHandler);
+      window.removeEventListener('keydown', activityHandler);
+      window.removeEventListener('touchstart', activityHandler);
+    };
+  }, [user, showWarning]);
   
   const value: IdleTimeoutContextType = {
     isIdle,

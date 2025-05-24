@@ -12,8 +12,12 @@ const Dashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isConnected, companyName, refreshConnection, checkConnection } = useQuickbooks();
+  const { isConnected, isLoading, companyName, refreshConnection, checkConnection } = useQuickbooks();
   const { user } = useAuth();
+
+  useEffect(() => {
+    console.log("Dashboard: isLoading:", isLoading, "isConnected:", isConnected);
+  }, [isLoading, isConnected]);
   
   // Track if we've already checked the connection on mount
   const hasCheckedOnMount = useRef(false);
@@ -59,8 +63,8 @@ const Dashboard = () => {
       // Mark that we've checked the connection on mount to prevent multiple checks
       hasCheckedOnMount.current = true;
       
-      // Use silent mode to prevent UI flickering
-      await refreshConnection(true, true); // force=true, silent=true
+      // Use NON-silent mode so isLoading gets set to false for the UI
+      await refreshConnection(true, false); // force=true, silent=false
       
       // Direct DB check as a fallback
       if (user && !isConnected && isMounted) {
@@ -70,7 +74,7 @@ const Dashboard = () => {
         if (hasConnection && isMounted) {
           console.log("Dashboard: Found connection in DB but context says not connected, refreshing again");
           // Found connection in DB but context doesn't reflect it, refresh again
-          await refreshConnection(true, true); // force=true, silent=true
+          await refreshConnection(true, false); // force=true, silent=false
         }
       }
     };
