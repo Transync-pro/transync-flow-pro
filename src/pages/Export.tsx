@@ -1,7 +1,8 @@
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -109,6 +110,9 @@ const Export = () => {
     setSelectAllRecords(false);
   };
 
+  // Get the connection check function from QuickBooks context
+  const { checkConnection } = useQuickbooks();
+
   // Explicitly fetch data when requested by user
   const handleFetchData = async () => {
     try {
@@ -124,6 +128,10 @@ const Export = () => {
         });
         return;
       }
+      
+      // Check QuickBooks connection before fetching data
+      // This is a critical operation, so we use non-silent mode
+      await checkConnection(true, false); // force=true, silent=false
       
       await fetchEntities();
     } catch (error: any) {
@@ -200,9 +208,22 @@ const Export = () => {
   // Count selected records
   const selectedRecordsCount = Object.values(selectedRecords).filter(Boolean).length;
 
-  // Export data to CSV
-  const handleExport = () => {
+  // Handle export to CSV
+  const handleExport = async () => {
     try {
+      if (!selectedEntity) {
+        toast({
+          title: "No Entity Selected",
+          description: "Please select an entity type to export.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Check QuickBooks connection before exporting data
+      // This is a critical operation, so we use non-silent mode
+      await checkConnection(true, false); // force=true, silent=false
+      
       if (selectedFields.length === 0) {
         toast({
           title: "No Fields Selected",

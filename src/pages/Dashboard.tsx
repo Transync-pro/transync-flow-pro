@@ -1,26 +1,28 @@
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import DashboardHome from "@/components/Dashboard/DashboardHome";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
 
 const Dashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { isConnected, companyName, refreshConnection } = useQuickbooks();
+  const location = useLocation();
+  const { isConnected, companyName, refreshConnection, checkConnection } = useQuickbooks();
   const { user } = useAuth();
   
-  // Check QuickBooks connection on mount - but only once
+  // Check QuickBooks connection on mount - but only once and silently
   useEffect(() => {
     let isMounted = true;
     
-    const checkConnection = async () => {
-      console.log("Dashboard: Refreshing QB connection");
-      await refreshConnection();
+    const checkConnectionOnMount = async () => {
+      console.log("Dashboard: Checking QB connection on mount");
+      // Use silent mode to prevent UI flickering
+      await refreshConnection(true); // true = silent mode
       
       // Direct DB check as a fallback
       if (user && !isConnected) {
@@ -30,17 +32,31 @@ const Dashboard = () => {
         if (hasConnection && isMounted) {
           console.log("Dashboard: Found connection in DB but context says not connected, refreshing again");
           // Found connection in DB but context doesn't reflect it, refresh again
-          await refreshConnection();
+          await refreshConnection(true); // true = silent mode
         }
       }
     };
     
-    checkConnection();
+    checkConnectionOnMount();
     
     return () => {
       isMounted = false;
     };
   }, [refreshConnection, user, isConnected]);
+  
+  // Check connection on location/route changes
+  useEffect(() => {
+    // Skip the initial check since we already do it in the mount effect
+    const isInitialMount = useRef(true);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    
+    console.log("Dashboard: Checking connection on route change");
+    // Use silent mode to prevent UI flickering during navigation
+    checkConnection(false, true); // false = not forced, true = silent
+  }, [location.pathname, checkConnection]);
   
   // Handle disconnection case - redirect to disconnected page if not connected
   useEffect(() => {
@@ -49,6 +65,23 @@ const Dashboard = () => {
       navigate('/disconnected', { replace: true });
     }
   }, [isConnected, navigate]);
+  
+  // Add document visibility change listener to check connection when user returns to the app
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log("Dashboard: User returned to the app, checking connection silently");
+        // Use silent mode to prevent UI flickering
+        checkConnection(false, true); // false = not forced, true = silent
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [checkConnection]);
   
   // Show welcome message when connected
   useEffect(() => {

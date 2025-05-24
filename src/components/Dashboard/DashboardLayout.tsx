@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -129,11 +129,14 @@ const DashboardHeader = () => {
 };
 
 const QuickbooksConnectionButton = () => {
-  const { isConnected, disconnect, isLoading } = useQuickbooks();
+  // Track explicit user actions separately from background checks
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const { isConnected, disconnect } = useQuickbooks();
   const navigate = useNavigate();
 
   const handleDisconnect = async () => {
     try {
+      setIsDisconnecting(true);
       await disconnect();
       // Explicitly navigate to disconnected page after disconnection
       navigate("/disconnected", { replace: true });
@@ -144,6 +147,7 @@ const QuickbooksConnectionButton = () => {
         description: "Failed to disconnect from QuickBooks",
         variant: "destructive"
       });
+      setIsDisconnecting(false);
     }
   };
 
@@ -151,10 +155,11 @@ const QuickbooksConnectionButton = () => {
     navigate("/disconnected");
   };
 
-  if (isLoading) {
+  // Only show loading state during explicit user-initiated disconnect action
+  if (isDisconnecting) {
     return (
       <Button className="w-full" variant="outline" disabled>
-        Loading...
+        Disconnecting...
       </Button>
     );
   }

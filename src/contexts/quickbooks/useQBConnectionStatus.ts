@@ -37,7 +37,8 @@ export const useQBConnectionStatus = (user: User | null) => {
   }, []);
 
   // Check connection status with enhanced caching and throttling
-  const checkConnectionStatus = useCallback(async (force = false) => {
+  // Added silent parameter to prevent UI updates during background checks
+  const checkConnectionStatus = useCallback(async (force = false, silent = false) => {
     if (!user) {
       resetConnectionState();
       setIsLoading(false);
@@ -63,7 +64,10 @@ export const useQBConnectionStatus = (user: User | null) => {
     }
     
     checkInProgress.current = true;
-    setIsLoading(true);
+    // Only update loading state if not in silent mode
+    if (!silent) {
+      setIsLoading(true);
+    }
     lastCheckTime.current = now;
     
     // If we're doing a forced check, clear the connection cache first
@@ -94,7 +98,7 @@ export const useQBConnectionStatus = (user: User | null) => {
       // If forced refresh or the cache is expired/empty, do a full DB query
       if (force || 
           connectionCache.current.userId !== user.id || 
-          now - connectionCache.current.timestamp > 60000) { // 1 minute cache
+          now - connectionCache.current.timestamp > 300000) { // 5 minute cache
         
         // Query the QuickBooks connections table
         const { data, error } = await supabase
@@ -166,12 +170,15 @@ export const useQBConnectionStatus = (user: User | null) => {
         resetConnectionState();
       }
     } finally {
-      setIsLoading(false);
+      // Only update loading state if not in silent mode
+      if (!silent) {
+        setIsLoading(false);
+      }
       checkInProgress.current = false;
     }
   }, [user, resetConnectionState]);
 
-  // Check connection on mount and when user changes - with reduced frequency
+  // Check connection on mount and when user changes
   useEffect(() => {
     // Reset circuit breaker when user changes
     maxConsecutiveChecks.current = 0;
@@ -190,15 +197,9 @@ export const useQBConnectionStatus = (user: User | null) => {
     // Check connection status immediately on mount
     checkConnectionStatus(true);
     
-    // Set up interval to periodically check connection status
-    const intervalId = setInterval(() => {
-      checkConnectionStatus(false);
-    }, 30000); // Check every 30 seconds
-    
-    // Clear throttling and interval on unmount
+    // Clear throttling on unmount
     return () => {
       lastCheckTime.current = 0;
-      clearInterval(intervalId);
     };
   }, [user, checkConnectionStatus]);
 
@@ -218,6 +219,7 @@ export const useQBConnectionStatus = (user: User | null) => {
     connection,
     realmId,
     companyName,
-    refreshConnection
+    refreshConnection: (silent = false) => checkConnectionStatus(true, silent),
+    checkConnection: checkConnectionStatus // Export for direct use in components
   };
 };

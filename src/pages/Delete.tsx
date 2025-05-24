@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -82,6 +83,9 @@ const Delete = () => {
     setPageIndex(0);
   };
 
+  // Get the connection check function from QuickBooks context
+  const { checkConnection } = useQuickbooks();
+
   // Explicitly fetch data when requested by user
   const handleFetchData = async () => {
     try {
@@ -97,6 +101,11 @@ const Delete = () => {
         });
         return;
       }
+      
+      // Check QuickBooks connection before fetching data
+      // This is a critical operation, so we use non-silent mode
+      await checkConnection(true, false); // force=true, silent=false
+      
       await fetchEntities();
     } catch (error) {
       logError(`Error fetching ${selectedEntity} data for deletion`, {
@@ -135,6 +144,10 @@ const Delete = () => {
   // Handle actual deletion
   const handleDelete = async () => {
     try {
+      // Check QuickBooks connection before deleting data
+      // This is a critical operation, so we use non-silent mode
+      await checkConnection(true, false); // force=true, silent=false
+      
       await deleteSelectedEntities(selectedEntityIds);
       setSelectedEntityIds([]);
       setSelectedAll(false);
