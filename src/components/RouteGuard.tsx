@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,7 +36,7 @@ const RouteGuard = ({
   
   // Flag special routes
   const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
-  const isDisconnectedRoute = location.pathname === "/disconnected";
+  const isAuthenticateRoute = location.pathname === "/authenticate";
   const isDashboardRoute = location.pathname === "/dashboard";
   const isAdminRoute = location.pathname.startsWith("/admin");
   const isLoginPage = location.pathname === "/login";
@@ -172,9 +173,9 @@ const RouteGuard = ({
         return;
       }
       
-      // If we need QuickBooks and are not yet on the disconnected page, do direct DB check
+      // If we need QuickBooks and are not yet on the authenticate page, do direct DB check
       // But only if we haven't already checked for this user
-      if (user && requiresQuickbooks && !isDisconnectedRoute && !connectionCheckedRef.current) {
+      if (user && requiresQuickbooks && !isAuthenticateRoute && !connectionCheckedRef.current) {
         await checkQbConnectionDirectly();
         // Mark that we've checked the connection for this user
         connectionCheckedRef.current = true;
@@ -202,7 +203,7 @@ const RouteGuard = ({
     user, 
     checkQbConnectionDirectly, 
     isQbCallbackRoute, 
-    isDisconnectedRoute,
+    isAuthenticateRoute,
     requiresAdmin,
     roleChecked
   ]);
@@ -217,10 +218,10 @@ const RouteGuard = ({
       // Set redirecting flag to prevent multiple redirects
       redirectingRef.current = true;
       
-      // Handle disconnected page logic
-      if (isDisconnectedRoute) {
+      // Handle authenticate page logic
+      if (isAuthenticateRoute) {
         if (hasQbConnection || isConnected) {
-          console.log('RouteGuard: Connection found while on disconnected page, redirecting to dashboard');
+          console.log('RouteGuard: Connection found while on authenticate page, redirecting to dashboard');
           navigate('/dashboard', { replace: true });
         }
         redirectingRef.current = false;
@@ -229,8 +230,8 @@ const RouteGuard = ({
       
       // Handle QuickBooks requirement for other pages
       if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
-        console.log('RouteGuard: No QuickBooks connection found, redirecting to /disconnected');
-        navigate('/disconnected', { replace: true });
+        console.log('RouteGuard: No QuickBooks connection found, redirecting to /authenticate');
+        navigate('/authenticate', { replace: true });
         redirectingRef.current = false;
         return;
       }
@@ -243,7 +244,7 @@ const RouteGuard = ({
     isChecking,
     hasQbConnection,
     isConnected,
-    isDisconnectedRoute,
+    isAuthenticateRoute,
     requiresQuickbooks,
     user,
     isQbCallbackRoute,
@@ -298,8 +299,8 @@ const RouteGuard = ({
     return <Navigate to="/" replace />;
   }
   
-  // Special case: don't redirect from the disconnected route if we don't have a connection
-  if (isDisconnectedRoute && !hasQbConnection && !isConnected) {
+  // Special case: don't redirect from the authenticate route if we don't have a connection
+  if (isAuthenticateRoute && !hasQbConnection && !isConnected) {
     return <>{children}</>;
   }
 

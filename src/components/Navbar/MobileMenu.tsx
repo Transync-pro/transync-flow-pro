@@ -42,9 +42,9 @@ const MobileMenu = ({
           </Link>
         )}
         
-        {/* Show Disconnected link for authenticated users without QB connection */}
+        {/* Show Authenticate link for authenticated users without QB connection */}
         {isAuthenticated && !hasQbConnection && (
-          <Link to="/disconnected" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 hover:border-gray-300">
+          <Link to="/authenticate" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 hover:border-gray-300">
             Connect QuickBooks
           </Link>
         )}

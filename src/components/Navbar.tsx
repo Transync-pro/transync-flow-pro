@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -118,7 +119,7 @@ const Navbar = () => {
           {/* Show Connect QuickBooks link for authenticated users without QB connection */}
           {user && !hasQbConnection && (
             <div className="hidden md:flex md:items-center">
-              <Link to="/disconnected" className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-transyncpro-heading hover:border-transyncpro-heading">
+              <Link to="/authenticate" className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-transyncpro-heading hover:border-transyncpro-heading">
                 Connect QuickBooks
               </Link>
             </div>
