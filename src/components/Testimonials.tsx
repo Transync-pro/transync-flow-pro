@@ -73,10 +73,10 @@ const Testimonials = () => {
         
         <div className="mt-16 flex flex-wrap justify-center items-center gap-8 md:gap-16">
           <div className="text-gray-400 text-xl font-semibold">Trusted by users at:</div>
-          <img src="https://upload.wikimedia.org/wikipedia/commons/7/76/Intuit_Logo.svg" alt="Intuit" className="h-6 md:h-8 opacity-60 hover:opacity-100 transition-opacity" />
+          <img src="/Intuit_Logo.png" alt="Intuit" className="h-6 md:h-8 opacity-60 hover:opacity-100 transition-opacity" />
           <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/Oracle_Corporation_logo.svg" alt="Oracle" className="h-6 md:h-8 opacity-60 hover:opacity-100 transition-opacity" />
-          <img src="https://upload.wikimedia.org/wikipedia/commons/9/9d/Deloitte_Logo.svg" alt="Deloitte" className="h-6 md:h-8 opacity-60 hover:opacity-100 transition-opacity" />
-          <img src="https://upload.wikimedia.org/wikipedia/commons/7/7b/Microsoft_logo.svg" alt="Microsoft" className="h-6 md:h-8 opacity-60 hover:opacity-100 transition-opacity" />
+          <img src="/Deloitte_Logo.png" alt="Deloitte" className="h-6 md:h-8 opacity-60 hover:opacity-100 transition-opacity" />
+          <img src="/Microsoft_logo.svg" alt="Microsoft" className="h-6 md:h-8 opacity-60 hover:opacity-100 transition-opacity" />
         </div>
       </div>
     </section>
