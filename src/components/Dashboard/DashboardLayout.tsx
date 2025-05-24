@@ -132,19 +132,22 @@ const DashboardHeader = () => {
   );
 };
 
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
 const QuickbooksConnectionButton = () => {
   // Track explicit user actions separately from background checks
   const [isDisconnecting, setIsDisconnecting] = useState(false);
-  // Only use isConnected state, ignore isLoading completely
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogStep, setDialogStep] = useState(1);
+  const [feedback, setFeedback] = useState("");
   const { isConnected, disconnect } = useQuickbooks();
   const navigate = useNavigate();
 
   const handleDisconnect = async () => {
     try {
-      // Only show loading during explicit user action
       setIsDisconnecting(true);
+      setDialogOpen(false);
       await disconnect();
-      // Explicitly navigate to disconnected page after disconnection
       navigate("/disconnected", { replace: true });
     } catch (error) {
       console.error("Error disconnecting from QuickBooks:", error);
@@ -170,13 +173,135 @@ const QuickbooksConnectionButton = () => {
     );
   }
 
+  // Multi-step dialog content
+  const renderDialogContent = () => {
+    if (dialogStep === 1) {
+      return (
+        <>
+          <DialogHeader>
+            <DialogTitle>Are you sure you want to disconnect?</DialogTitle>
+            <DialogDescription>
+              Disconnecting will remove your QuickBooks connection.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => setDialogStep(2)}
+            >
+              Yes, disconnect my account
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full mt-2"
+              onClick={() => setDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </>
+      );
+    }
+    if (dialogStep === 2) {
+      return (
+        <>
+          <DialogHeader>
+            <DialogTitle>Why are you disconnecting?</DialogTitle>
+            <DialogDescription>
+              Please let us know your reason for disconnecting.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {[
+              "The app is too expensive",
+              "Switching to a different app",
+              "The app is too complicated",
+              "I don’t need it anymore",
+              "Others"
+            ].map((option) => (
+              <label key={option} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="disconnect-feedback"
+                  value={option}
+                  checked={feedback === option}
+                  onChange={() => setFeedback(option)}
+                  className="accent-red-600"
+                />
+                <span>{option}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => setDialogStep(3)}
+              disabled={!feedback}
+            >
+              Continue
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full mt-2"
+              onClick={() => setDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </>
+      );
+    }
+    if (dialogStep === 3) {
+      return (
+        <>
+          <DialogHeader>
+            <DialogTitle>Things to Know Before You Disconnect</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-4 text-left text-sm text-gray-700">
+            <div>
+              <span className="font-semibold">Subscription Cancellation</span><br />
+              Disconnecting from QuickBooks will cancel your Transync Pro subscription. Please note that we do not offer refunds for any payments already made.
+            </div>
+            <div>
+              <span className="font-semibold">Loss of Account Data</span><br />
+              Once disconnected, all your account data, settings, and saved information will be permanently deleted and cannot be recovered.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDisconnect}
+            >
+              Disconnect QuickBooks
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full mt-2"
+              onClick={() => setDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </>
+      );
+    }
+    return null;
+  };
+
   return isConnected ? (
-    <button
-      onClick={handleDisconnect}
-      className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
-    >
-      Disconnect QuickBooks
-    </button>
+    <>
+      <Button
+        className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
+        onClick={() => { setDialogOpen(true); setDialogStep(1); }}
+      >
+        Disconnect QuickBooks
+      </Button>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent hideCloseButton>
+          {renderDialogContent()}
+        </DialogContent>
+      </Dialog>
+    </>
   ) : (
     <button
       onClick={handleConnect}
