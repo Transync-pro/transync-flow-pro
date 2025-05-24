@@ -27,13 +27,13 @@ const Navbar = () => {
       }
 
       try {
-        const { data, error } = await supabase
+        // Using count query instead of select to avoid 406 errors
+        const { count, error } = await supabase
           .from('quickbooks_connections')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
         
-        setHasQbConnection(!error && !!data);
+        setHasQbConnection(!error && (count || 0) > 0);
       } catch (error) {
         console.error('Error checking QB connection:', error);
         setHasQbConnection(false);
