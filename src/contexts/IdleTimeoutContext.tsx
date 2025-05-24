@@ -29,13 +29,14 @@ interface IdleTimeoutProviderProps {
 }
 
 export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [isIdle, setIsIdle] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [remainingTime, setRemainingTime] = useState(WARNING_DURATION / 1000);
   
-  // Reset timer function - called when user activity is detected
+  // Reset timer function - called ONLY when the Keep Me Logged In button is clicked
+  // This should not be called by general user activity
   const resetTimer = useCallback(() => {
     setIsIdle(false);
     setShowWarning(false);
@@ -55,19 +56,24 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
       
       // Set a new idle timer
       idleTimer = setTimeout(() => {
+        console.log('User idle detected - showing warning');
         setIsIdle(true);
         setShowWarning(true);
         
         // Set a warning timer for logout
         warningTimer = setTimeout(() => {
+          console.log('Warning timer expired - logging out user');
           // Log the user out when warning timer expires
-          toast({
-            title: "Session Expired",
-            description: "You have been logged out due to inactivity.",
-            variant: "destructive"
-          });
-          // Force logout after timer expires
-          logout();
+          // Add a small delay to ensure the state update completes
+          setTimeout(() => {
+            toast({
+              title: "Session Expired",
+              description: "You have been logged out due to inactivity.",
+              variant: "destructive"
+            });
+            // Force logout after timer expires
+            signOut();
+          }, 100);
         }, WARNING_DURATION);
       }, IDLE_TIMEOUT);
     };
@@ -75,7 +81,8 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
     // Start the timer initially
     startIdleTimer();
     
-    // Reset the timer when user becomes active again
+    // Reset the timer when user becomes active again, but ONLY when not in warning state
+    // This ensures the warning can only be dismissed by the Keep Me Logged In button
     if (!isIdle) {
       startIdleTimer();
     }
@@ -85,7 +92,7 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
       clearTimeout(idleTimer);
       clearTimeout(warningTimer);
     };
-  }, [user, isIdle, logout, toast]);
+  }, [user, isIdle, signOut, toast]);
   
   // Handle the countdown timer for the warning dialog
   useEffect(() => {
@@ -100,12 +107,16 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
           clearInterval(countdownInterval);
           // Force logout when timer reaches zero
           if (user) {
-            toast({
-              title: "Session Expired",
-              description: "You have been logged out due to inactivity.",
-              variant: "destructive"
-            });
-            logout();
+            console.log('Session expired - logging out user');
+            // Add a small delay to ensure the state update completes
+            setTimeout(() => {
+              toast({
+                title: "Session Expired",
+                description: "You have been logged out due to inactivity.",
+                variant: "destructive"
+              });
+              signOut();
+            }, 100);
           }
           return 0;
         }
@@ -114,41 +125,22 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
     }, 1000);
     
     return () => clearInterval(countdownInterval);
-  }, [showWarning, user, logout, toast]);
+  }, [showWarning, user, signOut, toast]);
   
-  // Track user activity - only specific actions should reset the timer
+  // Track user activity to start the idle timer, but not reset it
+  // The timer should only be reset by clicking the "Keep Me Logged In" button
   useEffect(() => {
     if (!user) return; // Only track activity for authenticated users
     
-    const resetTimerOnActivity = () => resetTimer();
+    // We no longer reset the timer on general user activity
+    // The idle timer will start when the component mounts and only the explicit
+    // button click in the warning dialog will reset it
     
-    // Add event listeners for user activity - only button clicks and form interactions
-    // Mouse movement will NOT reset the timer as requested
-    window.addEventListener('mousedown', resetTimerOnActivity);
-    window.addEventListener('keydown', resetTimerOnActivity);
-    window.addEventListener('touchstart', resetTimerOnActivity);
-    window.addEventListener('click', resetTimerOnActivity);
-    window.addEventListener('scroll', resetTimerOnActivity, { passive: true });
+    // We also don't reset on tab visibility changes anymore
+    // This ensures the logout flow isn't interrupted by tab switching
     
-    // Handle tab visibility changes
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        resetTimer();
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Cleanup
-    return () => {
-      window.removeEventListener('mousedown', resetTimerOnActivity);
-      window.removeEventListener('keydown', resetTimerOnActivity);
-      window.removeEventListener('touchstart', resetTimerOnActivity);
-      window.removeEventListener('click', resetTimerOnActivity);
-      window.removeEventListener('scroll', resetTimerOnActivity);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [user, resetTimer]);
+    // No event listeners needed since we don't reset on general activity
+  }, [user]);
   
   const value: IdleTimeoutContextType = {
     isIdle,

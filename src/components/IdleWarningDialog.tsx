@@ -20,8 +20,8 @@ export const IdleWarningDialog: React.FC = () => {
   const progressPercentage = (remainingTime / 30) * 100;
   
   return (
-    <Dialog open={showWarning} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={showWarning} onOpenChange={() => {}} modal={true}>
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
         <DialogTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-yellow-500" />
           Session Timeout Warning
