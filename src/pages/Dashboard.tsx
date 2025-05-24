@@ -15,17 +15,29 @@ const Dashboard = () => {
   const { isConnected, companyName, refreshConnection, checkConnection } = useQuickbooks();
   const { user } = useAuth();
   
+  // Track if we've already checked the connection on mount
+  const hasCheckedOnMount = useRef(false);
+  
   // Check QuickBooks connection on mount - but only once and silently
   useEffect(() => {
+    // Skip if we've already checked on mount, regardless of dependency changes
+    if (hasCheckedOnMount.current) {
+      return;
+    }
+    
     let isMounted = true;
     
     const checkConnectionOnMount = async () => {
       console.log("Dashboard: Checking QB connection on mount");
+      
+      // Mark that we've checked the connection on mount to prevent multiple checks
+      hasCheckedOnMount.current = true;
+      
       // Use silent mode to prevent UI flickering
       await refreshConnection(true, true); // force=true, silent=true
       
       // Direct DB check as a fallback
-      if (user && !isConnected) {
+      if (user && !isConnected && isMounted) {
         console.log("Dashboard: Context says not connected, checking DB directly");
         const hasConnection = await checkQBConnectionExists(user.id);
         
