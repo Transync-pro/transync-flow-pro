@@ -222,7 +222,8 @@ const Careers = () => {
               <p className="text-gray-600">Work from anywhere with flexible schedules</p>
             </div>
             
-            <div className="text-4xl mb-4">💰</div>
+            <div className="text-center">
+              <div className="text-4xl mb-4">💰</div>
               <h3 className="font-semibold text-transyncpro-heading mb-2">Competitive Salary</h3>
               <p className="text-gray-600">Fair compensation with performance bonuses</p>
             </div>
