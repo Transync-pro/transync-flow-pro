@@ -152,20 +152,28 @@ const Disconnected = () => {
             </p>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            <Button
-              className="w-full bg-transyncpro-button hover:bg-transyncpro-button/90"
-              onClick={handleConnect}
-              disabled={isLoading || isReconnecting}
-            >
-              {isLoading || isReconnecting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isLoading ? "Checking connection..." : "Connecting..."}
-                </>
-              ) : (
-                "Connect to QuickBooks"
-              )}
-            </Button>
+            <button
+  className="w-full focus:outline-none disabled:opacity-60"
+  onClick={handleConnect}
+  disabled={isLoading || isReconnecting}
+  aria-label="Connect to QuickBooks"
+  style={{ background: 'none', border: 'none', padding: 0 }}
+>
+  {isLoading || isReconnecting ? (
+    <div className="flex items-center justify-center py-2">
+      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      <span>{isLoading ? "Checking connection..." : "Connecting..."}</span>
+    </div>
+  ) : (
+    <img
+      src="/ConnecttoQuickBooksButton.svg"
+      alt="Connect to QuickBooks"
+      className="w-full h-auto cursor-pointer"
+      draggable="false"
+      style={{ pointerEvents: (isLoading || isReconnecting) ? 'none' : 'auto', opacity: (isLoading || isReconnecting) ? 0.6 : 1 }}
+    />
+  )}
+</button>
             <Button
               variant="outline"
               className="w-full mt-2"
