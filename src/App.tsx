@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QuickbooksProvider } from "@/contexts/QuickbooksContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QuickbooksEntitiesProvider } from "@/contexts/QuickbooksEntitiesContext";
+import { IdleTimeoutProvider } from "@/contexts/IdleTimeoutContext";
+import { IdleWarningDialog } from "@/components/IdleWarningDialog";
 import RouteGuard from "@/components/RouteGuard";
 import { useEffect } from "react";
 import { configureErrorLogger } from "@/utils/errorLogger";
@@ -102,8 +104,9 @@ function App() {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <QuickbooksProvider>
-              <QuickbooksEntitiesProvider>
+            <IdleTimeoutProvider>
+              <QuickbooksProvider>
+                <QuickbooksEntitiesProvider>
                 <Routes>
                   {/* Public routes */}
                   <Route path="/" element={<Index />} />
@@ -201,8 +204,10 @@ function App() {
                   {/* Catch-all route */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                <IdleWarningDialog />
               </QuickbooksEntitiesProvider>
             </QuickbooksProvider>
+            </IdleTimeoutProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
