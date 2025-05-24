@@ -28,26 +28,44 @@ const ForgotPassword = () => {
 
     setIsLoading(true);
 
+    // Apply consistent delay before any processing to prevent timing attacks
+    const startTime = Date.now();
+    const minProcessingTime = 2000; // 2 seconds minimum
+
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Always attempt to send reset email - Supabase will handle non-existent emails gracefully
+      await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
-      if (error) {
-        throw error;
+      // Ensure minimum processing time has elapsed
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime < minProcessingTime) {
+        await new Promise(resolve => setTimeout(resolve, minProcessingTime - elapsedTime));
       }
 
+      // Always show success message regardless of whether email exists
       setIsEmailSent(true);
       toast({
         title: "Reset email sent",
-        description: "Check your email for password reset instructions.",
+        description: "If the supplied email exists, a password reset email has been sent to the email address associated with that account.",
       });
     } catch (error: any) {
+      // Ensure minimum processing time even for errors
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime < minProcessingTime) {
+        await new Promise(resolve => setTimeout(resolve, minProcessingTime - elapsedTime));
+      }
+
+      // Show the same success message even on error to prevent enumeration
+      setIsEmailSent(true);
       toast({
-        title: "Error",
-        description: error.message || "An error occurred while sending the reset email.",
-        variant: "destructive"
+        title: "Reset email sent",
+        description: "If the supplied email exists, a password reset email has been sent to the email address associated with that account.",
       });
+      
+      // Log error for debugging but don't expose to user
+      console.error("Password reset error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +84,7 @@ const ForgotPassword = () => {
             </CardHeader>
             <CardContent className="text-center">
               <p className="text-gray-600 mb-4">
-                We've sent password reset instructions to:
+                If the supplied email exists, a password reset email has been sent to:
               </p>
               <p className="font-medium text-gray-900 mb-6">{email}</p>
               <p className="text-sm text-gray-500">
