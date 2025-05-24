@@ -71,6 +71,8 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
               description: "You have been logged out due to inactivity.",
               variant: "destructive"
             });
+            // Hide the warning dialog before signing out
+            setShowWarning(false);
             // Force logout after timer expires
             signOut();
           }, 100);
@@ -115,6 +117,9 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
                 description: "You have been logged out due to inactivity.",
                 variant: "destructive"
               });
+              // Hide the warning dialog before signing out
+              setShowWarning(false);
+              // Force logout
               signOut();
             }, 100);
           }

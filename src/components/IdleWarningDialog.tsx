@@ -21,7 +21,7 @@ export const IdleWarningDialog: React.FC = () => {
   
   return (
     <Dialog open={showWarning} onOpenChange={() => {}} modal={true}>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md" hideCloseButton={true} onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
         <DialogTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-yellow-500" />
           Session Timeout Warning
