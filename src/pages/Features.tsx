@@ -171,12 +171,12 @@ const Features = () => {
           </div>
           <div className="flex flex-col md:flex-row items-center justify-center gap-8">
             <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/a/a3/Quickbooks_certified_proadvisor_logo.svg" 
+              src="/QuickBooksProAdvisors.png" 
               alt="QuickBooks Certified" 
               className="h-16 md:h-24"
             />
             <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/e/e1/QuickBooks_Logo.svg" 
+              src="/Quickbooks_certified_proadvisor_logo.png" 
               alt="QuickBooks Logo" 
               className="h-16 md:h-24"
             />
