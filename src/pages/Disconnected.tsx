@@ -17,8 +17,16 @@ const Disconnected = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
+  // Track if we've already checked the connection
+  const hasCheckedConnection = useRef(false);
+  
   // Direct check for QuickBooks connection on mount with optimized approach
   useEffect(() => {
+    // Skip if we've already checked the connection, regardless of dependency changes
+    if (hasCheckedConnection.current) {
+      return;
+    }
+    
     let isMounted = true;
     
     const checkDirectConnection = async () => {
@@ -28,6 +36,9 @@ const Disconnected = () => {
       }
       
       try {
+        // Mark that we've checked the connection to prevent multiple checks
+        hasCheckedConnection.current = true;
+        
         // Clear any stale cache first
         clearConnectionCache(user.id);
         
