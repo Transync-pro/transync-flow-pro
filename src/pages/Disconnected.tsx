@@ -20,10 +20,13 @@ const Disconnected = () => {
   // Track if we've already checked the connection
   const hasCheckedConnection = useRef(false);
   
-  // Direct check for QuickBooks connection on mount with optimized approach
+  // Simplified connection check for the Disconnected page
   useEffect(() => {
-    // Skip if we've already checked the connection, regardless of dependency changes
-    if (hasCheckedConnection.current) {
+    // If we already know there's no connection (which is likely since we're on this page)
+    // or if we've already checked, exit loading state immediately
+    if (!isConnected || hasCheckedConnection.current) {
+      console.log("Disconnected: Already know there's no connection or already checked");
+      setIsCheckingConnection(false);
       return;
     }
     
@@ -39,60 +42,53 @@ const Disconnected = () => {
         // Mark that we've checked the connection to prevent multiple checks
         hasCheckedConnection.current = true;
         
-        // Clear any stale cache first
-        clearConnectionCache(user.id);
-        
-        // Add a timeout to ensure we don't get stuck in loading state
-        const connectionCheckTimeout = setTimeout(() => {
+        // Guaranteed timeout to ensure we NEVER get stuck in loading state
+        setTimeout(() => {
           if (isMounted) {
-            console.log("Connection check timed out, showing connect button");
             setIsCheckingConnection(false);
           }
-        }, 5000); // 5 second timeout
+        }, 2000); // Short 2 second timeout as a safety net
         
-        try {
-          // Now refresh the connection status
-          await refreshConnection();
+        // If isConnected is already false, we don't need a full check
+        if (!isConnected) {
+          console.log("Disconnected: Context already shows no connection");
+          setIsCheckingConnection(false);
+          return;
+        }
+        
+        // One quick direct check to be sure
+        const hasConnection = await checkQBConnectionExists(user.id);
           
-          // After refresh, do a direct DB check as well
-          const hasConnection = await checkQBConnectionExists(user.id);
-          
-          // Clear the timeout since we got a response
-          clearTimeout(connectionCheckTimeout);
-          
-          if (!isMounted) return;
-          
-          if (hasConnection || isConnected) {
-            console.log("Direct DB check found a connection, redirecting to dashboard");
-            // Show success message
-            toast({
-              title: "QuickBooks Connected",
-              description: "Your QuickBooks account is connected. Redirecting to dashboard...",
-            });
-            
-            // Redirect immediately to dashboard
-            navigate('/dashboard', { replace: true });
-          } else {
-            console.log("No QuickBooks connection found");
-            // Connection not found, allow display of the connect button
-            setIsCheckingConnection(false);
-          }
-        } catch (innerError) {
-          // Clear the timeout since we got an error response
-          clearTimeout(connectionCheckTimeout);
-          throw innerError; // Re-throw to be caught by outer catch
+        if (!isMounted) return;
+        
+        if (hasConnection) {
+          console.log("Disconnected: Found connection, redirecting to dashboard");
+          toast({
+            title: "QuickBooks Connected",
+            description: "Your QuickBooks account is connected. Redirecting to dashboard...",
+          });
+          navigate('/dashboard', { replace: true });
+        } else {
+          console.log("Disconnected: Confirmed no connection");
+          setIsCheckingConnection(false);
         }
       } catch (error) {
-        console.error("Error checking direct connection:", error);
-        // Ensure we exit loading state on any error
+        console.error("Error checking connection in Disconnected page:", error);
+        // Always ensure we exit loading state
         setIsCheckingConnection(false);
       }
     };
     
-    checkDirectConnection();
+    // Very short delay before checking to allow state to settle
+    const initTimeout = setTimeout(() => {
+      if (isMounted) {
+        checkDirectConnection();
+      }
+    }, 100);
     
     return () => {
       isMounted = false;
+      clearTimeout(initTimeout);
     };
   }, [user, navigate, refreshConnection, isConnected]);
   
