@@ -126,7 +126,7 @@ export const checkQBConnectionExists = async (userId: string): Promise<boolean> 
     // Use a direct count query that's faster and more reliable
     const { count, error } = await supabase
       .from('quickbooks_connections')
-      .select('id', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
     
     if (error) {
