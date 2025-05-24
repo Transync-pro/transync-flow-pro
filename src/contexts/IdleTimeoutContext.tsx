@@ -66,6 +66,7 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
             description: "You have been logged out due to inactivity.",
             variant: "destructive"
           });
+          // Force logout after timer expires
           logout();
         }, WARNING_DURATION);
       }, IDLE_TIMEOUT);
@@ -97,6 +98,15 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
       setRemainingTime(prev => {
         if (prev <= 1) {
           clearInterval(countdownInterval);
+          // Force logout when timer reaches zero
+          if (user) {
+            toast({
+              title: "Session Expired",
+              description: "You have been logged out due to inactivity.",
+              variant: "destructive"
+            });
+            logout();
+          }
           return 0;
         }
         return prev - 1;
@@ -104,32 +114,21 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
     }, 1000);
     
     return () => clearInterval(countdownInterval);
-  }, [showWarning]);
+  }, [showWarning, user, logout, toast]);
   
-  // Track user activity
+  // Track user activity - only specific actions should reset the timer
   useEffect(() => {
     if (!user) return; // Only track activity for authenticated users
     
     const resetTimerOnActivity = () => resetTimer();
     
-    // Add event listeners for user activity
+    // Add event listeners for user activity - only button clicks and form interactions
+    // Mouse movement will NOT reset the timer as requested
     window.addEventListener('mousedown', resetTimerOnActivity);
     window.addEventListener('keydown', resetTimerOnActivity);
     window.addEventListener('touchstart', resetTimerOnActivity);
     window.addEventListener('click', resetTimerOnActivity);
     window.addEventListener('scroll', resetTimerOnActivity, { passive: true });
-    
-    // Heavily throttled mouse movement detection
-    let lastMovementTime = Date.now();
-    const handleMouseMove = () => {
-      const now = Date.now();
-      if (now - lastMovementTime > MOUSE_MOVE_THROTTLE) {
-        lastMovementTime = now;
-        resetTimer();
-      }
-    };
-    
-    window.addEventListener('mousemove', handleMouseMove);
     
     // Handle tab visibility changes
     const handleVisibilityChange = () => {
@@ -147,7 +146,6 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
       window.removeEventListener('touchstart', resetTimerOnActivity);
       window.removeEventListener('click', resetTimerOnActivity);
       window.removeEventListener('scroll', resetTimerOnActivity);
-      window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user, resetTimer]);
