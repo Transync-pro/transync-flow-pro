@@ -126,6 +126,24 @@ const QuickbooksCallback = () => {
           description: toastMessage,
         });
 
+        // Ensure current session is still valid before redirecting
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        if (!sessionData?.session) {
+          console.log('Session lost during QuickBooks connection, attempting to restore');
+          
+          // If we don't have a session, but we know who the user is, try to avoid losing progress
+          if (userId) {
+            // Store that we need to refresh the connection after auth completes
+            sessionStorage.setItem('qb_auth_success', 'true');
+            sessionStorage.setItem('qb_connect_user', userId);
+            
+            // Redirect to login with dashboard as the return destination
+            navigate('/login', { state: { redirectAfter: '/dashboard' } });
+            return;
+          }
+        }
+        
         // Get redirect path from session storage or default to dashboard
         const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || '/dashboard';
         sessionStorage.removeItem('qb_redirect_after_connect');
@@ -135,15 +153,14 @@ const QuickbooksCallback = () => {
         // Set a flag that processing is complete before redirecting
         setProcessingComplete(true);
         
-        // Force multiple connection refreshes with increasing delays to ensure the state is updated
-        setTimeout(() => refreshConnection(), 200);
+        // Session is valid, refresh connection and redirect to dashboard
+        await refreshConnection(true); // Force refresh
+        
+        // Give a small delay for the connection state to update
         setTimeout(() => {
-          refreshConnection();
-          // Wait before navigating to give the context time to update
-          setTimeout(() => {
-            navigate('/dashboard', { replace: true });
-          }, 500);
-        }, 800);
+          // Navigate directly to dashboard
+          navigate(redirectPath, { replace: true });
+        }, 500);
         
       } catch (err: any) {
         logError("QuickBooks callback error", {
