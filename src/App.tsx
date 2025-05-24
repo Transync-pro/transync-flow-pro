@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +17,8 @@ import { configureErrorLogger } from "@/utils/errorLogger";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Verify from "./pages/Verify";
 import Dashboard from "./pages/Dashboard";
 import Import from "./pages/Import";
@@ -118,6 +121,16 @@ function App() {
                   <Route path="/signup" element={
                     <RouteGuard requiresAuth={false} isPublicOnly={true}>
                       <Signup />
+                    </RouteGuard>
+                  } />
+                  <Route path="/forgot-password" element={
+                    <RouteGuard requiresAuth={false} isPublicOnly={true}>
+                      <ForgotPassword />
+                    </RouteGuard>
+                  } />
+                  <Route path="/reset-password" element={
+                    <RouteGuard requiresAuth={false} isPublicOnly={false}>
+                      <ResetPassword />
                     </RouteGuard>
                   } />
                   <Route path="/verify" element={
