@@ -47,11 +47,20 @@ const Dashboard = () => {
   // Create ref outside the effect for tracking initial mount
   const isInitialRouteChange = useRef(true);
   
-  // Check connection on location/route changes
+  // Track if we've already checked connection on this route
+  const routeCheckedRef = useRef(false);
+  
+  // Check connection on location/route changes, but only once per route
   useEffect(() => {
     // Skip the initial check since we already do it in the mount effect
     if (isInitialRouteChange.current) {
       isInitialRouteChange.current = false;
+      routeCheckedRef.current = true;
+      return;
+    }
+    
+    // Skip if we've already checked on this route
+    if (routeCheckedRef.current) {
       return;
     }
     
@@ -59,6 +68,8 @@ const Dashboard = () => {
       console.log("Dashboard: Checking QB connection on route change");
       // Use silent mode to prevent UI flickering
       await refreshConnection(true, true); // force=true, silent=true
+      // Mark that we've checked on this route
+      routeCheckedRef.current = true;
     };
     
     checkConnectionOnRouteChange();
@@ -100,21 +111,7 @@ const Dashboard = () => {
     };
   }, [refreshConnection]);
   
-  // Track if we've already shown the welcome message
-  const welcomeShownRef = useRef(false);
-  
-  // Show welcome message when connected, but only once
-  useEffect(() => {
-    if (isConnected && companyName && !welcomeShownRef.current) {
-      // Mark that we've shown the welcome message
-      welcomeShownRef.current = true;
-      
-      toast({
-        title: `Connected to ${companyName}`,
-        description: "Your QuickBooks account is successfully connected.",
-      });
-    }
-  }, [isConnected, companyName, toast]);
+  // No welcome message here - it's already shown in the AuthContext when the user signs in
   
   // Only render the dashboard if connected
   if (isConnected === false) {
