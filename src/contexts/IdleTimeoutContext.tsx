@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -46,8 +47,8 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
   useEffect(() => {
     if (!user) return; // Only track idle time for authenticated users
     
-    let idleTimer: number;
-    let warningTimer: number;
+    let idleTimer: NodeJS.Timeout;
+    let warningTimer: NodeJS.Timeout;
     
     const startIdleTimer = () => {
       // Clear any existing timers

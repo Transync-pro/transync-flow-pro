@@ -64,8 +64,8 @@ const QuickbooksCallback = () => {
         }
         
         // Get current user
-        const { data: sessionData } = await supabase.auth.getSession();
-        const currentUser = sessionData?.session?.user || user;
+        const { data: currentSessionData } = await supabase.auth.getSession();
+        const currentUser = currentSessionData?.session?.user || user;
         
         // Use stored ID from connection initiation as fallback
         const storedUserId = sessionStorage.getItem("qb_connecting_user");
@@ -108,9 +108,9 @@ const QuickbooksCallback = () => {
           });
           
           // Ensure current session is still valid before redirecting
-          const { data: sessionData } = await supabase.auth.getSession();
+          const { data: finalSessionData } = await supabase.auth.getSession();
           
-          if (!sessionData?.session) {
+          if (!finalSessionData?.session) {
             console.log('Session lost during QuickBooks connection, attempting to restore');
             
             if (userId) {
@@ -135,9 +135,11 @@ const QuickbooksCallback = () => {
           return;
         }
         
+        let tokenExchangeData: any;
+        
         try {
           // Exchange code for tokens - OAuth codes can only be used once and expire quickly
-          const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
+          const { data: exchangeData, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
             body: {
               path: "token",
               code,
@@ -152,14 +154,16 @@ const QuickbooksCallback = () => {
             throw new Error(`Function error: ${invokeError.message}`);
           }
           
-          if (data?.error) {
-            console.error("QuickBooks API error details:", data.error);
-            throw new Error(`QuickBooks API error: ${data.error}`);
+          if (exchangeData?.error) {
+            console.error("QuickBooks API error details:", exchangeData.error);
+            throw new Error(`QuickBooks API error: ${exchangeData.error}`);
           }
           
-          if (!data) {
+          if (!exchangeData) {
             throw new Error("No data returned from the token exchange");
           }
+          
+          tokenExchangeData = exchangeData;
           
           // Mark this code as processed to prevent duplicate exchanges
           const updatedProcessedCodes = processedCodes ? 
@@ -198,11 +202,11 @@ const QuickbooksCallback = () => {
         setSuccess(true);
         
         // Show toast with company name and user identity info if available
-        let toastMessage = `Your QuickBooks account (${data.companyName || 'Unknown Company'}) has been connected successfully!`;
+        let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected successfully!`;
         
         // Add user identity info to toast if available
-        if (data.userIdentity) {
-          const identity = data.userIdentity;
+        if (tokenExchangeData.userIdentity) {
+          const identity = tokenExchangeData.userIdentity;
           if (identity.first_name && identity.last_name) {
             toastMessage += ` Connected user: ${identity.first_name} ${identity.last_name}`;
           }
@@ -214,9 +218,9 @@ const QuickbooksCallback = () => {
         });
 
         // Ensure current session is still valid before redirecting
-        const { data: sessionData } = await supabase.auth.getSession();
+        const { data: validationSessionData } = await supabase.auth.getSession();
         
-        if (!sessionData?.session) {
+        if (!validationSessionData?.session) {
           console.log('Session lost during QuickBooks connection, attempting to restore');
           
           // If we don't have a session, but we know who the user is, try to avoid losing progress
