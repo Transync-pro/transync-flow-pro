@@ -42,31 +42,49 @@ const Disconnected = () => {
         // Clear any stale cache first
         clearConnectionCache(user.id);
         
-        // Now refresh the connection status
-        await refreshConnection();
+        // Add a timeout to ensure we don't get stuck in loading state
+        const connectionCheckTimeout = setTimeout(() => {
+          if (isMounted) {
+            console.log("Connection check timed out, showing connect button");
+            setIsCheckingConnection(false);
+          }
+        }, 5000); // 5 second timeout
         
-        // After refresh, do a direct DB check as well
-        const hasConnection = await checkQBConnectionExists(user.id);
-        
-        if (!isMounted) return;
-        
-        if (hasConnection || isConnected) {
-          console.log("Direct DB check found a connection, redirecting to dashboard");
-          // Show success message
-          toast({
-            title: "QuickBooks Connected",
-            description: "Your QuickBooks account is connected. Redirecting to dashboard...",
-          });
+        try {
+          // Now refresh the connection status
+          await refreshConnection();
           
-          // Redirect immediately to dashboard
-          navigate('/dashboard', { replace: true });
-        } else {
-          console.log("No QuickBooks connection found");
-          // Connection not found, allow display of the connect button
-          setIsCheckingConnection(false);
+          // After refresh, do a direct DB check as well
+          const hasConnection = await checkQBConnectionExists(user.id);
+          
+          // Clear the timeout since we got a response
+          clearTimeout(connectionCheckTimeout);
+          
+          if (!isMounted) return;
+          
+          if (hasConnection || isConnected) {
+            console.log("Direct DB check found a connection, redirecting to dashboard");
+            // Show success message
+            toast({
+              title: "QuickBooks Connected",
+              description: "Your QuickBooks account is connected. Redirecting to dashboard...",
+            });
+            
+            // Redirect immediately to dashboard
+            navigate('/dashboard', { replace: true });
+          } else {
+            console.log("No QuickBooks connection found");
+            // Connection not found, allow display of the connect button
+            setIsCheckingConnection(false);
+          }
+        } catch (innerError) {
+          // Clear the timeout since we got an error response
+          clearTimeout(connectionCheckTimeout);
+          throw innerError; // Re-throw to be caught by outer catch
         }
       } catch (error) {
         console.error("Error checking direct connection:", error);
+        // Ensure we exit loading state on any error
         setIsCheckingConnection(false);
       }
     };
