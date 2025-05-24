@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
@@ -64,8 +63,8 @@ const QuickbooksConnectPage = () => {
         <CardContent className="space-y-4">
           <div className="flex justify-center">
             <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/e/e1/QuickBooks_Logo.svg" 
-              alt="QuickBooks Logo" 
+              src="/Connect to QuickBooks Button.svg" 
+              alt="QuickBooks Connect" 
               className="h-20" 
             />
           </div>

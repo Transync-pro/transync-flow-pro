@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 
 const Footer = () => {
@@ -10,7 +9,11 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
           <div className="lg:col-span-2">
             <Link to="/" className="inline-block mb-4">
-              <span className="text-2xl font-bold gradient-text">TransyncPro</span>
+              <img 
+                src="/Transync Pro Logo White .png" 
+                alt="TransyncPro" 
+                className="h-8"
+              />
             </Link>
             <p className="text-gray-400 mb-4 max-w-sm">
               Simplifying QuickBooks data management for businesses of all sizes with powerful bulk operations.
@@ -73,12 +76,12 @@ const Footer = () => {
           <p>© {currentYear} TransyncPro. All rights reserved.</p>
           <div className="mt-4 md:mt-0">
             <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/a/a3/Quickbooks_certified_proadvisor_logo.svg" 
+              src="/Quickbooks_certified_proadvisor_logo.png" 
               alt="QuickBooks Certified" 
               className="h-10 inline-block mr-4"
             />
             <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/b/b0/Ssl-seal.svg" 
+              src="/Ssl-seal.png" 
               alt="SSL Secure" 
               className="h-10 inline-block"
             />
