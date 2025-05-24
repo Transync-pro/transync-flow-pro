@@ -240,7 +240,16 @@ const QuickbooksCallback = () => {
         // Set a flag that processing is complete before redirecting
         setProcessingComplete(true);
         
-        // Session is valid, refresh connection and redirect to dashboard
+        // Mark the successful authentication in session storage to prevent
+        // unnecessary rechecks on the dashboard
+        sessionStorage.setItem('qb_auth_successful', 'true');
+        sessionStorage.setItem('qb_auth_timestamp', Date.now().toString());
+        
+        // Set a flag to skip unnecessary connection checks on the dashboard
+        // @ts-ignore - Adding a temporary property to window
+        window.__skipNextQBConnectionCheck = true;
+        
+        // Session is valid, refresh connection once
         await refreshConnection(true); // Force refresh
         
         // Give a small delay for the connection state to update

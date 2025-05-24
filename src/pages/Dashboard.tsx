@@ -20,9 +20,35 @@ const Dashboard = () => {
   
   // Check QuickBooks connection on mount - but only once and silently
   useEffect(() => {
-    // Skip if we've already checked on mount, regardless of dependency changes
+    // Skip if we've already checked on mount or if we just came from a successful QB auth
     if (hasCheckedOnMount.current) {
       return;
+    }
+    
+    // Check if we should skip the connection check (set by QuickbooksCallback)
+    // @ts-ignore - Reading from a temporary window property
+    if (window.__skipNextQBConnectionCheck) {
+      console.log("Dashboard: Skipping connection check due to recent QB authentication");
+      // @ts-ignore - Cleanup the temporary property
+      window.__skipNextQBConnectionCheck = false;
+      hasCheckedOnMount.current = true;
+      return;
+    }
+    
+    // Check if we have a recent successful auth from session storage
+    const recentAuth = sessionStorage.getItem('qb_auth_successful');
+    const authTimestamp = sessionStorage.getItem('qb_auth_timestamp');
+    
+    if (recentAuth === 'true' && authTimestamp) {
+      const now = Date.now();
+      const timeSinceAuth = now - parseInt(authTimestamp);
+      
+      // If auth was completed in the last 10 seconds, skip additional checks
+      if (timeSinceAuth < 10000) {
+        console.log("Dashboard: Skipping connection check due to recent auth", { timeSinceAuth: timeSinceAuth / 1000 + 's' });
+        hasCheckedOnMount.current = true;
+        return;
+      }
     }
     
     let isMounted = true;
