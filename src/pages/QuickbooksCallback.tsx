@@ -107,30 +107,24 @@ const QuickbooksCallback = () => {
             description: "Your account has been successfully connected to QuickBooks.",
           });
           
-          // Ensure current session is still valid before redirecting
-          const { data: finalSessionData } = await supabase.auth.getSession();
+          // Mark that we've just completed auth to prevent immediate re-check
+          sessionStorage.setItem('qb_auth_successful', 'true');
+          sessionStorage.setItem('qb_auth_timestamp', Date.now().toString());
           
-          if (!finalSessionData?.session) {
-            console.log('Session lost during QuickBooks connection, attempting to restore');
-            
-            if (userId) {
-              sessionStorage.setItem('qb_auth_success', 'true');
-              sessionStorage.setItem('qb_connect_user', userId);
-              navigate('/login', { state: { redirectAfter: '/dashboard' } });
-              return;
-            }
-          }
-          
-          // Get redirect path from session storage or default to dashboard
-          const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || '/dashboard';
+          // Clear any pending redirects to prevent loops
           sessionStorage.removeItem('qb_redirect_after_connect');
           
-          setProcessingComplete(true);
+          // Force refresh the connection state
+          console.log("QuickbooksCallback: Refreshing connection state after successful auth...");
           await refreshConnection(true);
           
-          setTimeout(() => {
-            navigate('/dashboard', { replace: true });
-          }, 500);
+          // Set a flag to skip the next connection check on dashboard mount
+          // @ts-ignore - Using a window property to communicate between mounts
+          window.__skipNextQBConnectionCheck = true;
+          
+          // Navigate to dashboard with replace to prevent going back to callback
+          console.log("QuickbooksCallback: Redirecting to dashboard");
+          navigate('/dashboard', { replace: true });
           
           return;
         }
@@ -195,8 +189,12 @@ const QuickbooksCallback = () => {
         // Clear any existing connection cache
         clearConnectionCache(userId);
 
-        // Update connection status in context
-        await refreshConnection();
+        // Force refresh the connection state and wait for it to complete
+        console.log("QuickbooksCallback: Refreshing connection state...");
+        await refreshConnection(true); // Force refresh
+        
+        // Small delay to ensure state updates propagate
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Mark as successful and show toast
         setSuccess(true);

@@ -15,9 +15,14 @@ const Dashboard = () => {
   const { isConnected, isLoading, companyName, refreshConnection, checkConnection } = useQuickbooks();
   const { user } = useAuth();
 
+  // Debug effect to track state changes
   useEffect(() => {
-    console.log("Dashboard: isLoading:", isLoading, "isConnected:", isConnected);
-  }, [isLoading, isConnected]);
+    console.log("Dashboard: State changed - ", {
+      isLoading,
+      isConnected,
+      user: user ? 'authenticated' : 'not authenticated'
+    });
+  }, [isLoading, isConnected, user]);
   
   // Track if we've already checked the connection on mount
   const hasCheckedOnMount = useRef(false);
@@ -58,23 +63,44 @@ const Dashboard = () => {
     let isMounted = true;
     
     const checkConnectionOnMount = async () => {
-      console.log("Dashboard: Checking QB connection on mount");
+      console.log("Dashboard: Starting connection check on mount");
       
-      // Mark that we've checked the connection on mount to prevent multiple checks
-      hasCheckedOnMount.current = true;
-      
-      // Use NON-silent mode so isLoading gets set to false for the UI
-      await refreshConnection(true, false); // force=true, silent=false
-      
-      // Direct DB check as a fallback
-      if (user && !isConnected && isMounted) {
-        console.log("Dashboard: Context says not connected, checking DB directly");
-        const hasConnection = await checkQBConnectionExists(user.id);
+      try {
+        // Mark that we've checked the connection on mount to prevent multiple checks
+        hasCheckedOnMount.current = true;
         
-        if (hasConnection && isMounted) {
-          console.log("Dashboard: Found connection in DB but context says not connected, refreshing again");
-          // Found connection in DB but context doesn't reflect it, refresh again
-          await refreshConnection(true, false); // force=true, silent=false
+        // First, check if we should skip this check (e.g., after successful auth)
+        // @ts-ignore - Checking window property set by QuickbooksCallback
+        if (window.__skipNextQBConnectionCheck) {
+          console.log("Dashboard: Skipping connection check due to recent auth");
+          // @ts-ignore - Clean up the flag
+          window.__skipNextQBConnectionCheck = false;
+          return;
+        }
+        
+        // Always do a non-silent check to ensure loading state is properly handled
+        console.log("Dashboard: Performing connection check...");
+        await refreshConnection(true, false); // force=true, silent=false
+        
+        // If we're still not connected, do a direct DB check as a fallback
+        if (user && !isConnected && isMounted) {
+          console.log("Dashboard: Context reports not connected, checking DB directly");
+          const hasConnection = await checkQBConnectionExists(user.id);
+          
+          if (hasConnection && isMounted) {
+            console.log("Dashboard: Found connection in DB, refreshing context");
+            // If DB says we're connected but context doesn't know, force a refresh
+            await refreshConnection(true, false);
+          } else if (isMounted) {
+            console.log("Dashboard: No connection found in DB either");
+          }
+        }
+      } catch (error) {
+        console.error("Dashboard: Error checking connection:", error);
+      } finally {
+        // Ensure we always set loading to false, even if there was an error
+        if (isMounted) {
+          console.log("Dashboard: Connection check complete");
         }
       }
     };
@@ -84,7 +110,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [refreshConnection, user, isConnected]);
+  }, [refreshConnection, user, isConnected, isLoading]);
   
   // Create ref outside the effect for tracking initial mount
   const isInitialRouteChange = useRef(true);

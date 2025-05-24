@@ -213,10 +213,34 @@ const RouteGuard = ({
     // Add debounce to prevent redirect loops
     const timeoutId = setTimeout(() => {
       // Don't process redirects while still checking or for QB callback route
-      if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) return;
+      if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) {
+        console.log('RouteGuard: Skipping redirect -', {
+          isChecking, isQbCallbackRoute, isRedirecting: redirectingRef.current, isLoading
+        });
+        return;
+      }
+      
+      // Check if we just completed a successful QB auth
+      const qbAuthSuccess = sessionStorage.getItem('qb_auth_successful') === 'true';
+      const qbAuthTime = parseInt(sessionStorage.getItem('qb_auth_timestamp') || '0');
+      const isRecentAuth = qbAuthSuccess && (Date.now() - qbAuthTime < 10000); // 10 second window
       
       // Set redirecting flag to prevent multiple redirects
       redirectingRef.current = true;
+      
+      // Handle successful auth redirect
+      if (isRecentAuth && !isAuthenticateRoute) {
+        console.log('RouteGuard: Detected recent successful QB auth, ensuring proper redirect');
+        sessionStorage.removeItem('qb_auth_successful');
+        sessionStorage.removeItem('qb_auth_timestamp');
+        
+        // Force a refresh of the connection state
+        refreshConnection(true).then(() => {
+          console.log('RouteGuard: Refreshed connection state after successful auth');
+          navigate('/dashboard', { replace: true });
+        });
+        return;
+      }
       
       // Handle authenticate page logic
       if (isAuthenticateRoute) {
@@ -268,8 +292,28 @@ const RouteGuard = ({
     }
   }, [isAdminRoute, roleChecked, isChecking, isAdmin, navigate]);
 
-  // Fix for QuickBooks callback handling - a special case to always render children
+  // Special handling for QuickBooks callback route
   if (isQbCallbackRoute) {
+    // Add a small delay to ensure any state updates complete before rendering
+    const [showContent, setShowContent] = useState(false);
+    
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setShowContent(true);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }, []);
+    
+    if (!showContent) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <span className="ml-2">Finalizing connection...</span>
+        </div>
+      );
+    }
+    
     return <>{children}</>;
   }
 
@@ -278,7 +322,9 @@ const RouteGuard = ({
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
-        <p className="mt-4 text-gray-600">Verifying your access...</p>
+        <p className="mt-4 text-gray-600">
+          {isLoading && !isChecking ? 'Loading your dashboard...' : 'Verifying your access...'}
+        </p>
       </div>
     );
   }

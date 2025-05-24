@@ -42,36 +42,44 @@ export const useQBConnectionStatus = (user: User | null) => {
     if (!user) {
       resetConnectionState();
       setIsLoading(false);
-      return;
+      return false; // Return false to indicate no connection check was performed
     }
     
     // Prevent concurrent checks
-    if (checkInProgress.current) return;
+    if (checkInProgress.current) {
+      console.log('Connection check already in progress, skipping duplicate');
+      return false;
+    }
     
     // Circuit breaker to prevent excessive checks, but allow more attempts for forced checks
     maxConsecutiveChecks.current += 1;
     if (!force && maxConsecutiveChecks.current > 5) {
       console.log('Circuit breaker triggered: too many consecutive connection checks');
       setIsLoading(false);
-      return;
+      return false;
     }
     
     // Don't check too frequently unless forced
     const now = Date.now();
     const throttleTime = force ? 0 : 5000; // 5 seconds throttle unless forced
     if (!force && now - lastCheckTime.current < throttleTime) {
-      return;
+      console.log('Throttling connection check, too soon since last check');
+      return false;
     }
     
     checkInProgress.current = true;
     // Only update loading state if not in silent mode
     if (!silent) {
+      console.log('Setting loading to true for connection check');
       setIsLoading(true);
+    } else {
+      console.log('Running silent connection check');
     }
     lastCheckTime.current = now;
     
     // If we're doing a forced check, clear the connection cache first
     if (force) {
+      console.log('Force refreshing connection, clearing cache');
       clearConnectionCache(user.id);
       connectionCache.current = {
         userId: null,
@@ -90,9 +98,11 @@ export const useQBConnectionStatus = (user: User | null) => {
       if (!exists) {
         console.log('Quick check found no QuickBooks connection');
         resetConnectionState();
-        setIsLoading(false);
+        if (!silent) {
+          setIsLoading(false);
+        }
         checkInProgress.current = false;
-        return;
+        return false;
       }
       
       // If forced refresh or the cache is expired/empty, do a full DB query
@@ -196,8 +206,20 @@ export const useQBConnectionStatus = (user: User | null) => {
     lastCheckTime.current = 0;
     maxConsecutiveChecks.current = 0;
     connectionCheckAttempts.current += 1;
-    console.log(`Manual refresh connection requested #${connectionCheckAttempts.current}`);
-    await checkConnectionStatus(force, silent);
+    console.log(`Manual refresh connection requested #${connectionCheckAttempts.current}`, { force, silent });
+    
+    try {
+      await checkConnectionStatus(force, silent);
+      return true;
+    } catch (error) {
+      console.error('Error in refreshConnection:', error);
+      if (!silent) {
+        setIsLoading(false);
+      }
+      return false;
+    } finally {
+      checkInProgress.current = false;
+    }
   }, [checkConnectionStatus]);
 
   return {
