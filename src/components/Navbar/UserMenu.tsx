@@ -58,7 +58,7 @@ const UserMenu = ({ user, hasQbConnection, signOut }: UserMenuProps) => {
             </DropdownMenuItem>
           )}
           {!hasQbConnection && (
-            <DropdownMenuItem onClick={() => navigate('/disconnected')}>
+            <DropdownMenuItem onClick={() => navigate('/authenticate')}>
               <User size={16} className="mr-2" />
               Connect QuickBooks
             </DropdownMenuItem>

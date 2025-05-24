@@ -148,7 +148,7 @@ const QuickbooksConnectionButton = () => {
       setIsDisconnecting(true);
       setDialogOpen(false);
       await disconnect();
-      navigate("/disconnected", { replace: true });
+      navigate("/authenticate", { replace: true });
     } catch (error) {
       console.error("Error disconnecting from QuickBooks:", error);
       toast({
@@ -161,7 +161,7 @@ const QuickbooksConnectionButton = () => {
   };
 
   const handleConnect = () => {
-    navigate("/disconnected");
+    navigate("/authenticate");
   };
 
   // Only show loading state during explicit user-initiated disconnect action
@@ -216,7 +216,7 @@ const QuickbooksConnectionButton = () => {
               "The app is too expensive",
               "Switching to a different app",
               "The app is too complicated",
-              "I don’t need it anymore",
+              "I don't need it anymore",
               "Others"
             ].map((option) => (
               <label key={option} className="flex items-center gap-2 cursor-pointer">
