@@ -26,7 +26,8 @@ export interface QuickbooksContextType {
   getAccessToken: () => Promise<string | null>;
   getRealmId: () => Promise<string | null>;
   clearError: () => void;
-  refreshConnection: () => Promise<void>;
+  refreshConnection: (force?: boolean, silent?: boolean) => Promise<void>;
+  checkConnection: (force?: boolean, silent?: boolean) => Promise<void>;
 }
 
 // New type for QB user identity

@@ -53,6 +53,9 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     return realmId;
   };
 
+  // Expose the checkConnectionStatus function from useQBConnectionStatus
+  const checkConnection = refreshConnection;
+
   const value: QuickbooksContextType = {
     isConnected,
     isLoading,
@@ -65,7 +68,8 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     getAccessToken,
     getRealmId,
     clearError,
-    refreshConnection
+    refreshConnection,
+    checkConnection
   };
 
   // Reduce logging frequency to avoid console spam
