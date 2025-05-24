@@ -76,26 +76,59 @@ const QuickbooksCallback = () => {
         
         console.log("Proceeding with token exchange:", { realmId, userId });
         
-        // Use current origin for redirect URI
+        // Use current origin for redirect URI - must exactly match what was used in the authorize step
         const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
-
-        // Exchange code for tokens
-        const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
-          body: {
-            path: "token",
-            code,
-            realmId,
-            redirectUri,
-            userId
-          },
-        });
-
-        if (invokeError) {
-          throw new Error(`Function error: ${invokeError.message}`);
-        }
         
-        if (data?.error) {
-          throw new Error(`QuickBooks API error: ${data.error}`);
+        // Log the exact parameters being sent to help with debugging
+        console.log("Sending token exchange parameters:", {
+          code: code ? "[REDACTED]" : "missing", // Don't log the actual code for security
+          realmId,
+          redirectUri,
+          userId
+        });
+        
+        try {
+          // Exchange code for tokens - OAuth codes can only be used once and expire quickly
+          const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
+            body: {
+              path: "token",
+              code,
+              realmId,
+              redirectUri,
+              userId
+            },
+          });
+
+          if (invokeError) {
+            console.error("Edge function error details:", invokeError);
+            throw new Error(`Function error: ${invokeError.message}`);
+          }
+          
+          if (data?.error) {
+            console.error("QuickBooks API error details:", data.error);
+            throw new Error(`QuickBooks API error: ${data.error}`);
+          }
+          
+          if (!data) {
+            throw new Error("No data returned from the token exchange");
+          }
+          
+          console.log("Token exchange successful");
+        } catch (tokenError) {
+          console.error("Token exchange error:", tokenError);
+          
+          // If we get a 400 error, it's likely that the code was already used or expired
+          // In this case, we should redirect the user to try connecting again
+          toast({
+            title: "Connection Error",
+            description: "There was a problem completing the QuickBooks connection. Please try again.",
+            variant: "destructive"
+          });
+          
+          // Wait a moment to show the toast before redirecting
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          navigate('/disconnected', { replace: true });
+          return;
         }
 
         // Clean up session storage
