@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -21,10 +21,17 @@ const QuickbooksCallback = () => {
   const location = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
   const { refreshConnection } = useQuickbooks();
+  
+  // Ref to track if we've already processed this callback
+  const hasProcessedCallback = useRef(false);
 
   // Process the callback once auth is loaded
   useEffect(() => {
-    if (isAuthLoading) return;
+    // Skip if still loading auth or if we've already processed this callback
+    if (isAuthLoading || hasProcessedCallback.current) return;
+    
+    // Mark as processed immediately to prevent duplicate processing
+    hasProcessedCallback.current = true;
     
     const processCallback = async () => {
       try {
@@ -87,6 +94,47 @@ const QuickbooksCallback = () => {
           userId
         });
         
+        // Check if we've already completed this exchange previously (defense against React StrictMode double invocation)
+        const codeFingerprint = `${realmId}-${userId}`;
+        const processedCodes = sessionStorage.getItem('processed_qb_codes') || '';
+        
+        if (processedCodes.includes(codeFingerprint)) {
+          console.log("This code exchange was already processed, skipping to avoid duplicate processing");
+          // Skip to success flow without re-exchanging the code
+          clearConnectionCache();
+          toast({
+            title: "Connected to QuickBooks",
+            description: "Your account has been successfully connected to QuickBooks.",
+          });
+          
+          // Ensure current session is still valid before redirecting
+          const { data: sessionData } = await supabase.auth.getSession();
+          
+          if (!sessionData?.session) {
+            console.log('Session lost during QuickBooks connection, attempting to restore');
+            
+            if (userId) {
+              sessionStorage.setItem('qb_auth_success', 'true');
+              sessionStorage.setItem('qb_connect_user', userId);
+              navigate('/login', { state: { redirectAfter: '/dashboard' } });
+              return;
+            }
+          }
+          
+          // Get redirect path from session storage or default to dashboard
+          const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || '/dashboard';
+          sessionStorage.removeItem('qb_redirect_after_connect');
+          
+          setProcessingComplete(true);
+          await refreshConnection(true);
+          
+          setTimeout(() => {
+            navigate('/dashboard', { replace: true });
+          }, 500);
+          
+          return;
+        }
+        
         try {
           // Exchange code for tokens - OAuth codes can only be used once and expire quickly
           const { data, error: invokeError } = await supabase.functions.invoke("quickbooks-auth", {
@@ -113,6 +161,12 @@ const QuickbooksCallback = () => {
             throw new Error("No data returned from the token exchange");
           }
           
+          // Mark this code as processed to prevent duplicate exchanges
+          const updatedProcessedCodes = processedCodes ? 
+            `${processedCodes},${codeFingerprint}` : 
+            codeFingerprint;
+          sessionStorage.setItem('processed_qb_codes', updatedProcessedCodes);
+          
           console.log("Token exchange successful");
         } catch (tokenError) {
           console.error("Token exchange error:", tokenError);
@@ -127,7 +181,7 @@ const QuickbooksCallback = () => {
           
           // Wait a moment to show the toast before redirecting
           await new Promise(resolve => setTimeout(resolve, 1500));
-          navigate('/disconnected', { replace: true });
+          navigate('/dashboard', { replace: true });
           return;
         }
 
@@ -191,8 +245,8 @@ const QuickbooksCallback = () => {
         
         // Give a small delay for the connection state to update
         setTimeout(() => {
-          // Navigate directly to dashboard
-          navigate(redirectPath, { replace: true });
+          // Always navigate to dashboard after successful connection
+          navigate('/dashboard', { replace: true });
         }, 500);
         
       } catch (err: any) {
