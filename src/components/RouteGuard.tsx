@@ -1,12 +1,11 @@
 
-import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Loader2 } from "lucide-react";
-import { logError } from "@/utils/errorLogger";
-import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickbooksApi/connections";
+import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
 import { isUserAdmin } from "@/services/blog/users";
 import { toast } from "@/components/ui/use-toast";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
@@ -28,26 +27,26 @@ const RouteGuard = ({
   requiresAdmin = false,
   requiresActiveSubscription = false
 }: RouteGuardProps) => {
+  // ALL HOOKS MUST BE CALLED FIRST - NO CONDITIONAL LOGIC BEFORE HOOKS
   const { user, isLoading: isAuthLoading } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
   const { isConnected, isLoading: isQBLoading, refreshConnection } = useQuickbooks();
-  const { subscriptionData, isTrialExpired, isOnTrial } = useSubscription();
+  const { subscriptionData, isTrialExpired } = useSubscription();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // State hooks - all called unconditionally
+  const [isLoading, setIsLoading] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [roleChecked, setRoleChecked] = useState(false);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [hasRedirected, setHasRedirected] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
-  
-  // Flag special routes
+
+  // Route flags
   const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
   const isAuthenticateRoute = location.pathname === "/authenticate";
-  const isDashboardRoute = location.pathname === "/dashboard";
   const isAdminRoute = location.pathname.startsWith("/admin");
-  const isLoginPage = location.pathname === "/login";
-  const isSignupPage = location.pathname === "/signup";
 
   console.log("RouteGuard: Rendering for path:", location.pathname, {
     user: user?.id || "none",
@@ -60,12 +59,11 @@ const RouteGuard = ({
     hasRedirected
   });
 
-  // Initialize loading state based on auth loading
+  // Effect hooks - all called unconditionally
   useEffect(() => {
     setIsLoading(isAuthLoading);
   }, [isAuthLoading]);
 
-  // Check admin role if needed
   useEffect(() => {
     if (!requiresAdmin && !isAdminRoute) {
       setRoleChecked(true);
@@ -103,7 +101,6 @@ const RouteGuard = ({
     };
   }, [requiresAdmin, isAdminRoute, user, isAuthLoading]);
 
-  // Check QuickBooks connection if needed
   useEffect(() => {
     if (!requiresQuickbooks || isQbCallbackRoute || isAuthenticateRoute || !user || isAuthLoading) {
       setIsChecking(false);
@@ -139,22 +136,27 @@ const RouteGuard = ({
     };
   }, [requiresQuickbooks, user, isAuthLoading, isQbCallbackRoute, isAuthenticateRoute]);
 
-  // Handle subscription requirements
   useEffect(() => {
     if (requiresActiveSubscription && user && subscriptionData && isTrialExpired) {
       setShowTrialModal(true);
     }
   }, [requiresActiveSubscription, user, subscriptionData, isTrialExpired]);
 
-  // Determine if we should show loading
-  const shouldShowLoading = isAuthLoading || 
-    (requiresAdmin && !roleChecked) || 
-    (requiresQuickbooks && isChecking && !isQbCallbackRoute);
+  useEffect(() => {
+    setHasRedirected(false);
+  }, [location.pathname]);
 
-  // Early returns for special cases
+  // NOW we can do conditional logic and early returns - all hooks have been called
+  
+  // Special case for QB callback route
   if (isQbCallbackRoute) {
     return <>{children}</>;
   }
+
+  // Determine if we should show loading
+  const shouldShowLoading = isAuthLoading || 
+    (requiresAdmin && !roleChecked) || 
+    (requiresQuickbooks && isChecking);
 
   if (shouldShowLoading) {
     return (
@@ -231,11 +233,6 @@ const RouteGuard = ({
       return <Navigate to="/dashboard" replace />;
     }
   }
-
-  // Reset redirect flag when location changes
-  useEffect(() => {
-    setHasRedirected(false);
-  }, [location.pathname]);
 
   // If all checks pass, render children
   return <>{children}</>;
