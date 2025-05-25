@@ -10,6 +10,8 @@ import { QuickbooksEntitiesProvider } from "@/contexts/QuickbooksEntitiesContext
 import { IdleTimeoutProvider } from "@/contexts/IdleTimeoutContext";
 import { IdleWarningDialog } from "@/components/IdleWarningDialog";
 import RouteGuard from "@/components/RouteGuard";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import TrialBanner from "@/components/TrialBanner";
 import { useEffect } from "react";
 import { configureErrorLogger } from "@/utils/errorLogger";
 
@@ -108,10 +110,12 @@ function App() {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <IdleTimeoutProvider>
-              <QuickbooksProvider>
-                <QuickbooksEntitiesProvider>
-                <Routes>
+            <SubscriptionProvider>
+              <IdleTimeoutProvider>
+                <QuickbooksProvider>
+                  <QuickbooksEntitiesProvider>
+                    <TrialBanner />
+                    <Routes>
                   {/* Public routes */}
                   <Route path="/" element={<Index />} />
                   <Route path="/login" element={
