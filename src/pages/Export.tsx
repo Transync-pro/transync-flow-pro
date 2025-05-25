@@ -226,21 +226,26 @@ const Export = () => {
   
   // Handle selecting all records across all pages
   const selectAllEntries = () => {
+    // Select all records across all pages
     const newSelectedRecords = { ...selectedRecords };
+    let selectedCount = 0;
     
     filteredRecords.forEach(record => {
       if (record.Id) {
         newSelectedRecords[record.Id] = true;
+        selectedCount++;
       }
     });
     
     setSelectedRecords(newSelectedRecords);
     setSelectAllRecords(true);
+    // Hide the button by setting hasSelectedCurrentPage to false
+    setHasSelectedCurrentPage(false);
     
-    if (filteredRecords.length > 0) {
+    if (selectedCount > 0) {
       toast({
         title: "All Records Selected",
-        description: `Selected all ${filteredRecords.length} records.`,
+        description: `Selected all ${selectedCount} records.`,
       });
     }
   };

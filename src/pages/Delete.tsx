@@ -153,6 +153,8 @@ const Delete = () => {
       .map(record => record.Id);
     
     setSelectedEntityIds(allIds);
+    // Hide the button by setting hasSelectedCurrentPage to false
+    setHasSelectedCurrentPage(false);
     
     if (allIds.length > 0) {
       toast({
