@@ -38,6 +38,7 @@ const Export = () => {
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
+  const [showExportOptions, setShowExportOptions] = useState(false);
   
   const {
     selectedEntity,
@@ -117,9 +118,15 @@ const Export = () => {
   // Explicitly fetch data when requested by user
   const handleFetchData = async () => {
     try {
-      if (!selectedEntity) return;
+      if (!selectedEntity) {
+        toast({
+          title: "Entity Required",
+          description: "Please select an entity type before fetching data.",
+          variant: "destructive",
+        });
+        return;
+      }
       
-      // Check if date range is selected - now required
       if (!dateRange?.from || !dateRange?.to) {
         setDateError("Date range is required");
         toast({
@@ -131,16 +138,18 @@ const Export = () => {
       }
       
       // Check QuickBooks connection before fetching data
-      // This is a critical operation, so we use non-silent mode
       await checkConnection(true, false); // force=true, silent=false
       
       await fetchEntities();
+      
+      // Show export options when data is fetched
+      setShowExportOptions(true);
     } catch (error: any) {
       console.error(`Error fetching ${selectedEntity} data:`, error);
-      toast({
-        title: "Error",
-        description: `Failed to fetch data: ${error.message}`,
-        variant: "destructive",
+      logError(`Error fetching ${selectedEntity} data for export`, {
+        source: "Export",
+        stack: error.stack,
+        context: { selectedEntity, dateRange }
       });
     }
   };
@@ -408,7 +417,7 @@ const Export = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card className="md:col-span-2">
+          <Card className="md:col-span-2 h-fit">
             <CardHeader>
               <CardTitle>Select Data to Export</CardTitle>
               <CardDescription>
@@ -587,7 +596,13 @@ const Export = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            showExportOptions ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 md:max-h-0 md:opacity-0'
+          }`} style={{
+            visibility: showExportOptions ? 'visible' : 'hidden',
+            marginTop: showExportOptions ? '0' : '-1rem',
+            transition: 'all 0.3s ease-in-out, visibility 0.3s ease-in-out, margin-top 0.3s ease-in-out'
+          }}>
             <CardHeader>
               <CardTitle>Export Options</CardTitle>
               <CardDescription>
