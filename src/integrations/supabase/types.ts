@@ -354,6 +354,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          plan_name: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_end_date: string | null
+          subscription_start_date: string | null
+          subscription_status: string
+          trial_end_date: string
+          trial_start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan_name?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          subscription_status?: string
+          trial_end_date?: string
+          trial_start_date?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan_name?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          subscription_status?: string
+          trial_end_date?: string
+          trial_start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -362,6 +407,14 @@ export type Database = {
       check_admin_role: {
         Args: { user_id: string }
         Returns: boolean
+      }
+      check_trial_status: {
+        Args: { user_id: string }
+        Returns: {
+          subscription_status: string
+          trial_days_left: number
+          trial_end_date: string
+        }[]
       }
       cleanup_login_security: {
         Args: Record<PropertyKey, never>
