@@ -153,30 +153,36 @@ const Authenticate = () => {
             </p>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            <button
-  className="w-full focus:outline-none disabled:opacity-60"
-  onClick={handleConnect}
-  disabled={isLoading || isReconnecting}
-  aria-label="Connect to QuickBooks"
-  style={{ background: 'none', border: 'none', padding: 0 }}
->
-  {isLoading || isReconnecting ? (
-    <div className="flex items-center justify-center py-2">
-      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      <span>{isLoading ? "Checking connection..." : "Connecting..."}</span>
-    </div>
-  ) : (
-    <img
-      src={buttonHover ? "/connecttoquickbooksbutton.png_hover.png" : "/connecttoquickbooksbutton.png"}
-      alt="Connect to QuickBooks"
-      className="w-full h-auto cursor-pointer"
-      draggable="false"
-      style={{ pointerEvents: (isLoading || isReconnecting) ? 'none' : 'auto', opacity: (isLoading || isReconnecting) ? 0.6 : 1 }}
-      onMouseEnter={() => setButtonHover(true)}
-      onMouseLeave={() => setButtonHover(false)}
-    />
-  )}
-</button>
+            <div className="w-full relative">
+              <button
+                className="w-full focus:outline-none disabled:opacity-60 h-10 flex items-center justify-center"
+                onClick={handleConnect}
+                disabled={isLoading || isReconnecting}
+                aria-label="Connect to QuickBooks"
+                style={{ background: 'none', border: 'none', padding: 0 }}
+              >
+                {isLoading || isReconnecting ? (
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span>{isLoading ? "Checking connection..." : "Connecting..."}</span>
+                  </div>
+                ) : (
+                  <img
+                    src={buttonHover ? "/connecttoquickbooksbutton.png_hover.png" : "/connecttoquickbooksbutton.png"}
+                    alt="Connect to QuickBooks"
+                    className="h-full w-auto max-w-full object-contain"
+                    draggable="false"
+                    style={{ 
+                      pointerEvents: (isLoading || isReconnecting) ? 'none' : 'auto', 
+                      opacity: (isLoading || isReconnecting) ? 0.6 : 1,
+                      maxHeight: '40px' // Match the height of the back button
+                    }}
+                    onMouseEnter={() => setButtonHover(true)}
+                    onMouseLeave={() => setButtonHover(false)}
+                  />
+                )}
+              </button>
+            </div>
             <Button
               variant="outline"
               className="w-full mt-2"
