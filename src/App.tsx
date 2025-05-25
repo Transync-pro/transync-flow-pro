@@ -12,6 +12,8 @@ import { IdleWarningDialog } from "@/components/IdleWarningDialog";
 import RouteGuard from "@/components/RouteGuard";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import TrialBanner from "@/components/TrialBanner";
+import PlanGuard from "@/components/PlanGuard";
+import ChoosePlan from "@/pages/ChoosePlan";
 import { useEffect } from "react";
 import { configureErrorLogger } from "@/utils/errorLogger";
 
@@ -143,51 +145,75 @@ function App() {
                       <Verify />
                     </RouteGuard>
                   } />
-                  <Route path="/authenticate" element={<Authenticate />} />
+                  <Route path="/pricing" element={<ChoosePlan />} />
+                  <Route path="/subscription" element={<ChoosePlan />} />
+                  <Route path="/authenticate" element={
+                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+                      <PlanGuard>
+                        <Authenticate />
+                      </PlanGuard>
+                    </RouteGuard>
+                  } />
                   
                   {/* Auth protected routes */}
                   <Route path="/connect-quickbooks" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <QuickbooksConnectPage />
+                      <PlanGuard>
+                        <QuickbooksConnectPage />
+                      </PlanGuard>
                     </RouteGuard>
                   } />
                   
                   <Route path="/profile" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <Profile />
+                      <PlanGuard>
+                        <Profile />
+                      </PlanGuard>
                     </RouteGuard>
                   } />
                   
                   <Route path="/dashboard/quickbooks-callback" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <QuickbooksCallback />
+                      <PlanGuard>
+                        <QuickbooksCallback />
+                      </PlanGuard>
                     </RouteGuard>
                   } />
                   
                   {/* Auth + QuickBooks protected routes */}
                   <Route path="/dashboard" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Dashboard />
+                      <PlanGuard>
+                        <Dashboard />
+                      </PlanGuard>
                     </RouteGuard>
                   } />
                   <Route path="/dashboard/import" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Import />
+                      <PlanGuard>
+                        <Import />
+                      </PlanGuard>
                     </RouteGuard>
                   } />
                   <Route path="/dashboard/export" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Export />
+                      <PlanGuard>
+                        <Export />
+                      </PlanGuard>
                     </RouteGuard>
                   } />
                   <Route path="/dashboard/delete" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Delete />
+                      <PlanGuard>
+                        <Delete />
+                      </PlanGuard>
                     </RouteGuard>
                   } />
                   <Route path="/dashboard/history" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <History />
+                      <PlanGuard>
+                        <History />
+                      </PlanGuard>
                     </RouteGuard>
                   } />
                   

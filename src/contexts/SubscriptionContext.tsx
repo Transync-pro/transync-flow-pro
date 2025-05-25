@@ -26,6 +26,7 @@ export const SubscriptionProvider = ({ children }) => {
   return (
     <SubscriptionContext.Provider value={{
       subscriptionStatus: status?.subscription_status,
+      planName: status?.plan_name,
       trialDaysLeft: status?.trial_days_left,
       trialEndDate: status?.trial_end_date,
       isTrialExpired: status?.subscription_status === 'expired',
