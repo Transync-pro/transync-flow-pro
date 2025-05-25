@@ -324,7 +324,7 @@ const Delete = () => {
                 <Button
                   onClick={handleFetchData}
                   disabled={isLoading || !selectedEntity || !dateRange?.from || !dateRange?.to}
-                  className={`flex items-center mt-2 ${!selectedEntity || !dateRange?.from || !dateRange?.to ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`w-full flex items-center justify-center mt-2 h-9 ${!selectedEntity || !dateRange?.from || !dateRange?.to ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
