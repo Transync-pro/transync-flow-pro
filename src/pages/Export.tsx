@@ -5,7 +5,7 @@ import { useQuickbooksEntities } from "@/contexts/QuickbooksEntitiesContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import { EntityRecord } from "@/contexts/quickbooks/types";
 import { getEntityColumns, getNestedValue } from "@/contexts/quickbooks/entityMapping";
 import { Pagination } from "@/components/ui/pagination";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import { cn } from "@/lib/utils";
 
 const Export = () => {
   const navigate = useNavigate();
@@ -460,60 +461,64 @@ const Export = () => {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            initialFocus
+                            mode="single"
+                            defaultMonth={dateRange?.from || undefined}
+                            selected={dateRange?.from || undefined}
+                            onSelect={(date) => {
+                              setDateRange({ from: date || null, to: dateRange.to });
                               if (date) {
                                 setStartDateOpen(false);
                               }
                             }}
-                          numberOfMonths={1}
-                          className="p-3 pointer-events-auto"
-                          captionLayout="dropdown"
-                          fromYear={2000}
-                          toYear={2030}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  {/* End Date */}
-                  <div className="flex-1">
-                    <Label className="text-sm text-muted-foreground mb-1 block">End Date</Label>
-                    <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            dateError && !dateRange?.to && "border-red-500"
-                          )}
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {dateRange?.to ? (
-                            format(dateRange.to, "LLL dd, y")
-                          ) : (
-                            <span>Select end date</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          initialFocus
-                          mode="single"
-                          defaultMonth={dateRange?.to || dateRange?.from || undefined}
-                          selected={dateRange?.to || undefined}
-                          onSelect={(date) => { // date can be Date | undefined
+                            numberOfMonths={1}
+                            className="p-3 pointer-events-auto"
+                            captionLayout="dropdown"
+                            fromYear={2000}
+                            toYear={2030}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    
+                    {/* End Date */}
+                    <div className="flex-1">
+                      <Label className="text-sm text-muted-foreground mb-1 block">End Date</Label>
+                      <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              dateError && !dateRange?.to && "border-red-500"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {dateRange?.to ? (
+                              format(dateRange.to, "LLL dd, y")
+                            ) : (
+                              <span>Select end date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            initialFocus
+                            mode="single"
+                            defaultMonth={dateRange?.to || dateRange?.from || undefined}
+                            selected={dateRange?.to || undefined}
+                            onSelect={(date) => {
                               setDateRange({ from: dateRange.from, to: date || null });
                               if (date) {
                                 setEndDateOpen(false);
                               }
                             }}
-                          numberOfMonths={1}
-                          className="p-3 pointer-events-auto"
-                          captionLayout="dropdown"
-                          fromYear={2000}
-                          toYear={2030}
-                        />
-                      </PopoverContent>
-                    </Popover>
+                            numberOfMonths={1}
+                            className="p-3 pointer-events-auto"
+                            captionLayout="dropdown"
+                            fromYear={2000}
+                            toYear={2030}
                           />
                         </PopoverContent>
                       </Popover>
@@ -714,8 +719,3 @@ const Export = () => {
 };
 
 export default Export;
-
-// Helper to merge tailwind classes
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
-}
