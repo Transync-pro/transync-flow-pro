@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Search, Trash2, AlertCircle, ChevronLeft, Calendar } from "lucide-react";
+import { Loader2, Search, Trash2, AlertCircle, ChevronLeft, Calendar, X } from "lucide-react";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";

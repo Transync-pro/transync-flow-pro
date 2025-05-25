@@ -10,6 +10,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { QuickbooksEntitiesProvider } from "@/contexts/QuickbooksEntitiesContext";
 import { IdleTimeoutProvider } from "@/contexts/IdleTimeoutContext";
 import { IdleWarningDialog } from "@/components/IdleWarningDialog";
+import { TabVisibilityProvider } from "@/contexts/TabVisibilityContext";
+import RouteRestorer from "@/components/RouteRestorer";
 import RouteGuard from "@/components/RouteGuard";
 import { useEffect } from "react";
 import { configureErrorLogger } from "@/utils/errorLogger";
@@ -109,10 +111,12 @@ function App() {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <IdleTimeoutProvider>
-              <QuickbooksProvider>
-                <QuickbooksEntitiesProvider>
-                  <Routes>
+            <TabVisibilityProvider>
+              <IdleTimeoutProvider>
+                <QuickbooksProvider>
+                  <QuickbooksEntitiesProvider>
+                    <RouteRestorer />
+                    <Routes>
                     {/* Public routes */}
                     <Route path="/" element={<Index />} />
                     <Route path="/login" element={
@@ -221,10 +225,11 @@ function App() {
                     {/* Catch-all route */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
-                  <IdleWarningDialog />
-                </QuickbooksEntitiesProvider>
-              </QuickbooksProvider>
-            </IdleTimeoutProvider>
+                  </QuickbooksEntitiesProvider>
+                </QuickbooksProvider>
+                <IdleWarningDialog />
+              </IdleTimeoutProvider>
+            </TabVisibilityProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
