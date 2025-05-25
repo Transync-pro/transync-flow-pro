@@ -467,16 +467,26 @@ const Export = () => {
                             defaultMonth={dateRange?.from || undefined}
                             selected={dateRange?.from || undefined}
                             onSelect={(date) => {
-                              setDateRange({ from: date || null, to: dateRange.to });
+                              // Handle start date selection with end date validation
+                              const newFrom = date || null;
+                              let newTo = dateRange.to;
+                              
+                              // If new start date is after current end date, clear end date
+                              if (newFrom && newTo && newFrom > newTo) {
+                                newTo = null;
+                              }
+                              
+                              setDateRange({ from: newFrom, to: newTo });
                               if (date) {
                                 setStartDateOpen(false);
                               }
                             }}
                             numberOfMonths={1}
+                            disabled={[{ after: new Date() }]} // Disable future dates
                             className="p-3 pointer-events-auto"
                             captionLayout="dropdown"
                             fromYear={2000}
-                            toYear={2030}
+                            toYear={new Date().getFullYear()} // Current year as max
                           />
                         </PopoverContent>
                       </Popover>
@@ -515,10 +525,14 @@ const Export = () => {
                               }
                             }}
                             numberOfMonths={1}
+                            disabled={[
+                              { after: new Date() }, // Disable future dates
+                              { before: dateRange.from || undefined } // Disable dates before start date
+                            ]}
                             className="p-3 pointer-events-auto"
                             captionLayout="dropdown"
                             fromYear={2000}
-                            toYear={2030}
+                            toYear={new Date().getFullYear()} // Current year as max
                           />
                         </PopoverContent>
                       </Popover>
