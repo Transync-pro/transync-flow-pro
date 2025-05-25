@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster"
 
-import Home from './pages/Home';
+import Index from './pages/Index';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -13,7 +14,7 @@ import Subscription from './pages/Subscription';
 import Profile from './pages/Profile';
 import Contact from './pages/Contact';
 import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
+import TermsOfUse from './pages/TermsOfUse';
 import RouteGuard from './components/RouteGuard';
 import { AuthProvider } from './contexts/AuthContext';
 import { QuickbooksProvider } from './contexts/QuickbooksContext';
@@ -34,11 +35,11 @@ function App() {
                 <Toaster />
                 <TrialBanner />
                 <Routes>
-                  <Route path="/" element={<Home />} />
+                  <Route path="/" element={<Index />} />
                   <Route path="/login" element={<RouteGuard isPublicOnly><Login /></RouteGuard>} />
                   <Route path="/signup" element={<RouteGuard isPublicOnly><Signup /></RouteGuard>} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
-                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/terms" element={<TermsOfUse />} />
                   <Route path="/contact" element={<Contact />} />
                   <Route path="/authenticate" element={<RouteGuard requiresAuth><Authenticate /></RouteGuard>} />
                   <Route path="/dashboard/quickbooks-callback" element={<QuickbooksCallback />} />
