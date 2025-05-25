@@ -51,6 +51,9 @@ const Dashboard = () => {
       if (timeSinceAuth < 10000) {
         console.log("Dashboard: Skipping connection check due to recent auth", { timeSinceAuth: timeSinceAuth / 1000 + 's' });
         hasCheckedOnMount.current = true;
+        // Clear the auth flags since we've used them
+        sessionStorage.removeItem('qb_auth_successful');
+        sessionStorage.removeItem('qb_auth_timestamp');
         return;
       }
     }
@@ -60,21 +63,37 @@ const Dashboard = () => {
     const checkConnectionOnMount = async () => {
       console.log("Dashboard: Checking QB connection on mount");
       
-      // Mark that we've checked the connection on mount to prevent multiple checks
-      hasCheckedOnMount.current = true;
-      
-      // Use NON-silent mode so isLoading gets set to false for the UI
-      await refreshConnection(true, false); // force=true, silent=false
-      
-      // Direct DB check as a fallback
-      if (user && !isConnected && isMounted) {
-        console.log("Dashboard: Context says not connected, checking DB directly");
-        const hasConnection = await checkQBConnectionExists(user.id);
+      try {
+        // Mark that we've checked the connection on mount to prevent multiple checks
+        hasCheckedOnMount.current = true;
         
-        if (hasConnection && isMounted) {
-          console.log("Dashboard: Found connection in DB but context says not connected, refreshing again");
-          // Found connection in DB but context doesn't reflect it, refresh again
-          await refreshConnection(true, false); // force=true, silent=false
+        // First check if we're already connected
+        if (isConnected) {
+          console.log("Dashboard: Already connected, skipping check");
+          return;
+        }
+        
+        // Use silent mode to prevent UI flickering
+        await refreshConnection(true, true);
+        
+        // If we're still not connected, do a direct DB check as a fallback
+        if (user && !isConnected && isMounted) {
+          console.log("Dashboard: Context says not connected, checking DB directly");
+          const hasConnection = await checkQBConnectionExists(user.id);
+          
+          if (hasConnection && isMounted) {
+            console.log("Dashboard: Found connection in DB but context says not connected, refreshing again");
+            // Found connection in DB but context doesn't reflect it, refresh again
+            await refreshConnection(true, true);
+          }
+        }
+      } catch (error) {
+        console.error("Dashboard: Error checking connection:", error);
+      } finally {
+        // Ensure loading state is cleared even if there's an error
+        if (isMounted) {
+          // Force a final state update to ensure loading is set to false
+          checkConnection(false, false);
         }
       }
     };
@@ -84,7 +103,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [refreshConnection, user, isConnected]);
+  }, [refreshConnection, user, isConnected, checkConnection]);
   
   // Create ref outside the effect for tracking initial mount
   const isInitialRouteChange = useRef(true);

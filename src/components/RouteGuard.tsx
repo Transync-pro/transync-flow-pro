@@ -176,12 +176,16 @@ const RouteGuard = ({
       // If we need QuickBooks and are not yet on the authenticate page, do direct DB check
       // But only if we haven't already checked for this user
       if (user && requiresQuickbooks && !isAuthenticateRoute && !connectionCheckedRef.current) {
-        await checkQbConnectionDirectly();
-        // Mark that we've checked the connection for this user
-        connectionCheckedRef.current = true;
-      } 
-      
-      if (!requiresAdmin || roleChecked) {
+        try {
+          await checkQbConnectionDirectly();
+        } catch (error) {
+          console.error('Error checking QB connection in RouteGuard:', error);
+        } finally {
+          // Mark that we've checked the connection for this user
+          connectionCheckedRef.current = true;
+          setIsChecking(false);
+        }
+      } else if (!requiresAdmin || roleChecked) {
         setIsChecking(false);
       }
       
