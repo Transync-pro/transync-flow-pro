@@ -302,82 +302,82 @@ const Delete = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Reorganized to have Entity Type and Date Range side by side */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Entity Type Selection */}
-              <div className="flex flex-col space-y-2">
-                <Label htmlFor="entity-type">Entity Type</Label>
-                <Select
-                  value={selectedEntity || ""}
-                  onValueChange={handleEntitySelect}
-                >
-                  <SelectTrigger id="entity-type">
-                    <SelectValue placeholder="Select an entity type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {entityOptions.map((entity) => (
-                      <SelectItem key={entity.value} value={entity.value}>
-                        {entity.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* Date Range Selection and Fetch Button */}
-              <div className="flex flex-col space-y-2">
-                <Label>Date Range <span className="text-red-500">*</span></Label>
+            <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Entity Type Selection */}
+                <div className="flex flex-col space-y-2 md:col-span-1">
+                  <Label htmlFor="entity-type">Entity Type</Label>
+                  <Select
+                    value={selectedEntity || ""}
+                    onValueChange={handleEntitySelect}
+                  >
+                    <SelectTrigger id="entity-type">
+                      <SelectValue placeholder="Select an entity type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {entityOptions.map((entity) => (
+                        <SelectItem key={entity.value} value={entity.value}>
+                          {entity.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 
-                <div className="flex flex-col gap-4">
-                  {/* Start Date */}
-                  <div className="w-full">
-                    <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            dateError && !dateRange?.from && "border-red-500"
-                          )}
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {dateRange?.from ? (
-                            format(dateRange.from, "LLL dd, y")
-                          ) : (
-                            <span>Select start date</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          initialFocus
-                          mode="single"
-                          defaultMonth={dateRange?.from || undefined}
-                          selected={dateRange?.from || undefined}
-                          onSelect={(date) => { // date can be Date | undefined
-                                const newFrom = date || null;
-                                let newTo = dateRange.to;
-                                if (newFrom && newTo && newFrom > newTo) {
-                                  newTo = null;
-                                }
-                                setDateRange({ from: newFrom, to: newTo });
-                                if (date) {
-                                  setStartDateOpen(false);
-                                }
-                              }}
-                          numberOfMonths={1}
-                          disabled={[{ after: new Date() }]} // Disable future dates
-                          className="p-3 pointer-events-auto"
-                          captionLayout="dropdown"
-                          fromYear={2000}
-                          toYear={new Date().getFullYear()} // Current year as max
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+                {/* Date Range Selection */}
+                <div className="flex flex-col space-y-2 md:col-span-2">
+                  <Label>Date Range <span className="text-red-500">*</span></Label>
                   
-                  {/* End Date and Fetch Button */}
-                  <div className="grid grid-cols-4 gap-4">
-                    <div className="col-span-3">
+                  <div className="flex flex-col gap-4">
+                    {/* Start Date */}
+                    <div className="w-full">
+                      <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              dateError && !dateRange?.from && "border-red-500"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {dateRange?.from ? (
+                              format(dateRange.from, "LLL dd, y")
+                            ) : (
+                              <span>Select start date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            initialFocus
+                            mode="single"
+                            defaultMonth={dateRange?.from || undefined}
+                            selected={dateRange?.from || undefined}
+                            onSelect={(date) => { // date can be Date | undefined
+                                  const newFrom = date || null;
+                                  let newTo = dateRange.to;
+                                  if (newFrom && newTo && newFrom > newTo) {
+                                    newTo = null;
+                                  }
+                                  setDateRange({ from: newFrom, to: newTo });
+                                  if (date) {
+                                    setStartDateOpen(false);
+                                  }
+                                }}
+                            numberOfMonths={1}
+                            disabled={[{ after: new Date() }]} // Disable future dates
+                            className="p-3 pointer-events-auto"
+                            captionLayout="dropdown"
+                            fromYear={2000}
+                            toYear={new Date().getFullYear()} // Current year as max
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    
+                    {/* End Date */}
+                    <div className="w-full">
                       <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                         <PopoverTrigger asChild>
                           <Button
@@ -420,21 +420,30 @@ const Delete = () => {
                         </PopoverContent>
                       </Popover>
                     </div>
-                    <Button
-                      onClick={handleFetchData}
-                      disabled={!selectedEntity || !dateRange?.from || !dateRange?.to || isLoading}
-                      className={cn(
-                        "col-span-1 flex items-center justify-center",
-                        (!selectedEntity || !dateRange?.from || !dateRange?.to) && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Fetch"
-                      )}
-                    </Button>
                   </div>
+                </div>
+              </div>
+              
+              {/* Fetch Button - Now below the entity type and date range */}
+              <div className="w-full md:w-1/4">
+                <Button
+                  onClick={handleFetchData}
+                  disabled={!selectedEntity || !dateRange?.from || !dateRange?.to || isLoading}
+                  className={cn(
+                    "w-full flex items-center justify-center",
+                    (!selectedEntity || !dateRange?.from || !dateRange?.to) && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Fetch Data"
+                  )}
+                </Button>
+              </div>
                 </div>
               </div>
             </div>
