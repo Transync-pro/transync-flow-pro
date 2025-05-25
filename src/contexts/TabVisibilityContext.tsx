@@ -29,7 +29,9 @@ export const TabVisibilityProvider: React.FC<TabVisibilityProviderProps> = ({ ch
     const fullPath = `${currentPath}${currentSearch}`;
     
     // Only store protected routes (those that require authentication)
-    if (currentPath.startsWith('/dashboard') || currentPath === '/profile') {
+    // Don't store the dashboard route itself to avoid redirect loops
+    if ((currentPath.startsWith('/dashboard') && currentPath !== '/dashboard') || 
+        currentPath === '/profile') {
       sessionStorage.setItem('lastActiveRoute', fullPath);
       setLastActiveRoute(fullPath);
     }

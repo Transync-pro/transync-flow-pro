@@ -36,9 +36,9 @@ const RouteRestorer = () => {
 
   // Restore the route when tab becomes visible again
   useEffect(() => {
-    // Only attempt to restore route when tab becomes visible again
-    // and the user is authenticated
-    if (isVisible && user) {
+    // Only attempt to restore route when tab becomes visible again,
+    // the user is authenticated, and we're coming back from a hidden state
+    if (isVisible && !wasVisibleRef.current && user) {
       const lastRoute = sessionStorage.getItem('lastActiveRoute');
       const currentPath = window.location.pathname;
       
@@ -56,7 +56,7 @@ const RouteRestorer = () => {
         return () => clearTimeout(timer);
       }
     }
-  }, [isVisible, navigate, user]);
+  }, [isVisible, wasVisibleRef, navigate, user]);
 
   // This is a utility component that doesn't render anything
   return null;
