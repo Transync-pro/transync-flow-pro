@@ -158,7 +158,7 @@ function App() {
                     <Route path="/dashboard/quickbooks-callback" element={
                       <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
                         <QuickbooksCallback />
-                      </RouteGuteGuard>
+                      </RouteGuard>
                     } />
                     
                     {/* Auth + QuickBooks protected routes */}
