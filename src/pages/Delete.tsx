@@ -145,22 +145,39 @@ const Delete = () => {
     setSelectedAll(true);
   };
   
-  // Handle selecting all records across all pages
+  // Handle selecting/deselecting all records across all pages
   const selectAllEntries = () => {
-    setSelectedAll(true);
-    const allIds = filteredRecords
-      .filter(record => record.Id)
-      .map(record => record.Id);
+    // Check if all records are already selected
+    const allSelected = filteredRecords.length > 0 && 
+      filteredRecords.every(record => record.Id && selectedEntityIds.includes(record.Id));
     
-    setSelectedEntityIds(allIds);
-    // Hide the button by setting hasSelectedCurrentPage to false
-    setHasSelectedCurrentPage(false);
-    
-    if (allIds.length > 0) {
+    if (allSelected) {
+      // If all are already selected, deselect all
+      setSelectedEntityIds([]);
+      setSelectedAll(false);
+      setHasSelectedCurrentPage(false);
+      
       toast({
-        title: "All Records Selected",
-        description: `Selected all ${allIds.length} records.`,
+        title: "All Records Deselected",
+        description: `Deselected all ${filteredRecords.length} records.`,
       });
+    } else {
+      // Select all records across all pages
+      setSelectedAll(true);
+      const allIds = filteredRecords
+        .filter(record => record.Id)
+        .map(record => record.Id);
+      
+      setSelectedEntityIds(allIds);
+      // Hide the button by setting hasSelectedCurrentPage to false
+      setHasSelectedCurrentPage(false);
+      
+      if (allIds.length > 0) {
+        toast({
+          title: "All Records Selected",
+          description: `Selected all ${allIds.length} records.`,
+        });
+      }
     }
   };
 

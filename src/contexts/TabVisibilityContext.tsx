@@ -29,12 +29,7 @@ export const TabVisibilityProvider: React.FC<TabVisibilityProviderProps> = ({ ch
     const fullPath = `${currentPath}${currentSearch}`;
     
     // Only store protected routes (those that require authentication)
-    if (currentPath.startsWith('/dashboard') || 
-        currentPath === '/import' || 
-        currentPath === '/export' || 
-        currentPath === '/delete' || 
-        currentPath === '/history' || 
-        currentPath === '/profile') {
+    if (currentPath.startsWith('/dashboard') || currentPath === '/profile') {
       sessionStorage.setItem('lastActiveRoute', fullPath);
       setLastActiveRoute(fullPath);
     }

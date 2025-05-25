@@ -51,17 +51,24 @@ export function DataTable<TData, TValue>({
 
     const selectionColumn: ColumnDef<TData, any> = {
       id: 'select',
-      header: ({ table }) => (
-        <Checkbox
-          checked={selectedIds.length > 0 && selectedIds.length === data.length}
-          onCheckedChange={(value) => {
-            if (onSelectAll) {
-              onSelectAll(!!value);
-            }
-          }}
-          aria-label="Select all"
-        />
-      ),
+      header: ({ table }) => {
+        // Check if all items are selected
+        const allSelected = selectedIds.length > 0 && selectedIds.length === data.length;
+        
+        return (
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={(value) => {
+              if (onSelectAll) {
+                // If all are already selected, we want to deselect all when clicked
+                // regardless of the value passed by the checkbox component
+                onSelectAll(allSelected ? false : !!value);
+              }
+            }}
+            aria-label="Select all"
+          />
+        );
+      },
       cell: ({ row }) => {
         // @ts-ignore - We know Id exists on our records
         const id = (row.original as any).Id || (row.original as any).id;

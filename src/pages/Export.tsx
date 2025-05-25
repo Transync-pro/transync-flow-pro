@@ -224,29 +224,45 @@ const Export = () => {
     }
   };
   
-  // Handle selecting all records across all pages
+  // Handle selecting/deselecting all records across all pages
   const selectAllEntries = () => {
-    // Select all records across all pages
-    const newSelectedRecords = { ...selectedRecords };
-    let selectedCount = 0;
+    // Check if all records are already selected
+    const allSelected = filteredRecords.length > 0 && 
+      filteredRecords.every(record => record.Id && selectedRecords[record.Id]);
     
-    filteredRecords.forEach(record => {
-      if (record.Id) {
-        newSelectedRecords[record.Id] = true;
-        selectedCount++;
-      }
-    });
-    
-    setSelectedRecords(newSelectedRecords);
-    setSelectAllRecords(true);
-    // Hide the button by setting hasSelectedCurrentPage to false
-    setHasSelectedCurrentPage(false);
-    
-    if (selectedCount > 0) {
+    if (allSelected) {
+      // If all are already selected, deselect all
+      setSelectedRecords({});
+      setSelectAllRecords(false);
+      setHasSelectedCurrentPage(false);
+      
       toast({
-        title: "All Records Selected",
-        description: `Selected all ${selectedCount} records.`,
+        title: "All Records Deselected",
+        description: `Deselected all ${filteredRecords.length} records.`,
       });
+    } else {
+      // Select all records across all pages
+      const newSelectedRecords = { ...selectedRecords };
+      let selectedCount = 0;
+      
+      filteredRecords.forEach(record => {
+        if (record.Id) {
+          newSelectedRecords[record.Id] = true;
+          selectedCount++;
+        }
+      });
+      
+      setSelectedRecords(newSelectedRecords);
+      setSelectAllRecords(true);
+      // Hide the button by setting hasSelectedCurrentPage to false
+      setHasSelectedCurrentPage(false);
+      
+      if (selectedCount > 0) {
+        toast({
+          title: "All Records Selected",
+          description: `Selected all ${selectedCount} records.`,
+        });
+      }
     }
   };
 

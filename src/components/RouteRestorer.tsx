@@ -40,9 +40,14 @@ const RouteRestorer = () => {
     // and the user is authenticated
     if (isVisible && user) {
       const lastRoute = sessionStorage.getItem('lastActiveRoute');
+      const currentPath = window.location.pathname;
       
-      // Check if we're on the dashboard page and there's a saved route to restore
-      if (lastRoute && window.location.pathname === '/dashboard') {
+      // Only restore if we have a saved route and we're on the dashboard page
+      // Make sure we don't redirect if we're already on the dashboard or a sub-route
+      if (lastRoute && 
+          currentPath === '/dashboard' && 
+          lastRoute !== '/dashboard' && 
+          !lastRoute.includes('quickbooks-callback')) {
         // Small delay to ensure the app is fully loaded
         const timer = setTimeout(() => {
           navigate(lastRoute, { replace: true }); // Use replace to avoid adding to history
