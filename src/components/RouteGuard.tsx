@@ -216,16 +216,22 @@ const RouteGuard = ({
   useEffect(() => {
     // Add debounce to prevent redirect loops
     const timeoutId = setTimeout(() => {
-      // Don't process redirects while still checking or for QB callback route
-      if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) return;
+      // Don't process redirects while still checking or loading
+      if (isChecking || redirectingRef.current || isLoading) return;
+      
+      // Check for connection data in session storage
+      const connectionData = sessionStorage.getItem('qb_connection_data');
+      const parsedConnection = connectionData ? JSON.parse(connectionData) : null;
       
       // Check if we're in the middle of a QuickBooks connection process
       const isInConnectionProcess = 
         location.pathname.includes('quickbooks-callback') || 
         location.search.includes('code=') ||
         location.state?.fromQbCallback === true ||
+        location.state?.connectionEstablished === true ||
         sessionStorage.getItem('qb_connecting_user') ||
-        sessionStorage.getItem('qb_connection_in_progress');
+        sessionStorage.getItem('qb_connection_in_progress') ||
+        (parsedConnection && (Date.now() - parsedConnection.timestamp) < 30000); // 30 second window for connection
       
       // If we're in the middle of a connection process, don't redirect
       if (isInConnectionProcess) {
@@ -234,8 +240,23 @@ const RouteGuard = ({
           search: location.search,
           state: location.state,
           qbConnecting: sessionStorage.getItem('qb_connecting_user'),
-          qbInProgress: sessionStorage.getItem('qb_connection_in_progress')
+          qbInProgress: sessionStorage.getItem('qb_connection_in_progress'),
+          connectionData: parsedConnection
         });
+        
+        // If we have connection data and we're on the dashboard, clear it
+        if (parsedConnection && parsedConnection.success && location.pathname === '/dashboard') {
+          console.log('RouteGuard: Connection successful, cleaning up session storage');
+          sessionStorage.removeItem('qb_connection_data');
+          sessionStorage.removeItem('qb_connection_in_progress');
+          sessionStorage.removeItem('qb_connecting_user');
+          
+          // Force a refresh of the connection state
+          if (checkConnection) {
+            checkConnection(true); // Force refresh
+          }
+        }
+        
         redirectingRef.current = false;
         return;
       }

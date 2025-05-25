@@ -35,6 +35,7 @@ const QuickbooksCallback = () => {
     
     // Set connection in progress flags immediately
     sessionStorage.setItem('qb_connection_in_progress', 'true');
+    sessionStorage.setItem('qb_connecting_user', user?.id || '');
     
     const processCallback = async () => {
       try {
@@ -191,12 +192,17 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        // Store success in session storage
+        // Store success in session storage with a timestamp
         const successTimestamp = Date.now();
-        sessionStorage.setItem('qb_connection_success', 'true');
-        sessionStorage.setItem('qb_auth_successful', 'true');
-        sessionStorage.setItem('qb_auth_timestamp', successTimestamp.toString());
-        sessionStorage.setItem('qb_connection_company', tokenExchangeData.companyName || 'Unknown Company');
+        const connectionData = {
+          success: true,
+          timestamp: successTimestamp,
+          companyName: tokenExchangeData.companyName || 'Unknown Company',
+          realmId: tokenExchangeData.realmId
+        };
+        
+        // Store the connection data in session storage
+        sessionStorage.setItem('qb_connection_data', JSON.stringify(connectionData));
         
         // Mark as successful in state
         setSuccess(true);
@@ -205,18 +211,31 @@ const QuickbooksCallback = () => {
           // Force update the connection status
           await refreshConnection(true);
           console.log('QuickBooks connection refresh completed');
-        } catch (err) {
-          console.error('Error refreshing QuickBooks connection:', err);
-          // Even if refresh fails, we still want to proceed
-        } finally {
-          // Clear all connection flags
+          
+          // Clear the in-progress flags
           sessionStorage.removeItem('qb_connecting_user');
           sessionStorage.removeItem('qb_connection_in_progress');
           
-          // Navigate to dashboard with state to prevent immediate redirection
+          // Navigate to dashboard with a flag to prevent immediate redirection
           navigate('/dashboard', { 
             replace: true,
-            state: { fromQbCallback: true }
+            state: { 
+              fromQbCallback: true,
+              connectionEstablished: true
+            }
+          });
+          
+        } catch (err) {
+          console.error('Error refreshing QuickBooks connection:', err);
+          // Even if refresh fails, we still want to proceed to dashboard
+          sessionStorage.removeItem('qb_connecting_user');
+          sessionStorage.removeItem('qb_connection_in_progress');
+          navigate('/dashboard', { 
+            replace: true,
+            state: { 
+              fromQbCallback: true,
+              connectionEstablished: true
+            }
           });
         }
         

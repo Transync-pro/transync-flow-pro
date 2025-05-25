@@ -24,8 +24,20 @@ const Dashboard = () => {
   
   // Check QuickBooks connection on mount - but only once and silently
   useEffect(() => {
-    // Skip if we've already checked on mount or if we just came from a successful QB auth
+    // Skip if we've already checked on mount
     if (hasCheckedOnMount.current) {
+      return;
+    }
+    
+    // Check if we have a recent successful connection from session storage
+    const connectionData = sessionStorage.getItem('qb_connection_data');
+    const parsedConnection = connectionData ? JSON.parse(connectionData) : null;
+    
+    // If we have a recent successful connection, skip the check
+    if (parsedConnection?.success && (Date.now() - parsedConnection.timestamp) < 30000) {
+      console.log("Dashboard: Recent connection found, skipping initial check");
+      hasCheckedOnMount.current = true;
+      // Don't clear the connection data here - let RouteGuard handle it
       return;
     }
     
@@ -37,25 +49,6 @@ const Dashboard = () => {
       window.__skipNextQBConnectionCheck = false;
       hasCheckedOnMount.current = true;
       return;
-    }
-    
-    // Check if we have a recent successful auth from session storage
-    const recentAuth = sessionStorage.getItem('qb_auth_successful');
-    const authTimestamp = sessionStorage.getItem('qb_auth_timestamp');
-    
-    if (recentAuth === 'true' && authTimestamp) {
-      const now = Date.now();
-      const timeSinceAuth = now - parseInt(authTimestamp);
-      
-      // If auth was completed in the last 10 seconds, skip additional checks
-      if (timeSinceAuth < 10000) {
-        console.log("Dashboard: Skipping connection check due to recent auth", { timeSinceAuth: timeSinceAuth / 1000 + 's' });
-        hasCheckedOnMount.current = true;
-        // Clear the auth flags since we've used them
-        sessionStorage.removeItem('qb_auth_successful');
-        sessionStorage.removeItem('qb_auth_timestamp');
-        return;
-      }
     }
     
     let isMounted = true;
@@ -139,18 +132,37 @@ const Dashboard = () => {
   // Handle disconnection case - redirect to authenticate page if not connected
   // Using a ref to track if we've already redirected to avoid excessive checks
   const hasRedirected = useRef(false);
+  const redirectTimeout = useRef<NodeJS.Timeout>();
   
   useEffect(() => {
+    // Clear any pending redirect timeout
+    if (redirectTimeout.current) {
+      clearTimeout(redirectTimeout.current);
+    }
+    
     // Only redirect if we're definitely not connected (not during loading)
     // And we haven't already redirected
     if (isConnected === false && !hasRedirected.current) {
-      console.log("Dashboard detected disconnected state, redirecting to /authenticate");
-      hasRedirected.current = true;
-      navigate('/authenticate', { replace: true });
+      // Add a small delay to allow any pending state updates to complete
+      redirectTimeout.current = setTimeout(() => {
+        // Double-check that we're still not connected
+        if (!isConnected && !isLoading && !hasRedirected.current) {
+          console.log("Dashboard detected disconnected state, redirecting to /authenticate");
+          hasRedirected.current = true;
+          navigate('/authenticate', { replace: true });
+        }
+      }, 1000); // 1 second delay
     } else if (isConnected === true) {
       // Reset the flag if we're connected again
       hasRedirected.current = false;
     }
+    
+    // Clean up timeout on unmount or dependency change
+    return () => {
+      if (redirectTimeout.current) {
+        clearTimeout(redirectTimeout.current);
+      }
+    };
   }, [isConnected, navigate]);
   
   // Add document visibility change listener to check connection when user returns to the app
@@ -158,16 +170,27 @@ const Dashboard = () => {
     // We need to wrap the async function since event listeners can't be async directly
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        // Check if we have a recent connection in progress
+        const connectionInProgress = sessionStorage.getItem('qb_connection_in_progress');
+        
+        if (connectionInProgress) {
+          console.log("Dashboard: Connection in progress, skipping visibility check");
+          return;
+        }
+        
         console.log("Dashboard: Checking QB connection on visibility change");
         // Use silent mode to prevent UI flickering
-        // We don't need to await this since we don't do anything with the result
         refreshConnection(true, true); // force=true, silent=true
       }
     };
     
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Add a small delay before adding the event listener to avoid race conditions
+    const timer = setTimeout(() => {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }, 1000);
     
     return () => {
+      clearTimeout(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [refreshConnection]);
