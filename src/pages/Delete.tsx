@@ -330,7 +330,6 @@ const Delete = () => {
                 <div className="flex flex-col gap-4">
                   {/* Start Date */}
                   <div className="w-full">
-                    <Label className="text-sm text-muted-foreground mb-1.5 block">Start Date</Label>
                     <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -378,7 +377,6 @@ const Delete = () => {
                   
                   {/* End Date */}
                   <div className="w-full">
-                    <Label className="text-sm text-muted-foreground mb-1.5 block">End Date</Label>
                     <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                       <PopoverTrigger asChild>
                         <Button

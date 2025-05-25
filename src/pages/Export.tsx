@@ -439,16 +439,15 @@ const Export = () => {
                 <div className="flex flex-col space-y-2">
                   <Label>Date Range <span className="text-red-500">*</span></Label>
                   
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex flex-row gap-2">
                     {/* Start Date */}
                     <div className="flex-1">
-                      <Label className="text-sm text-muted-foreground mb-1 block">Start Date</Label>
                       <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal",
+                              "w-full justify-start text-left font-normal h-10", // Match height with SelectTrigger
                               dateError && !dateRange?.from && "border-red-500"
                             )}
                           >
@@ -456,7 +455,7 @@ const Export = () => {
                             {dateRange?.from ? (
                               format(dateRange.from, "LLL dd, y")
                             ) : (
-                              <span>Select start date</span>
+                              <span>Start date</span>
                             )}
                           </Button>
                         </PopoverTrigger>
@@ -494,13 +493,12 @@ const Export = () => {
                     
                     {/* End Date */}
                     <div className="flex-1">
-                      <Label className="text-sm text-muted-foreground mb-1 block">End Date</Label>
                       <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal",
+                              "w-full justify-start text-left font-normal h-10", // Match height with SelectTrigger
                               dateError && !dateRange?.to && "border-red-500"
                             )}
                           >
@@ -508,7 +506,7 @@ const Export = () => {
                             {dateRange?.to ? (
                               format(dateRange.to, "LLL dd, y")
                             ) : (
-                              <span>Select end date</span>
+                              <span>End date</span>
                             )}
                           </Button>
                         </PopoverTrigger>
