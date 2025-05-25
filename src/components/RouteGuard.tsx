@@ -221,20 +221,41 @@ const RouteGuard = ({
       
       // Check for successful connection in session storage
       const qbConnectionSuccess = sessionStorage.getItem('qb_connection_success');
+      const qbConnectionCompany = sessionStorage.getItem('qb_connection_company');
+      const qbAuthTimestamp = sessionStorage.getItem('qb_auth_timestamp');
       
       // Set redirecting flag to prevent multiple redirects
       redirectingRef.current = true;
       
       // Handle successful connection from session storage
-      if (qbConnectionSuccess) {
-        console.log('RouteGuard: Detected successful QuickBooks connection from session');
-        // Clear the flag to prevent future redirects
-        sessionStorage.removeItem('qb_connection_success');
-        // Force refresh the connection status
-        refreshConnection(true).then(() => {
-          navigate('/dashboard', { replace: true });
-        });
-        return;
+      if (qbConnectionSuccess && qbAuthTimestamp) {
+        const connectionTime = parseInt(qbAuthTimestamp, 10);
+        const currentTime = Date.now();
+        const maxAge = 5 * 60 * 1000; // 5 minutes max age for the connection success flag
+        
+        if (currentTime - connectionTime < maxAge) {
+          console.log('RouteGuard: Detected recent QuickBooks connection from session', {
+            company: qbConnectionCompany,
+            age: ((currentTime - connectionTime) / 1000).toFixed(1) + 's ago'
+          });
+          
+          // Clear the flag to prevent future redirects
+          sessionStorage.removeItem('qb_connection_success');
+          
+          // Force refresh the connection status and redirect
+          refreshConnection(true).then(() => {
+            console.log('RouteGuard: Connection refresh completed, redirecting to dashboard');
+            navigate('/dashboard', { replace: true });
+          }).catch(err => {
+            console.error('RouteGuard: Error refreshing connection:', err);
+            navigate('/dashboard', { replace: true });
+          });
+          return;
+        } else {
+          console.log('RouteGuard: Stale connection success detected, ignoring');
+          sessionStorage.removeItem('qb_connection_success');
+          sessionStorage.removeItem('qb_connection_company');
+        }
       }
       
       // Handle authenticate page logic

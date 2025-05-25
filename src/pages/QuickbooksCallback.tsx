@@ -189,22 +189,28 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        // Clean up session storage
+        // Clean up session storage first
         sessionStorage.removeItem("qb_connecting_user");
         
-        // Clear any existing connection cache
+        // Clear any existing connection cache to ensure fresh data
         clearConnectionCache(userId);
-
-        // Update connection status in context
-        await refreshConnection();
         
-        // Mark as successful and show toast
-        setSuccess(true);
-        
-        // Store success in session storage as a fallback
+        // Store success in session storage immediately to prevent race conditions
+        const successTimestamp = Date.now();
         sessionStorage.setItem('qb_connection_success', 'true');
         sessionStorage.setItem('qb_auth_successful', 'true');
-        sessionStorage.setItem('qb_auth_timestamp', Date.now().toString());
+        sessionStorage.setItem('qb_auth_timestamp', successTimestamp.toString());
+        sessionStorage.setItem('qb_connection_company', tokenExchangeData.companyName || 'Unknown Company');
+        
+        // Mark as successful in state
+        setSuccess(true);
+        
+        // Force update the connection status in the background
+        refreshConnection(true).then(() => {
+          console.log('Background connection refresh completed');
+        }).catch(err => {
+          console.error('Background refresh error:', err);
+        });
         
         // Show toast with company name and user identity info if available
         let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected!`;
