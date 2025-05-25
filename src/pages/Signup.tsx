@@ -26,8 +26,6 @@ const Signup = () => {
         full_name: fullName,
         company_name: companyName
       });
-      // Redirect to pricing after successful signup
-      window.location.href = "/pricing";
     } catch (error) {
       console.error("Signup error in component:", error);
     } finally {

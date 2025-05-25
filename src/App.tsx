@@ -10,10 +10,6 @@ import { QuickbooksEntitiesProvider } from "@/contexts/QuickbooksEntitiesContext
 import { IdleTimeoutProvider } from "@/contexts/IdleTimeoutContext";
 import { IdleWarningDialog } from "@/components/IdleWarningDialog";
 import RouteGuard from "@/components/RouteGuard";
-import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
-import TrialBanner from "@/components/TrialBanner";
-import PlanGuard from "@/components/PlanGuard";
-import ChoosePlan from "@/pages/ChoosePlan";
 import { useEffect } from "react";
 import { configureErrorLogger } from "@/utils/errorLogger";
 
@@ -112,12 +108,10 @@ function App() {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <SubscriptionProvider>
-              <IdleTimeoutProvider>
-                <QuickbooksProvider>
-                  <QuickbooksEntitiesProvider>
-                    <TrialBanner />
-                    <Routes>
+            <IdleTimeoutProvider>
+              <QuickbooksProvider>
+                <QuickbooksEntitiesProvider>
+                <Routes>
                   {/* Public routes */}
                   <Route path="/" element={<Index />} />
                   <Route path="/login" element={
@@ -145,75 +139,51 @@ function App() {
                       <Verify />
                     </RouteGuard>
                   } />
-                  <Route path="/pricing" element={<ChoosePlan />} />
-                  <Route path="/subscription" element={<ChoosePlan />} />
-                  <Route path="/authenticate" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <PlanGuard>
-                        <Authenticate />
-                      </PlanGuard>
-                    </RouteGuard>
-                  } />
+                  <Route path="/authenticate" element={<Authenticate />} />
                   
                   {/* Auth protected routes */}
                   <Route path="/connect-quickbooks" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <PlanGuard>
-                        <QuickbooksConnectPage />
-                      </PlanGuard>
+                      <QuickbooksConnectPage />
                     </RouteGuard>
                   } />
                   
                   <Route path="/profile" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <PlanGuard>
-                        <Profile />
-                      </PlanGuard>
+                      <Profile />
                     </RouteGuard>
                   } />
                   
                   <Route path="/dashboard/quickbooks-callback" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <PlanGuard>
-                        <QuickbooksCallback />
-                      </PlanGuard>
+                      <QuickbooksCallback />
                     </RouteGuard>
                   } />
                   
                   {/* Auth + QuickBooks protected routes */}
                   <Route path="/dashboard" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <PlanGuard>
-                        <Dashboard />
-                      </PlanGuard>
+                      <Dashboard />
                     </RouteGuard>
                   } />
                   <Route path="/dashboard/import" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <PlanGuard>
-                        <Import />
-                      </PlanGuard>
+                      <Import />
                     </RouteGuard>
                   } />
                   <Route path="/dashboard/export" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <PlanGuard>
-                        <Export />
-                      </PlanGuard>
+                      <Export />
                     </RouteGuard>
                   } />
                   <Route path="/dashboard/delete" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <PlanGuard>
-                        <Delete />
-                      </PlanGuard>
+                      <Delete />
                     </RouteGuard>
                   } />
                   <Route path="/dashboard/history" element={
                     <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <PlanGuard>
-                        <History />
-                      </PlanGuard>
+                      <History />
                     </RouteGuard>
                   } />
                   
