@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -35,7 +34,8 @@ const Delete = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
-  
+  const [hasSelectedCurrentPage, setHasSelectedCurrentPage] = useState(false);
+
   const {
     selectedEntity,
     setSelectedEntity,
@@ -78,6 +78,7 @@ const Delete = () => {
     setSelectedEntity(entity);
     setSelectedEntityIds([]);
     setSelectedAll(false);
+    setHasSelectedCurrentPage(false);
     // Clear search and don't fetch automatically
     setSearchTerm("");
     setPageIndex(0);
@@ -123,16 +124,46 @@ const Delete = () => {
     setPageIndex(0);
   };
 
-  // Handle checkbox select all - modified to select all records across all pages
+  // Handle checkbox select all with two-step behavior
   const handleSelectAll = (checked: boolean) => {
-    setSelectedAll(checked);
-    selectAllEntities(checked, filteredRecords); // Now selects all records, not just current page
-    
-    if (checked && filteredRecords.length > 0) {
-      toast({
-        title: "Selection Complete",
-        description: `Selected all ${filteredRecords.length} records.`,
-      });
+    if (!checked) {
+      // If unchecking, clear all selections
+      setSelectedAll(false);
+      setHasSelectedCurrentPage(false);
+      setSelectedEntityIds([]);
+      return;
+    }
+
+    if (!hasSelectedCurrentPage) {
+      // First click: Select only current page
+      const currentPageIds = paginatedRecords
+        .filter(record => record.Id)
+        .map(record => record.Id);
+      
+      setSelectedEntityIds(currentPageIds);
+      setHasSelectedCurrentPage(true);
+      
+      if (currentPageIds.length > 0) {
+        toast({
+          title: "Page Selected",
+          description: `Selected ${currentPageIds.length} records on this page. Click again to select all ${filteredRecords.length} records.`,
+        });
+      }
+    } else {
+      // Second click: Select all records across all pages
+      setSelectedAll(true);
+      const allIds = filteredRecords
+        .filter(record => record.Id)
+        .map(record => record.Id);
+      
+      setSelectedEntityIds(allIds);
+      
+      if (allIds.length > 0) {
+        toast({
+          title: "All Records Selected",
+          description: `Selected all ${allIds.length} records.`,
+        });
+      }
     }
   };
 
@@ -151,6 +182,7 @@ const Delete = () => {
       await deleteSelectedEntities(selectedEntityIds);
       setSelectedEntityIds([]);
       setSelectedAll(false);
+      setHasSelectedCurrentPage(false);
       setShowDeleteConfirm(false);
     } catch (error) {
       logError(`Error deleting ${selectedEntity} entities`, {
