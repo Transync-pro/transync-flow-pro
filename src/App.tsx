@@ -1,232 +1,59 @@
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import { Toaster } from "@/components/ui/toaster"
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { QuickbooksProvider } from "@/contexts/QuickbooksContext";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { QuickbooksEntitiesProvider } from "@/contexts/QuickbooksEntitiesContext";
-import { IdleTimeoutProvider } from "@/contexts/IdleTimeoutContext";
-import { IdleWarningDialog } from "@/components/IdleWarningDialog";
-import RouteGuard from "@/components/RouteGuard";
-import { useEffect } from "react";
-import { configureErrorLogger } from "@/utils/errorLogger";
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Dashboard from './pages/Dashboard';
+import Authenticate from './pages/Authenticate';
+import QuickbooksCallback from './pages/QuickbooksCallback';
+import Subscription from './pages/Subscription';
+import Profile from './pages/Profile';
+import Contact from './pages/Contact';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import RouteGuard from './components/RouteGuard';
+import { AuthProvider } from './contexts/AuthContext';
+import { QuickbooksProvider } from './contexts/QuickbooksContext';
+import { IdleTimeoutProvider } from './contexts/IdleTimeoutContext';
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import TrialBanner from "@/components/TrialBanner";
 
-// Pages
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Verify from "./pages/Verify";
-import Dashboard from "./pages/Dashboard";
-import Import from "./pages/Import";
-import Export from "./pages/Export";
-import Delete from "./pages/Delete";
-import History from "./pages/History";
-import Profile from "./pages/Profile";
-import QuickbooksCallback from "./pages/QuickbooksCallback";
-import QuickbooksConnectPage from "./components/QuickbooksConnectPage";
-import NotFound from "./pages/NotFound";
-import Authenticate from "./pages/Authenticate";
-
-// New Pages
-import Features from "./pages/Features";
-import Subscription from "./pages/Subscription";
-import Contact from "./pages/Contact";
-import AboutUs from "./pages/AboutUs";
-import Integrations from "./pages/Integrations";
-import Demo from "./pages/Demo";
-import Blog from "./pages/Blog";
-import BlogDetail from "./pages/BlogDetail";
-import BlogAdmin from "./pages/Admin/BlogAdmin";
-import TestAdmin from "./pages/Admin/TestAdmin";
-import Documentation from "./pages/Documentation";
-import Tutorials from "./pages/Tutorials";
-import Support from "./pages/Support";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsOfUse from "./pages/TermsOfUse";
-import Careers from "./pages/Careers";
-
-// Import the new BlogImportPage component
-import BlogImportPage from "./pages/Admin/BlogImportPage";
-
-// Configure the global error logger
-configureErrorLogger({
-  consoleEnabled: true,
-  persistToDbEnabled: false // Enable this once you set up the error_logs table
-});
-
-// Set up global error handling
-if (typeof window !== 'undefined') {
-  window.addEventListener('error', (event) => {
-    const { message, filename, lineno, colno, error } = event;
-    import('./utils/errorLogger').then(({ logError }) => {
-      logError(`Uncaught error: ${message}`, {
-        source: filename || 'unknown',
-        stack: error?.stack,
-        context: { lineno, colno }
-      });
-    });
-  });
-
-  window.addEventListener('unhandledrejection', (event) => {
-    import('./utils/errorLogger').then(({ logError }) => {
-      logError(`Unhandled promise rejection: ${event.reason}`, {
-        source: 'promise',
-        stack: event.reason?.stack,
-        context: { reason: event.reason }
-      });
-    });
-  });
-}
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      meta: {
-        onError: (error: unknown) => {
-          import('./utils/errorLogger').then(({ logError }) => {
-            logError(`Query error: ${error instanceof Error ? error.message : String(error)}`, {
-              source: 'react-query',
-              stack: error instanceof Error ? error.stack : undefined
-            });
-          });
-        }
-      }
-    }
-  }
-});
+const queryClient = new QueryClient();
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <IdleTimeoutProvider>
-              <QuickbooksProvider>
-                <QuickbooksEntitiesProvider>
+      <Router>
+        <AuthProvider>
+          <SubscriptionProvider>
+            <QuickbooksProvider>
+              <IdleTimeoutProvider>
+                <Toaster />
+                <TrialBanner />
                 <Routes>
-                  {/* Public routes */}
-                  <Route path="/" element={<Index />} />
-                  <Route path="/login" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={true}>
-                      <Login />
-                    </RouteGuard>
-                  } />
-                  <Route path="/signup" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={true}>
-                      <Signup />
-                    </RouteGuard>
-                  } />
-                  <Route path="/forgot-password" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={true}>
-                      <ForgotPassword />
-                    </RouteGuard>
-                  } />
-                  <Route path="/reset-password" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={false}>
-                      <ResetPassword />
-                    </RouteGuard>
-                  } />
-                  <Route path="/verify" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={false}>
-                      <Verify />
-                    </RouteGuard>
-                  } />
-                  <Route path="/authenticate" element={<Authenticate />} />
-                  
-                  {/* Auth protected routes */}
-                  <Route path="/connect-quickbooks" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <QuickbooksConnectPage />
-                    </RouteGuard>
-                  } />
-                  
-                  <Route path="/profile" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <Profile />
-                    </RouteGuard>
-                  } />
-                  
-                  <Route path="/dashboard/quickbooks-callback" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <QuickbooksCallback />
-                    </RouteGuard>
-                  } />
-                  
-                  {/* Auth + QuickBooks protected routes */}
-                  <Route path="/dashboard" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Dashboard />
-                    </RouteGuard>
-                  } />
-                  <Route path="/dashboard/import" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Import />
-                    </RouteGuard>
-                  } />
-                  <Route path="/dashboard/export" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Export />
-                    </RouteGuard>
-                  } />
-                  <Route path="/dashboard/delete" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Delete />
-                    </RouteGuard>
-                  } />
-                  <Route path="/dashboard/history" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <History />
-                    </RouteGuard>
-                  } />
-                  
-                  {/* Admin routes */}
-                  <Route 
-                    path="/admin/blog" 
-                    element={<RouteGuard requiresAuth requiresAdmin><BlogAdmin /></RouteGuard>} 
-                  />
-                  <Route 
-                    path="/admin/blog/import" 
-                    element={<RouteGuard requiresAuth requiresAdmin><BlogImportPage /></RouteGuard>} 
-                  />
-                  
-                  {/* New public pages */}
-                  <Route path="/features" element={<Features />} />
-                  <Route path="/subscription" element={<Subscription />} />
-                  <Route path="/pricing" element={<Subscription />} /> {/* Redirect old path */}
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<RouteGuard isPublicOnly><Login /></RouteGuard>} />
+                  <Route path="/signup" element={<RouteGuard isPublicOnly><Signup /></RouteGuard>} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/terms" element={<TermsOfService />} />
                   <Route path="/contact" element={<Contact />} />
-                  <Route path="/about-us" element={<AboutUs />} />
-                  <Route path="/about" element={<AboutUs />} /> {/* Redirect old path */}
-                  <Route path="/integrations" element={<Integrations />} />
-                  <Route path="/demo" element={<Demo />} />
-                  <Route path="/blog" element={<Blog />} />
-                  <Route path="/blog/:slug" element={<BlogDetail />} />
-                  <Route path="/documentation" element={<Documentation />} />
-                  <Route path="/tutorials" element={<Tutorials />} />
-                  <Route path="/support" element={<Support />} />
-                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                  <Route path="/privacy" element={<PrivacyPolicy />} /> {/* Redirect old path */}
-                  <Route path="/terms-of-use" element={<TermsOfUse />} />
-                  <Route path="/terms" element={<TermsOfUse />} /> {/* Redirect old path */}
-                  <Route path="/careers" element={<Careers />} />
-                  
-                  {/* Catch-all route */}
-                  <Route path="*" element={<NotFound />} />
+                  <Route path="/authenticate" element={<RouteGuard requiresAuth><Authenticate /></RouteGuard>} />
+                  <Route path="/dashboard/quickbooks-callback" element={<QuickbooksCallback />} />
+                  <Route path="/subscription" element={<Subscription />} />
+                  <Route path="/profile" element={<RouteGuard requiresAuth><Profile /></RouteGuard>} />
+                  <Route path="/dashboard" element={<RouteGuard requiresAuth requiresQuickbooks><Dashboard /></RouteGuard>} />
+                  <Route path="/dashboard/import" element={<RouteGuard requiresAuth requiresQuickbooks requiresActiveSubscription><Dashboard /></RouteGuard>} />
+                  <Route path="/dashboard/export" element={<RouteGuard requiresAuth requiresQuickbooks requiresActiveSubscription><Dashboard /></RouteGuard>} />
+                  <Route path="/dashboard/delete" element={<RouteGuard requiresAuth requiresQuickbooks requiresActiveSubscription><Dashboard /></RouteGuard>} />
                 </Routes>
-                <IdleWarningDialog />
-              </QuickbooksEntitiesProvider>
+              </IdleTimeoutProvider>
             </QuickbooksProvider>
-            </IdleTimeoutProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+          </SubscriptionProvider>
+        </AuthProvider>
+      </Router>
     </QueryClientProvider>
   );
 }

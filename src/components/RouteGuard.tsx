@@ -1,13 +1,14 @@
-
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Loader2 } from "lucide-react";
 import { logError } from "@/utils/errorLogger";
 import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickbooksApi/connections";
 import { isUserAdmin } from "@/services/blog/users";
 import { toast } from "@/components/ui/use-toast";
+import TrialExpiredModal from "@/components/TrialExpiredModal";
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ interface RouteGuardProps {
   requiresQuickbooks?: boolean;
   isPublicOnly?: boolean;
   requiresAdmin?: boolean;
+  requiresActiveSubscription?: boolean;
 }
 
 const RouteGuard = ({ 
@@ -22,15 +24,18 @@ const RouteGuard = ({
   requiresAuth = true, 
   requiresQuickbooks = false,
   isPublicOnly = false,
-  requiresAdmin = false
+  requiresAdmin = false,
+  requiresActiveSubscription = false
 }: RouteGuardProps) => {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const { isConnected, isLoading: isQBLoading, refreshConnection } = useQuickbooks();
+  const { subscriptionData, isTrialExpired, isOnTrial } = useSubscription();
   const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [roleChecked, setRoleChecked] = useState(false);
+  const [showTrialModal, setShowTrialModal] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -267,6 +272,40 @@ const RouteGuard = ({
       }
     }
   }, [isAdminRoute, roleChecked, isChecking, isAdmin, navigate]);
+
+  // Check trial access for subscription-required routes
+  useEffect(() => {
+    if (requiresActiveSubscription && user && subscriptionData) {
+      if (isTrialExpired) {
+        setShowTrialModal(true);
+        return;
+      }
+    }
+  }, [requiresActiveSubscription, user, subscriptionData, isTrialExpired]);
+
+  // Show trial modal if required
+  if (showTrialModal && requiresActiveSubscription) {
+    return (
+      <>
+        <TrialExpiredModal 
+          isOpen={showTrialModal} 
+          onClose={() => setShowTrialModal(false)}
+        />
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+          <div className="text-center p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Trial Expired</h2>
+            <p className="text-gray-600 mb-6">Your free trial has ended. Please subscribe to continue using this feature.</p>
+            <button
+              onClick={() => navigate('/subscription')}
+              className="bg-transyncpro-button text-white px-6 py-3 rounded-lg hover:bg-transyncpro-button/90"
+            >
+              View Plans
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   // Fix for QuickBooks callback handling - a special case to always render children
   if (isQbCallbackRoute) {
