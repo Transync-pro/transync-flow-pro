@@ -323,7 +323,7 @@ const Delete = () => {
                 </Select>
               </div>
               
-              {/* Date Range Selection */}
+              {/* Date Range Selection and Fetch Button */}
               <div className="flex flex-col space-y-2">
                 <Label>Date Range <span className="text-red-500">*</span></Label>
                 
@@ -375,65 +375,72 @@ const Delete = () => {
                     </Popover>
                   </div>
                   
-                  {/* End Date */}
-                  <div className="w-full">
-                    <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            dateError && !dateRange?.to && "border-red-500"
-                          )}
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {dateRange?.to ? (
-                            format(dateRange.to, "LLL dd, y")
-                          ) : (
-                            <span>Select end date</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          initialFocus
-                          mode="single"
-                          defaultMonth={dateRange?.to || dateRange?.from || undefined}
-                          selected={dateRange?.to || undefined}
-                          onSelect={(date) => { // date can be Date | undefined
-                                setDateRange({ from: dateRange.from, to: date || null });
-                                if (date) {
-                                  setEndDateOpen(false);
-                                }
-                              }}
-                          numberOfMonths={1}
-                          disabled={[
-                            { after: new Date() }, // Disable future dates
-                            { before: dateRange.from || undefined } // Disable dates before start date
-                          ]}
-                          className="p-3 pointer-events-auto"
-                          captionLayout="dropdown"
-                          fromYear={2000}
-                          toYear={new Date().getFullYear()} // Current year as max
-                        />
-                      </PopoverContent>
-                    </Popover>
+                  {/* End Date and Fetch Button */}
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="col-span-3">
+                      <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              dateError && !dateRange?.to && "border-red-500"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {dateRange?.to ? (
+                              format(dateRange.to, "LLL dd, y")
+                            ) : (
+                              <span>Select end date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            initialFocus
+                            mode="single"
+                            defaultMonth={dateRange?.to || dateRange?.from || undefined}
+                            selected={dateRange?.to || undefined}
+                            onSelect={(date) => { // date can be Date | undefined
+                                  setDateRange({ from: dateRange.from, to: date || null });
+                                  if (date) {
+                                    setEndDateOpen(false);
+                                  }
+                                }}
+                            numberOfMonths={1}
+                            disabled={[
+                              { after: new Date() }, // Disable future dates
+                              { before: dateRange.from || undefined } // Disable dates before start date
+                            ]}
+                            className="p-3 pointer-events-auto"
+                            captionLayout="dropdown"
+                            fromYear={2000}
+                            toYear={new Date().getFullYear()} // Current year as max
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Button
+                      onClick={handleFetchData}
+                      disabled={!selectedEntity || !dateRange?.from || !dateRange?.to || isLoading}
+                      className={cn(
+                        "col-span-1 flex items-center justify-center",
+                        (!selectedEntity || !dateRange?.from || !dateRange?.to) && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Fetch"
+                      )}
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {selectedEntity && (
-              <Button
-                onClick={handleFetchData}
-                disabled={isLoading || !dateRange?.from || !dateRange?.to}
-                className="flex items-center mt-2"
-              >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {isLoading ? "Loading Data..." : "Fetch Data"}
-              </Button>
+            {dateError && (
+              <p className="text-sm text-red-500 mt-2">{dateError}</p>
             )}
 
             {selectedEntity && !isLoading && filteredRecords.length > 0 && (

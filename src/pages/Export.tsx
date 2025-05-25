@@ -408,7 +408,7 @@ const Export = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card className="md:col-span-2">
+          <Card className="md:col-span-2 h-fit">
             <CardHeader>
               <CardTitle>Select Data to Export</CardTitle>
               <CardDescription>
@@ -587,7 +587,7 @@ const Export = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={`transition-all duration-300 ease-in-out ${selectedEntity ? 'opacity-100 max-h-[1000px]' : 'opacity-0 max-h-0 overflow-hidden'}`}>
             <CardHeader>
               <CardTitle>Export Options</CardTitle>
               <CardDescription>
