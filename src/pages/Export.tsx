@@ -30,6 +30,7 @@ const Export = () => {
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fileName, setFileName] = useState("export");
   const [selectAllFields, setSelectAllFields] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
@@ -60,13 +61,16 @@ const Export = () => {
   const totalPages = Math.ceil(filteredRecords.length / pageSize);
   const paginatedRecords = filteredRecords.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
-  // Handle date range change - now required
+  // Handle date range change
   useEffect(() => {
     if (dateRange?.from && dateRange?.to) {
       setSelectedDateRange({ from: dateRange.from, to: dateRange.to });
       setDateError(null);
+      if (selectedEntity) {
+        setShowExportOptions(true);
+      }
     }
-  }, [dateRange, setSelectedDateRange]);
+  }, [dateRange, setSelectedDateRange, selectedEntity]);
 
   // Reset selected fields when entity changes
   useEffect(() => {
@@ -109,6 +113,9 @@ const Export = () => {
     setPageIndex(0);
     setSelectedRecords({});
     setSelectAllRecords(false);
+    if (dateRange?.from && dateRange?.to) {
+      setShowExportOptions(true);
+    }
   };
 
   // Get the connection check function from QuickBooks context
@@ -587,16 +594,25 @@ const Export = () => {
             </CardContent>
           </Card>
 
-          <Card className={`transition-all duration-300 ease-in-out ${selectedEntity ? 'opacity-100 max-h-[1000px]' : 'opacity-0 max-h-0 overflow-hidden'}`}>
-            <CardHeader>
-              <CardTitle>Export Options</CardTitle>
-              <CardDescription>
-                Configure your export settings
-              </CardDescription>
+          <Card className="transition-all duration-500 ease-in-out overflow-hidden">
+            <CardHeader className="cursor-pointer" onClick={() => setShowExportOptions(!showExportOptions)}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Export Options</CardTitle>
+                  <CardDescription>
+                    {selectedEntity && dateRange?.from && dateRange?.to 
+                      ? 'Configure your export settings' 
+                      : 'Select an entity and date range to configure export options'}
+                  </CardDescription>
+                </div>
+                <ChevronDown className={`h-5 w-5 transition-transform duration-300 ${showExportOptions ? 'transform rotate-180' : ''}`} />
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col space-y-2">
-                <Label htmlFor="file-name">File Name</Label>
+            <div className={`transition-all duration-500 ease-in-out ${showExportOptions && selectedEntity && dateRange?.from && dateRange?.to ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+              <div className="px-6 pb-6">
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col space-y-2">
+                    <Label htmlFor="file-name">File Name</Label>
                 <div className="flex items-center space-x-2">
                   <Input
                     id="file-name"
@@ -657,9 +673,10 @@ const Export = () => {
                   </ScrollArea>
                 </div>
               )}
-            </CardContent>
+                </CardContent>
+              </div>
+            </div>
           </Card>
-        </div>
 
         <Card>
           <CardHeader>
