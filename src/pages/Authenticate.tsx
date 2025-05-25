@@ -183,13 +183,15 @@ const Authenticate = () => {
                 )}
               </button>
             </div>
-            <Button
-              variant="outline"
-              className="w-full mt-2"
-              onClick={handleBackToHome}
-            >
-              Back to Home
-            </Button>
+            <div className="w-full flex justify-center">
+              <Button
+                variant="outline"
+                className="w-auto px-8"
+                onClick={handleBackToHome}
+              >
+                Back to Home
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       </div>
