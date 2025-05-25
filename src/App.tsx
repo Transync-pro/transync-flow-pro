@@ -1,4 +1,5 @@
 
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -111,118 +112,118 @@ function App() {
             <IdleTimeoutProvider>
               <QuickbooksProvider>
                 <QuickbooksEntitiesProvider>
-                <Routes>
-                  {/* Public routes */}
-                  <Route path="/" element={<Index />} />
-                  <Route path="/login" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={true}>
-                      <Login />
-                    </RouteGuard>
-                  } />
-                  <Route path="/signup" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={true}>
-                      <Signup />
-                    </RouteGuard>
-                  } />
-                  <Route path="/forgot-password" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={true}>
-                      <ForgotPassword />
-                    </RouteGuard>
-                  } />
-                  <Route path="/reset-password" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={false}>
-                      <ResetPassword />
-                    </RouteGuard>
-                  } />
-                  <Route path="/verify" element={
-                    <RouteGuard requiresAuth={false} isPublicOnly={false}>
-                      <Verify />
-                    </RouteGuard>
-                  } />
-                  <Route path="/authenticate" element={<Authenticate />} />
-                  
-                  {/* Auth protected routes */}
-                  <Route path="/connect-quickbooks" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <QuickbooksConnectPage />
-                    </RouteGuard>
-                  } />
-                  
-                  <Route path="/profile" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <Profile />
-                    </RouteGuard>
-                  } />
-                  
-                  <Route path="/dashboard/quickbooks-callback" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-                      <QuickbooksCallback />
-                    </RouteGuard>
-                  } />
-                  
-                  {/* Auth + QuickBooks protected routes */}
-                  <Route path="/dashboard" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Dashboard />
-                    </RouteGuard>
-                  } />
-                  <Route path="/dashboard/import" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Import />
-                    </RouteGuard>
-                  } />
-                  <Route path="/dashboard/export" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Export />
-                    </RouteGuard>
-                  } />
-                  <Route path="/dashboard/delete" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <Delete />
-                    </RouteGuard>
-                  } />
-                  <Route path="/dashboard/history" element={
-                    <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
-                      <History />
-                    </RouteGuard>
-                  } />
-                  
-                  {/* Admin routes */}
-                  <Route 
-                    path="/admin/blog" 
-                    element={<RouteGuard requiresAuth requiresAdmin><BlogAdmin /></RouteGuard>} 
-                  />
-                  <Route 
-                    path="/admin/blog/import" 
-                    element={<RouteGuard requiresAuth requiresAdmin><BlogImportPage /></RouteGuard>} 
-                  />
-                  
-                  {/* New public pages */}
-                  <Route path="/features" element={<Features />} />
-                  <Route path="/subscription" element={<Subscription />} />
-                  <Route path="/pricing" element={<Subscription />} /> {/* Redirect old path */}
-                  <Route path="/contact" element={<Contact />} />
-                  <Route path="/about-us" element={<AboutUs />} />
-                  <Route path="/about" element={<AboutUs />} /> {/* Redirect old path */}
-                  <Route path="/integrations" element={<Integrations />} />
-                  <Route path="/demo" element={<Demo />} />
-                  <Route path="/blog" element={<Blog />} />
-                  <Route path="/blog/:slug" element={<BlogDetail />} />
-                  <Route path="/documentation" element={<Documentation />} />
-                  <Route path="/tutorials" element={<Tutorials />} />
-                  <Route path="/support" element={<Support />} />
-                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                  <Route path="/privacy" element={<PrivacyPolicy />} /> {/* Redirect old path */}
-                  <Route path="/terms-of-use" element={<TermsOfUse />} />
-                  <Route path="/terms" element={<TermsOfUse />} /> {/* Redirect old path */}
-                  <Route path="/careers" element={<Careers />} />
-                  
-                  {/* Catch-all route */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-                <IdleWarningDialog />
-              </QuickbooksEntitiesProvider>
-            </QuickbooksProvider>
+                  <Routes>
+                    {/* Public routes */}
+                    <Route path="/" element={<Index />} />
+                    <Route path="/login" element={
+                      <RouteGuard requiresAuth={false} isPublicOnly={true}>
+                        <Login />
+                      </RouteGuard>
+                    } />
+                    <Route path="/signup" element={
+                      <RouteGuard requiresAuth={false} isPublicOnly={true}>
+                        <Signup />
+                      </RouteGuard>
+                    } />
+                    <Route path="/forgot-password" element={
+                      <RouteGuard requiresAuth={false} isPublicOnly={true}>
+                        <ForgotPassword />
+                      </RouteGuard>
+                    } />
+                    <Route path="/reset-password" element={
+                      <RouteGuard requiresAuth={false} isPublicOnly={false}>
+                        <ResetPassword />
+                      </RouteGuard>
+                    } />
+                    <Route path="/verify" element={
+                      <RouteGuard requiresAuth={false} isPublicOnly={false}>
+                        <Verify />
+                      </RouteGuard>
+                    } />
+                    <Route path="/authenticate" element={<Authenticate />} />
+                    
+                    {/* Auth protected routes */}
+                    <Route path="/connect-quickbooks" element={
+                      <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+                        <QuickbooksConnectPage />
+                      </RouteGuard>
+                    } />
+                    
+                    <Route path="/profile" element={
+                      <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+                        <Profile />
+                      </RouteGuard>
+                    } />
+                    
+                    <Route path="/dashboard/quickbooks-callback" element={
+                      <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+                        <QuickbooksCallback />
+                      </RouteGuteGuard>
+                    } />
+                    
+                    {/* Auth + QuickBooks protected routes */}
+                    <Route path="/dashboard" element={
+                      <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                        <Dashboard />
+                      </RouteGuard>
+                    } />
+                    <Route path="/dashboard/import" element={
+                      <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                        <Import />
+                      </RouteGuard>
+                    } />
+                    <Route path="/dashboard/export" element={
+                      <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                        <Export />
+                      </RouteGuard>
+                    } />
+                    <Route path="/dashboard/delete" element={
+                      <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                        <Delete />
+                      </RouteGuard>
+                    } />
+                    <Route path="/dashboard/history" element={
+                      <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+                        <History />
+                      </RouteGuard>
+                    } />
+                    
+                    {/* Admin routes */}
+                    <Route 
+                      path="/admin/blog" 
+                      element={<RouteGuard requiresAuth requiresAdmin><BlogAdmin /></RouteGuard>} 
+                    />
+                    <Route 
+                      path="/admin/blog/import" 
+                      element={<RouteGuard requiresAuth requiresAdmin><BlogImportPage /></RouteGuard>} 
+                    />
+                    
+                    {/* New public pages */}
+                    <Route path="/features" element={<Features />} />
+                    <Route path="/subscription" element={<Subscription />} />
+                    <Route path="/pricing" element={<Subscription />} /> {/* Redirect old path */}
+                    <Route path="/contact" element={<Contact />} />
+                    <Route path="/about-us" element={<AboutUs />} />
+                    <Route path="/about" element={<AboutUs />} /> {/* Redirect old path */}
+                    <Route path="/integrations" element={<Integrations />} />
+                    <Route path="/demo" element={<Demo />} />
+                    <Route path="/blog" element={<Blog />} />
+                    <Route path="/blog/:slug" element={<BlogDetail />} />
+                    <Route path="/documentation" element={<Documentation />} />
+                    <Route path="/tutorials" element={<Tutorials />} />
+                    <Route path="/support" element={<Support />} />
+                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                    <Route path="/privacy" element={<PrivacyPolicy />} /> {/* Redirect old path */}
+                    <Route path="/terms-of-use" element={<TermsOfUse />} />
+                    <Route path="/terms" element={<TermsOfUse />} /> {/* Redirect old path */}
+                    <Route path="/careers" element={<Careers />} />
+                    
+                    {/* Catch-all route */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                  <IdleWarningDialog />
+                </QuickbooksEntitiesProvider>
+              </QuickbooksProvider>
             </IdleTimeoutProvider>
           </AuthProvider>
         </BrowserRouter>
