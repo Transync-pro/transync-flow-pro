@@ -29,32 +29,63 @@ const QuickbooksCallback = () => {
   const [isNavigating, setIsNavigating] = useState(false);
 
   const redirectToDashboard = useCallback(async () => {
-    if (isNavigating) return;
+    if (isNavigating) {
+      console.log('Navigation already in progress, skipping');
+      return;
+    }
     
+    console.log('Starting navigation to dashboard');
     setIsNavigating(true);
+    
     try {
       // Clear the in-progress flags
+      console.log('Clearing connection flags from session storage');
       sessionStorage.removeItem('qb_connecting_user');
       sessionStorage.removeItem('qb_connection_in_progress');
       
-      // Force update the connection status
-      await refreshConnection(true);
+      try {
+        // Force update the connection status
+        console.log('Refreshing connection status...');
+        await refreshConnection(true);
+        console.log('Connection status refreshed successfully');
+      } catch (refreshError) {
+        console.warn('Could not refresh connection status, continuing with navigation', refreshError);
+        // Continue with navigation even if refresh fails
+      }
       
       // Add a small delay to ensure the dashboard is ready
+      console.log('Waiting before navigation...');
       await new Promise(resolve => setTimeout(resolve, 500));
       
+      console.log('Navigating to dashboard...');
       // Navigate to dashboard with a flag to prevent immediate redirection
       navigate('/dashboard', { 
         replace: true,
         state: { 
           fromQbCallback: true,
-          connectionEstablished: true
+          connectionEstablished: true,
+          timestamp: Date.now()
         }
       });
     } catch (error) {
       console.error('Error during navigation:', error);
-      // Still navigate to dashboard even if refresh fails
-      navigate('/dashboard', { replace: true });
+      // Still navigate to dashboard even if there's an error
+      try {
+        navigate('/dashboard', { 
+          replace: true,
+          state: { 
+            error: 'connection_error',
+            timestamp: Date.now()
+          }
+        });
+      } catch (navError) {
+        console.error('Critical navigation error:', navError);
+        // Last resort - redirect without state
+        window.location.href = '/dashboard';
+      }
+    } finally {
+      console.log('Navigation process completed');
+      setIsNavigating(false);
     }
   }, [navigate, refreshConnection, isNavigating]);
 
@@ -317,7 +348,7 @@ const QuickbooksCallback = () => {
       }
     };
     processCallback();
-  }, [location, navigate, user, isAuthLoading, refreshConnection]);
+  }, [location, navigate, user, isAuthLoading, refreshConnection, redirectToDashboard]);
 
   // Show loading state while checking session
   if (isCheckingSession || isAuthLoading || isProcessing || isNavigating) {
