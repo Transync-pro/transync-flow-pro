@@ -182,36 +182,71 @@ const Export = () => {
     }
   };
 
+  const [hasSelectedCurrentPage, setHasSelectedCurrentPage] = useState(false);
+
   // Handle record selection
   const toggleRecordSelection = (recordId: string) => {
     setSelectedRecords(prev => ({
       ...prev,
       [recordId]: !prev[recordId]
     }));
+    
+    // If we're deselecting, make sure to reset the two-step state
+    if (selectedRecords[recordId]) {
+      setHasSelectedCurrentPage(false);
+    }
   };
 
-  // Handle select all records on current page
+  // Handle select all records with two-step behavior
   const toggleSelectAllRecords = () => {
-    const newSelectAll = !selectAllRecords;
-    setSelectAllRecords(newSelectAll);
-    
-    // Select all records across all pages, not just current page
-    const newSelectedRecords = { ...selectedRecords };
-    
-    filteredRecords.forEach(record => {
-      if (record.Id) {
-        newSelectedRecords[record.Id] = newSelectAll;
-      }
-    });
-    
-    setSelectedRecords(newSelectedRecords);
-    
-    // Show toast notification when selecting all
-    if (newSelectAll && filteredRecords.length > 0) {
-      toast({
-        title: "Selection Complete",
-        description: `Selected all ${filteredRecords.length} records.`,
+    if (selectAllRecords) {
+      // If already selected all, clear all selections
+      setSelectAllRecords(false);
+      setHasSelectedCurrentPage(false);
+      setSelectedRecords({});
+      return;
+    }
+
+    if (!hasSelectedCurrentPage) {
+      // First click: Select only current page
+      const newSelectedRecords = { ...selectedRecords };
+      let selectedCount = 0;
+      
+      paginatedRecords.forEach(record => {
+        if (record.Id) {
+          newSelectedRecords[record.Id] = true;
+          selectedCount++;
+        }
       });
+      
+      setSelectedRecords(newSelectedRecords);
+      setHasSelectedCurrentPage(true);
+      
+      if (selectedCount > 0) {
+        toast({
+          title: "Page Selected",
+          description: `Selected ${selectedCount} records on this page. Click again to select all ${filteredRecords.length} records.`,
+        });
+      }
+    } else {
+      // Second click: Select all records across all pages
+      const newSelectedRecords = { ...selectedRecords };
+      
+      filteredRecords.forEach(record => {
+        if (record.Id) {
+          newSelectedRecords[record.Id] = true;
+        }
+      });
+      
+      setSelectedRecords(newSelectedRecords);
+      setSelectAllRecords(true);
+      
+      if (filteredRecords.length > 0) {
+        toast({
+          title: "All Records Selected",
+          description: `Selected all ${filteredRecords.length} records.`,
+        });
+      }
     }
   };
 
