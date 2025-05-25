@@ -40,6 +40,15 @@ const Export = () => {
   const [dateError, setDateError] = useState<string | null>(null);
   const [showExportOptions, setShowExportOptions] = useState(false);
   
+  // Show export options when an entity is selected
+  useEffect(() => {
+    if (selectedEntity) {
+      setShowExportOptions(true);
+    } else {
+      setShowExportOptions(false);
+    }
+  }, [selectedEntity]);
+  
   const {
     selectedEntity,
     setSelectedEntity,
@@ -142,8 +151,7 @@ const Export = () => {
       
       await fetchEntities();
       
-      // Show export options when data is fetched
-      setShowExportOptions(true);
+      // Export options are now shown when entity is selected
     } catch (error: any) {
       console.error(`Error fetching ${selectedEntity} data:`, error);
       logError(`Error fetching ${selectedEntity} data for export`, {
@@ -596,20 +604,14 @@ const Export = () => {
             </CardContent>
           </Card>
 
-          <Card className={`transition-all duration-300 ease-in-out overflow-hidden ${
-            showExportOptions ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 md:max-h-0 md:opacity-0'
-          }`} style={{
-            visibility: showExportOptions ? 'visible' : 'hidden',
-            marginTop: showExportOptions ? '0' : '-1rem',
-            transition: 'all 0.3s ease-in-out, visibility 0.3s ease-in-out, margin-top 0.3s ease-in-out'
-          }}>
+          <Card className="transition-all duration-300 ease-in-out overflow-hidden">
             <CardHeader>
               <CardTitle>Export Options</CardTitle>
               <CardDescription>
-                Configure your export settings
+                {selectedEntity ? 'Configure your export settings' : 'Select an entity to configure export options'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={`space-y-4 transition-all duration-300 ease-in-out ${!showExportOptions ? 'opacity-50' : ''}`}>
               <div className="flex flex-col space-y-2">
                 <Label htmlFor="file-name">File Name</Label>
                 <div className="flex items-center space-x-2">
