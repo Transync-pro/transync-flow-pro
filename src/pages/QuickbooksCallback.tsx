@@ -344,7 +344,7 @@ const QuickbooksCallback = () => {
   }
 
   return (
-    // ... (rest of the code remains the same)
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
         <h1 className="text-2xl font-bold text-center">QuickBooks Connection</h1>
         
