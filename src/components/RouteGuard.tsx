@@ -21,7 +21,6 @@ interface RouteGuardProps {
 
 const RouteGuard = ({ 
   children, 
-  requiresAuth = true, 
   requiresQuickbooks = false,
   isPublicOnly = false,
   requiresAdmin = false,
@@ -33,6 +32,9 @@ const RouteGuard = ({
   const { subscriptionData, isTrialExpired } = useSubscription();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Only protect /dashboard and its subroutes
+  const isDashboardProtected = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
   
   // State hooks - all called unconditionally
   const [isLoading, setIsLoading] = useState(true);
@@ -49,6 +51,15 @@ const RouteGuard = ({
   const isAdminRoute = location.pathname.startsWith("/admin");
 
   console.log("RouteGuard: Rendering for path:", location.pathname, {
+    user: user?.id || "none",
+    isAuthLoading,
+    isQBLoading,
+    isConnected,
+    isDashboardProtected,
+    requiresQuickbooks,
+    isPublicOnly,
+    hasRedirected
+  });
     user: user?.id || "none",
     isAuthLoading,
     isQBLoading,
@@ -200,8 +211,8 @@ const RouteGuard = ({
       return <Navigate to="/dashboard" replace />;
     }
 
-    // Auth required routes - redirect unauthenticated users
-    if (requiresAuth && !user) {
+    // Only protect /dashboard and its subroutes
+    if (isDashboardProtected && !user) {
       console.log("RouteGuard: Redirecting unauthenticated user to login");
       setHasRedirected(true);
       return <Navigate to="/login" state={{ from: location }} replace />;
