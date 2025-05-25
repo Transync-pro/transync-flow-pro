@@ -560,26 +560,16 @@ const Export = () => {
                 </div>
               </div>
 
-              {selectedEntity && (
-                <Button
-                  onClick={handleFetchData}
-                  disabled={isLoading || !dateRange?.from || !dateRange?.to}
-                  className="flex items-center"
-                >
-                  {isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  {isLoading ? "Loading Data..." : "Fetch Data"}
-                </Button>
-              )}
-              {!selectedEntity && (
-                <Button
-                  disabled
-                  className="flex items-center opacity-50 cursor-not-allowed"
-                >
-                  Fetch Data
-                </Button>
-              )}
+              <Button
+                onClick={handleFetchData}
+                disabled={isLoading || !selectedEntity || !dateRange?.from || !dateRange?.to}
+                className={`flex items-center ${!selectedEntity || !dateRange?.from || !dateRange?.to ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {isLoading ? "Loading Data..." : "Fetch Data"}
+              </Button>
 
               {selectedEntity && !isLoading && filteredRecords.length > 0 && (
                 <div className="flex space-x-2">
