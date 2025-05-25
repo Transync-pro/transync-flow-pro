@@ -301,29 +301,42 @@ const Delete = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Reorganized to have Entity Type and Date Range side by side */}
+            {/* Entity Type and Date Range side by side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Entity Type Selection */}
-              <div className="flex flex-col space-y-2">
-                <Label htmlFor="entity-type">Entity Type</Label>
-                <Select
-                  value={selectedEntity || ""}
-                  onValueChange={handleEntitySelect}
+              {/* Left Column - Entity Type and Fetch Button */}
+              <div className="flex flex-col space-y-4">
+                <div className="flex flex-col space-y-2">
+                  <Label htmlFor="entity-type">Entity Type</Label>
+                  <Select
+                    value={selectedEntity || ""}
+                    onValueChange={handleEntitySelect}
+                  >
+                    <SelectTrigger id="entity-type">
+                      <SelectValue placeholder="Select an entity type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {entityOptions.map((entity) => (
+                        <SelectItem key={entity.value} value={entity.value}>
+                          {entity.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button
+                  onClick={handleFetchData}
+                  disabled={isLoading || !selectedEntity || !dateRange?.from || !dateRange?.to}
+                  className={`w-fit flex items-center ${!selectedEntity || !dateRange?.from || !dateRange?.to ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <SelectTrigger id="entity-type">
-                    <SelectValue placeholder="Select an entity type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {entityOptions.map((entity) => (
-                      <SelectItem key={entity.value} value={entity.value}>
-                        {entity.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  {isLoading ? "Loading Data..." : "Fetch Data"}
+                </Button>
               </div>
               
-              {/* Date Range Selection */}
+              {/* Right Column - Date Range */}
               <div className="flex flex-col space-y-2">
                 <Label>Date Range <span className="text-red-500">*</span></Label>
                 
@@ -353,23 +366,23 @@ const Delete = () => {
                           mode="single"
                           defaultMonth={dateRange?.from || undefined}
                           selected={dateRange?.from || undefined}
-                          onSelect={(date) => { // date can be Date | undefined
-                                const newFrom = date || null;
-                                let newTo = dateRange.to;
-                                if (newFrom && newTo && newFrom > newTo) {
-                                  newTo = null;
-                                }
-                                setDateRange({ from: newFrom, to: newTo });
-                                if (date) {
-                                  setStartDateOpen(false);
-                                }
-                              }}
+                          onSelect={(date) => {
+                            const newFrom = date || null;
+                            let newTo = dateRange.to;
+                            if (newFrom && newTo && newFrom > newTo) {
+                              newTo = null;
+                            }
+                            setDateRange({ from: newFrom, to: newTo });
+                            if (date) {
+                              setStartDateOpen(false);
+                            }
+                          }}
                           numberOfMonths={1}
-                          disabled={[{ after: new Date() }]} // Disable future dates
+                          disabled={[{ after: new Date() }]}
                           className="p-3 pointer-events-auto"
                           captionLayout="dropdown"
                           fromYear={2000}
-                          toYear={new Date().getFullYear()} // Current year as max
+                          toYear={new Date().getFullYear()}
                         />
                       </PopoverContent>
                     </Popover>
@@ -400,40 +413,33 @@ const Delete = () => {
                           mode="single"
                           defaultMonth={dateRange?.to || dateRange?.from || undefined}
                           selected={dateRange?.to || undefined}
-                          onSelect={(date) => { // date can be Date | undefined
-                                setDateRange({ from: dateRange.from, to: date || null });
-                                if (date) {
-                                  setEndDateOpen(false);
-                                }
-                              }}
+                          onSelect={(date) => {
+                            setDateRange({ from: dateRange.from, to: date || null });
+                            if (date) {
+                              setEndDateOpen(false);
+                            }
+                          }}
                           numberOfMonths={1}
                           disabled={[
-                            { after: new Date() }, // Disable future dates
-                            { before: dateRange.from || undefined } // Disable dates before start date
+                            { after: new Date() },
+                            { before: dateRange.from || undefined }
                           ]}
                           className="p-3 pointer-events-auto"
                           captionLayout="dropdown"
                           fromYear={2000}
-                          toYear={new Date().getFullYear()} // Current year as max
+                          toYear={new Date().getFullYear()}
                         />
                       </PopoverContent>
                     </Popover>
                   </div>
                 </div>
+                
+                {dateError && (
+                  <p className="text-red-500 text-sm">{dateError}</p>
+                )}
               </div>
             </div>
-
-              <Button
-                onClick={handleFetchData}
-                disabled={isLoading || !selectedEntity || !dateRange?.from || !dateRange?.to}
-                className={`flex items-center ${!selectedEntity || !dateRange?.from || !dateRange?.to ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {isLoading ? "Loading Data..." : "Fetch Data"}
-              </Button>
-
+            
             {selectedEntity && !isLoading && filteredRecords.length > 0 && (
               <div className="flex space-x-2">
                 <div className="flex-1">
