@@ -318,7 +318,14 @@ const DashboardSidebar = () => {
   const location = useLocation();
 
   // Check if the current path matches the menu item path
-  const isActivePath = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+  const isActivePath = (path: string) => {
+    // For the dashboard path, only match exact '/dashboard' path
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard';
+    }
+    // For other paths, match exact or sub-paths
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
 
   return (
     <Sidebar className={isCollapsed ? "w-16" : "w-64"} collapsible="icon">
