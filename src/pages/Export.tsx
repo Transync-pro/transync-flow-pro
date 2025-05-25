@@ -344,16 +344,13 @@ const Export = () => {
     const columns: ColumnDef<any>[] = [
       {
         id: "select",
-        header: ({ table }) => (
+        header: () => (
           <div className="flex items-center">
             <Checkbox
               checked={selectAllRecords}
               onCheckedChange={toggleSelectAllRecords}
               aria-label="Select all records"
             />
-            <span className="ml-2 text-xs text-muted-foreground">
-              {selectAllRecords ? "All selected" : "Select all"}
-            </span>
           </div>
         ),
         cell: ({ row }) => {
