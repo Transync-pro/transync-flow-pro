@@ -416,8 +416,8 @@ const Export = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-4">
-                <div className="flex flex-col space-y-2 flex-grow">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-2">
                   <Label htmlFor="entity-type">Entity Type</Label>
                   <Select
                     value={selectedEntity || ""}
@@ -436,7 +436,7 @@ const Export = () => {
                   </Select>
                 </div>
                 
-                <div className="flex flex-col space-y-2 flex-grow">
+                <div className="flex flex-col space-y-2">
                   <Label>Date Range <span className="text-red-500">*</span></Label>
                   
                   <div className="flex flex-col sm:flex-row gap-2">
