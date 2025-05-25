@@ -33,6 +33,9 @@ const QuickbooksCallback = () => {
     // Mark as processed immediately to prevent duplicate processing
     hasProcessedCallback.current = true;
     
+    // Set connection in progress flags immediately
+    sessionStorage.setItem('qb_connection_in_progress', 'true');
+    
     const processCallback = async () => {
       try {
         setIsProcessing(true);
@@ -46,23 +49,21 @@ const QuickbooksCallback = () => {
 
         // Log callback parameters for debugging
         console.log("Processing callback parameters:", { 
-          code: code ? "present" : "missing", 
-          realmId, 
-          state 
+          code: code ? "present" : "missing",
+          realmId,
+          state
         });
 
         if (errorParam) {
           throw new Error(`QuickBooks authorization error: ${errorParam}`);
         }
 
-        if (!code) {
-          throw new Error("Missing authorization code from QuickBooks");
+        if (!code || !realmId) {
+          console.warn('Missing required parameters for QuickBooks callback');
+          setError('Missing required parameters');
+          return;
         }
 
-        if (!realmId) {
-          throw new Error("Missing realm ID from QuickBooks");
-        }
-        
         // Get current user
         const { data: currentSessionData } = await supabase.auth.getSession();
         const currentUser = currentSessionData?.session?.user || user;
@@ -70,16 +71,17 @@ const QuickbooksCallback = () => {
         // Use stored ID from connection initiation as fallback
         const storedUserId = sessionStorage.getItem("qb_connecting_user");
         
-        if (!currentUser && !storedUserId) {
-          throw new Error("Authentication required to complete this process");
-        }
-
         // Determine which user ID to use (prioritize state parameter)
         const userId = state || storedUserId || currentUser?.id;
         
         if (!userId) {
           throw new Error("Could not determine user ID for QuickBooks connection");
         }
+        
+        // Store the connecting user in session storage
+        sessionStorage.setItem('qb_connecting_user', userId);
+        
+        setIsProcessing(true);
         
         console.log("Proceeding with token exchange:", { realmId, userId });
         
@@ -189,9 +191,8 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        // Store success in session storage immediately to prevent race conditions
+        // Store success in session storage
         const successTimestamp = Date.now();
-        sessionStorage.setItem('qb_connection_in_progress', 'true');
         sessionStorage.setItem('qb_connection_success', 'true');
         sessionStorage.setItem('qb_auth_successful', 'true');
         sessionStorage.setItem('qb_auth_timestamp', successTimestamp.toString());
@@ -200,26 +201,24 @@ const QuickbooksCallback = () => {
         // Mark as successful in state
         setSuccess(true);
         
-        // Clear the connecting user flag now that we're processing
-        sessionStorage.removeItem("qb_connecting_user");
-        
-        // Clear any existing connection cache to ensure fresh data
-        clearConnectionCache(userId);
-        
-        // Force update the connection status in the background
-        refreshConnection(true).then(() => {
-          console.log('Background connection refresh completed');
-          // Clear the in-progress flag after successful refresh
+        try {
+          // Force update the connection status
+          await refreshConnection(true);
+          console.log('QuickBooks connection refresh completed');
+        } catch (err) {
+          console.error('Error refreshing QuickBooks connection:', err);
+          // Even if refresh fails, we still want to proceed
+        } finally {
+          // Clear all connection flags
+          sessionStorage.removeItem('qb_connecting_user');
           sessionStorage.removeItem('qb_connection_in_progress');
           
-          // Navigate to dashboard after successful refresh
-          navigate('/dashboard', { replace: true });
-        }).catch(err => {
-          console.error('Background refresh error:', err);
-          // Even if refresh fails, still navigate to dashboard
-          sessionStorage.removeItem('qb_connection_in_progress');
-          navigate('/dashboard', { replace: true });
-        });
+          // Navigate to dashboard with state to prevent immediate redirection
+          navigate('/dashboard', { 
+            replace: true,
+            state: { fromQbCallback: true }
+          });
+        }
         
         // Show toast with company name and user identity info if available
         let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected!`;

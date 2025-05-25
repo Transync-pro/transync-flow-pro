@@ -220,14 +220,22 @@ const RouteGuard = ({
       if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) return;
       
       // Check if we're in the middle of a QuickBooks connection process
-      const isInConnectionProcess = location.pathname.includes('quickbooks-callback') || 
-                                 location.search.includes('code=') || 
-                                 sessionStorage.getItem('qb_connecting_user') ||
-                                 sessionStorage.getItem('qb_connection_in_progress');
+      const isInConnectionProcess = 
+        location.pathname.includes('quickbooks-callback') || 
+        location.search.includes('code=') ||
+        location.state?.fromQbCallback === true ||
+        sessionStorage.getItem('qb_connecting_user') ||
+        sessionStorage.getItem('qb_connection_in_progress');
       
       // If we're in the middle of a connection process, don't redirect
       if (isInConnectionProcess) {
-        console.log('RouteGuard: In QuickBooks connection process, skipping redirect');
+        console.log('RouteGuard: In QuickBooks connection process, skipping redirect', {
+          path: location.pathname,
+          search: location.search,
+          state: location.state,
+          qbConnecting: sessionStorage.getItem('qb_connecting_user'),
+          qbInProgress: sessionStorage.getItem('qb_connection_in_progress')
+        });
         redirectingRef.current = false;
         return;
       }
@@ -236,6 +244,14 @@ const RouteGuard = ({
       const qbConnectionSuccess = sessionStorage.getItem('qb_connection_success');
       const qbConnectionCompany = sessionStorage.getItem('qb_connection_company');
       const qbAuthTimestamp = sessionStorage.getItem('qb_auth_timestamp');
+      
+      // If we just came from the callback, skip the redirect check
+      if (location.state?.fromQbCallback) {
+        console.log('RouteGuard: Just came from QuickBooks callback, skipping redirect check');
+        // Clear the state to prevent it from affecting future renders
+        navigate(location.pathname, { replace: true, state: {} });
+        return;
+      }
       
       // Set redirecting flag to prevent multiple redirects
       redirectingRef.current = true;
