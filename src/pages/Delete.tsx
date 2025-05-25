@@ -547,8 +547,8 @@ const Delete = () => {
                   {selectedEntityIds.length > 0 && ` • ${selectedEntityIds.length} selected`}
                 </CardTitle>
                 
-                {/* Button with consistent position */}
-                <div className="ml-auto">
+                {/* Keep button close to title text */}
+                <div className="ml-2">
                   {hasSelectedCurrentPage && filteredRecords.length > paginatedRecords.length && (
                     <Button 
                       variant="ghost" 
