@@ -7,7 +7,7 @@ const Integrations = () => {
   const integrations = [
     {
       name: "QuickBooks Online",
-      logo: "/Connect to QuickBooks Button.svg",
+      logo: "/qbo-online.webp",
       description: "Connect directly to QuickBooks Online for seamless data management across all your company files.",
       features: [
         "Real-time data synchronization",
@@ -19,7 +19,7 @@ const Integrations = () => {
     },
     {
       name: "QuickBooks Desktop",
-      logo: "/Connect to QuickBooks Button.svg",
+      logo: "/quickbooks-desktop.png",
       description: "Connect to QuickBooks Desktop via our secure sync agent to manage your locally-stored company data.",
       features: [
         "Secure desktop sync agent",
@@ -82,12 +82,12 @@ const Integrations = () => {
   const upcomingIntegrations = [
     {
       name: "Xero",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/8/8f/Xero_software_logo.svg",
+      logo: "/Xero_software_logo.svg",
       status: "Coming Q3 2025"
     },
     {
       name: "Sage",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/2/26/Sage_logo.svg",
+      logo: "/Sage_logo.png",
       status: "Coming Q4 2025"
     },
     {
@@ -97,7 +97,7 @@ const Integrations = () => {
     },
     {
       name: "WooCommerce",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/a/ae/WooCommerce_logo.svg",
+      logo: "/WooCommerce_logo.png",
       status: "Coming Q3 2025"
     }
   ];
@@ -120,7 +120,7 @@ const Integrations = () => {
           <div className="text-center mb-16">
             <div className="flex justify-center mb-6">
               <img 
-                src="/Connect to QuickBooks Button.svg" 
+                src="/qb-logo.webp" 
                 alt="QuickBooks Logo" 
                 className="h-16"
               />
@@ -136,7 +136,7 @@ const Integrations = () => {
             <div className="bg-white rounded-xl shadow-md p-8 border border-gray-100 card-hover">
               <div className="flex items-center mb-6">
                 <img 
-                  src="/Connect to QuickBooks Button.svg" 
+                  src="/qbo-online.webp" 
                   alt="QuickBooks Online Logo" 
                   className="h-10 mr-4"
                 />
@@ -174,7 +174,7 @@ const Integrations = () => {
             <div className="bg-white rounded-xl shadow-md p-8 border border-gray-100 card-hover">
               <div className="flex items-center mb-6">
                 <img 
-                  src="/Connect to QuickBooks Button.svg" 
+                  src="/quickbooks-desktop.png" 
                   alt="QuickBooks Desktop Logo" 
                   className="h-10 mr-4"
                 />
