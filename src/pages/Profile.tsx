@@ -6,11 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const Profile = () => {
   const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -131,7 +133,16 @@ const Profile = () => {
 
   return (
     <div className="container mx-auto py-10 px-4 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-6">Profile Settings</h1>
+      <div className="flex items-center mb-6">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/dashboard')}
+          className="mr-4 p-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-3xl font-bold">Profile Settings</h1>
+      </div>
       
       <Tabs defaultValue="account">
         <TabsList className="mb-6">
