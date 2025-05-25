@@ -2,12 +2,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, metadata?: any) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -66,6 +71,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        toast({
+          title: "Error signing in",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully signed in.",
+      });
+    } catch (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
+  };
+
+  const signUp = async (email: string, password: string, metadata?: any) => {
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata || {}
+        }
+      });
+      
+      if (error) {
+        toast({
+          title: "Error signing up",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      
+      toast({
+        title: "Account created!",
+        description: "Please check your email to verify your account.",
+      });
+    } catch (error) {
+      console.error('Sign up error:', error);
+      throw error;
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/dashboard'
+        }
+      });
+      
+      if (error) {
+        toast({
+          title: "Error signing in with Google",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     console.log("AuthProvider: Signing out");
     const { error } = await supabase.auth.signOut();
@@ -80,6 +163,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     session,
     isLoading,
     signOut,
+    signIn,
+    signUp,
+    signInWithGoogle,
   };
 
   console.log("AuthProvider: Current state - user:", user?.id || 'none', 'isLoading:', isLoading);
