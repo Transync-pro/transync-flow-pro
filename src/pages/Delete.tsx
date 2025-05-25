@@ -330,7 +330,6 @@ const Delete = () => {
                 <div className="flex flex-col gap-4">
                   {/* Start Date */}
                   <div className="w-full">
-                    <Label className="text-sm text-muted-foreground mb-1.5 block">Start Date</Label>
                     <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -366,7 +365,7 @@ const Delete = () => {
                                 }
                               }}
                           numberOfMonths={1}
-                          toDate={new Date()} // Prevent future dates
+                          disabled={[{ after: new Date() }]} // Disable future dates
                           className="p-3 pointer-events-auto"
                           captionLayout="dropdown"
                           fromYear={2000}
@@ -378,7 +377,6 @@ const Delete = () => {
                   
                   {/* End Date */}
                   <div className="w-full">
-                    <Label className="text-sm text-muted-foreground mb-1.5 block">End Date</Label>
                     <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -409,10 +407,14 @@ const Delete = () => {
                                 }
                               }}
                           numberOfMonths={1}
+                          disabled={[
+                            { after: new Date() }, // Disable future dates
+                            { before: dateRange.from || undefined } // Disable dates before start date
+                          ]}
                           className="p-3 pointer-events-auto"
                           captionLayout="dropdown"
                           fromYear={2000}
-                          toYear={2030}
+                          toYear={new Date().getFullYear()} // Current year as max
                         />
                       </PopoverContent>
                     </Popover>

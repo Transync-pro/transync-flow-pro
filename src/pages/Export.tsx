@@ -416,8 +416,8 @@ const Export = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-4">
-                <div className="flex flex-col space-y-2 flex-grow">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-2">
                   <Label htmlFor="entity-type">Entity Type</Label>
                   <Select
                     value={selectedEntity || ""}
@@ -436,19 +436,18 @@ const Export = () => {
                   </Select>
                 </div>
                 
-                <div className="flex flex-col space-y-2 flex-grow">
+                <div className="flex flex-col space-y-2">
                   <Label>Date Range <span className="text-red-500">*</span></Label>
                   
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex flex-row gap-2">
                     {/* Start Date */}
                     <div className="flex-1">
-                      <Label className="text-sm text-muted-foreground mb-1 block">Start Date</Label>
                       <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal",
+                              "w-full justify-start text-left font-normal h-10", // Match height with SelectTrigger
                               dateError && !dateRange?.from && "border-red-500"
                             )}
                           >
@@ -456,7 +455,7 @@ const Export = () => {
                             {dateRange?.from ? (
                               format(dateRange.from, "LLL dd, y")
                             ) : (
-                              <span>Select start date</span>
+                              <span>Start date</span>
                             )}
                           </Button>
                         </PopoverTrigger>
@@ -467,16 +466,26 @@ const Export = () => {
                             defaultMonth={dateRange?.from || undefined}
                             selected={dateRange?.from || undefined}
                             onSelect={(date) => {
-                              setDateRange({ from: date || null, to: dateRange.to });
+                              // Handle start date selection with end date validation
+                              const newFrom = date || null;
+                              let newTo = dateRange.to;
+                              
+                              // If new start date is after current end date, clear end date
+                              if (newFrom && newTo && newFrom > newTo) {
+                                newTo = null;
+                              }
+                              
+                              setDateRange({ from: newFrom, to: newTo });
                               if (date) {
                                 setStartDateOpen(false);
                               }
                             }}
                             numberOfMonths={1}
+                            disabled={[{ after: new Date() }]} // Disable future dates
                             className="p-3 pointer-events-auto"
                             captionLayout="dropdown"
                             fromYear={2000}
-                            toYear={2030}
+                            toYear={new Date().getFullYear()} // Current year as max
                           />
                         </PopoverContent>
                       </Popover>
@@ -484,13 +493,12 @@ const Export = () => {
                     
                     {/* End Date */}
                     <div className="flex-1">
-                      <Label className="text-sm text-muted-foreground mb-1 block">End Date</Label>
                       <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal",
+                              "w-full justify-start text-left font-normal h-10", // Match height with SelectTrigger
                               dateError && !dateRange?.to && "border-red-500"
                             )}
                           >
@@ -498,7 +506,7 @@ const Export = () => {
                             {dateRange?.to ? (
                               format(dateRange.to, "LLL dd, y")
                             ) : (
-                              <span>Select end date</span>
+                              <span>End date</span>
                             )}
                           </Button>
                         </PopoverTrigger>
@@ -515,10 +523,14 @@ const Export = () => {
                               }
                             }}
                             numberOfMonths={1}
+                            disabled={[
+                              { after: new Date() }, // Disable future dates
+                              { before: dateRange.from || undefined } // Disable dates before start date
+                            ]}
                             className="p-3 pointer-events-auto"
                             captionLayout="dropdown"
                             fromYear={2000}
-                            toYear={2030}
+                            toYear={new Date().getFullYear()} // Current year as max
                           />
                         </PopoverContent>
                       </Popover>
