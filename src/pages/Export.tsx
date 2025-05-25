@@ -549,7 +549,6 @@ const Export = () => {
                 </div>
               </div>
 
-<<<<<<< HEAD
               <Button
                 onClick={handleFetchData}
                 disabled={isLoading || !selectedEntity || !dateRange?.from || !dateRange?.to}
@@ -560,20 +559,6 @@ const Export = () => {
                 ) : null}
                 {isLoading ? "Loading Data..." : "Fetch Data"}
               </Button>
-=======
-              {selectedEntity && (
-                <Button
-                  onClick={handleFetchData}
-                  disabled={isLoading || !dateRange?.from || !dateRange?.to}
-                  className="flex items-center"
-                >
-                  {isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  {isLoading ? "Loading Data..." : "Fetch Data"}
-                </Button>
-              )}
->>>>>>> 3aa137ba3a5be4bd163c99f72c56a7b59aef0a29
 
               {selectedEntity && !isLoading && filteredRecords.length > 0 && (
                 <div className="flex space-x-2">
