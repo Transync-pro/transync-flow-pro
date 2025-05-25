@@ -323,20 +323,6 @@ const Delete = () => {
                 </Select>
               </div>
               
-              {/* Fetch Data Button */}
-              <div className="pt-1">
-                <Button
-                  onClick={handleFetchData}
-                  disabled={isLoading || !selectedEntity || !dateRange?.from || !dateRange?.to}
-                  className={`flex items-center ${!selectedEntity || !dateRange?.from || !dateRange?.to ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  {isLoading ? "Loading Data..." : "Fetch Data"}
-                </Button>
-              </div>
-              
               {/* Date Range Selection */}
               <div className="flex flex-col space-y-2">
                 <Label>Date Range <span className="text-red-500">*</span></Label>
@@ -437,7 +423,18 @@ const Delete = () => {
               </div>
             </div>
 
-
+            {selectedEntity && (
+              <Button
+                onClick={handleFetchData}
+                disabled={isLoading || !dateRange?.from || !dateRange?.to}
+                className="flex items-center mt-2"
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {isLoading ? "Loading Data..." : "Fetch Data"}
+              </Button>
+            )}
 
             {selectedEntity && !isLoading && filteredRecords.length > 0 && (
               <div className="flex space-x-2">
