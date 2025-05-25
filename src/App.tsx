@@ -22,9 +22,18 @@ import { IdleTimeoutProvider } from './contexts/IdleTimeoutContext';
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import TrialBanner from "@/components/TrialBanner";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
+  console.log("App component rendering");
+  
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
