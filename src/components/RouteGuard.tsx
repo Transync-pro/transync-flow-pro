@@ -219,6 +219,19 @@ const RouteGuard = ({
       // Don't process redirects while still checking or for QB callback route
       if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) return;
       
+      // Check if we're in the middle of a QuickBooks connection process
+      const isInConnectionProcess = location.pathname.includes('quickbooks-callback') || 
+                                 location.search.includes('code=') || 
+                                 sessionStorage.getItem('qb_connecting_user') ||
+                                 sessionStorage.getItem('qb_connection_in_progress');
+      
+      // If we're in the middle of a connection process, don't redirect
+      if (isInConnectionProcess) {
+        console.log('RouteGuard: In QuickBooks connection process, skipping redirect');
+        redirectingRef.current = false;
+        return;
+      }
+      
       // Check for successful connection in session storage
       const qbConnectionSuccess = sessionStorage.getItem('qb_connection_success');
       const qbConnectionCompany = sessionStorage.getItem('qb_connection_company');
@@ -241,6 +254,7 @@ const RouteGuard = ({
           
           // Clear the flag to prevent future redirects
           sessionStorage.removeItem('qb_connection_success');
+          sessionStorage.removeItem('qb_connection_company');
           
           // Force refresh the connection status and redirect
           refreshConnection(true).then(() => {
@@ -252,7 +266,7 @@ const RouteGuard = ({
           });
           return;
         } else {
-          console.log('RouteGuard: Stale connection success detected, ignoring');
+          console.log('RouteGuard: Stale connection success detected, cleaning up');
           sessionStorage.removeItem('qb_connection_success');
           sessionStorage.removeItem('qb_connection_company');
         }

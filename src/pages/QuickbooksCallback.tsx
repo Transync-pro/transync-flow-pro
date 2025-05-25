@@ -189,14 +189,9 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        // Clean up session storage first
-        sessionStorage.removeItem("qb_connecting_user");
-        
-        // Clear any existing connection cache to ensure fresh data
-        clearConnectionCache(userId);
-        
         // Store success in session storage immediately to prevent race conditions
         const successTimestamp = Date.now();
+        sessionStorage.setItem('qb_connection_in_progress', 'true');
         sessionStorage.setItem('qb_connection_success', 'true');
         sessionStorage.setItem('qb_auth_successful', 'true');
         sessionStorage.setItem('qb_auth_timestamp', successTimestamp.toString());
@@ -205,11 +200,25 @@ const QuickbooksCallback = () => {
         // Mark as successful in state
         setSuccess(true);
         
+        // Clear the connecting user flag now that we're processing
+        sessionStorage.removeItem("qb_connecting_user");
+        
+        // Clear any existing connection cache to ensure fresh data
+        clearConnectionCache(userId);
+        
         // Force update the connection status in the background
         refreshConnection(true).then(() => {
           console.log('Background connection refresh completed');
+          // Clear the in-progress flag after successful refresh
+          sessionStorage.removeItem('qb_connection_in_progress');
+          
+          // Navigate to dashboard after successful refresh
+          navigate('/dashboard', { replace: true });
         }).catch(err => {
           console.error('Background refresh error:', err);
+          // Even if refresh fails, still navigate to dashboard
+          sessionStorage.removeItem('qb_connection_in_progress');
+          navigate('/dashboard', { replace: true });
         });
         
         // Show toast with company name and user identity info if available
