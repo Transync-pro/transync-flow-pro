@@ -1,5 +1,5 @@
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { logError } from "@/utils/errorLogger";
 import { clearConnectionCache } from "@/services/quickbooksApi/connections";
+import { motion } from "framer-motion";
 
 const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
@@ -24,6 +25,38 @@ const QuickbooksCallback = () => {
   
   // Ref to track if we've already processed this callback
   const hasProcessedCallback = useRef(false);
+
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  const redirectToDashboard = useCallback(async () => {
+    if (isNavigating) return;
+    
+    setIsNavigating(true);
+    try {
+      // Clear the in-progress flags
+      sessionStorage.removeItem('qb_connecting_user');
+      sessionStorage.removeItem('qb_connection_in_progress');
+      
+      // Force update the connection status
+      await refreshConnection(true);
+      
+      // Add a small delay to ensure the dashboard is ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Navigate to dashboard with a flag to prevent immediate redirection
+      navigate('/dashboard', { 
+        replace: true,
+        state: { 
+          fromQbCallback: true,
+          connectionEstablished: true
+        }
+      });
+    } catch (error) {
+      console.error('Error during navigation:', error);
+      // Still navigate to dashboard even if refresh fails
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate, refreshConnection, isNavigating]);
 
   // Process the callback once auth is loaded
   useEffect(() => {
@@ -216,27 +249,15 @@ const QuickbooksCallback = () => {
           sessionStorage.removeItem('qb_connecting_user');
           sessionStorage.removeItem('qb_connection_in_progress');
           
-          // Navigate to dashboard with a flag to prevent immediate redirection
-          navigate('/dashboard', { 
-            replace: true,
-            state: { 
-              fromQbCallback: true,
-              connectionEstablished: true
-            }
-          });
+          // Use the redirect function
+          await redirectToDashboard();
           
         } catch (err) {
           console.error('Error refreshing QuickBooks connection:', err);
           // Even if refresh fails, we still want to proceed to dashboard
           sessionStorage.removeItem('qb_connecting_user');
           sessionStorage.removeItem('qb_connection_in_progress');
-          navigate('/dashboard', { 
-            replace: true,
-            state: { 
-              fromQbCallback: true,
-              connectionEstablished: true
-            }
-          });
+          await redirectToDashboard();
         }
         
         // Show toast with company name and user identity info if available
@@ -269,8 +290,8 @@ const QuickbooksCallback = () => {
         // Mark processing as complete
         setProcessingComplete(true);
         
-        // Redirect immediately to dashboard
-        navigate('/dashboard', { replace: true });
+        // Use the redirect function
+        await redirectToDashboard();
         
         // Clean up session storage after a delay
         setTimeout(() => {
@@ -295,26 +316,35 @@ const QuickbooksCallback = () => {
         setIsCheckingSession(false);
       }
     };
-
     processCallback();
   }, [location, navigate, user, isAuthLoading, refreshConnection]);
 
   // Show loading state while checking session
-  if (isCheckingSession || isAuthLoading) {
+  if (isCheckingSession || isAuthLoading || isProcessing || isNavigating) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100">
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto" />
-          <p className="mt-4 text-gray-600">
-            Verifying your session...
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <motion.div 
+          className="text-center p-8 bg-white rounded-lg shadow-md"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Loader2 className="h-12 w-12 text-blue-500 animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-800">
+            {isProcessing ? "Completing QuickBooks connection..." : "Redirecting to dashboard..."}
+          </h2>
+          <p className="text-gray-600 mt-2">
+            {isProcessing 
+              ? "Please wait while we finalize your connection." 
+              : "You'll be redirected in just a moment..."}
           </p>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100">
+    // ... (rest of the code remains the same)
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
         <h1 className="text-2xl font-bold text-center">QuickBooks Connection</h1>
         

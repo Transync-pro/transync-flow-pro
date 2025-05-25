@@ -252,8 +252,8 @@ const RouteGuard = ({
           sessionStorage.removeItem('qb_connecting_user');
           
           // Force a refresh of the connection state
-          if (checkConnection) {
-            checkConnection(true); // Force refresh
+          if (refreshConnection) {
+            refreshConnection(true); // Force refresh
           }
         }
         

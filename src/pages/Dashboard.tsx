@@ -1,12 +1,12 @@
-
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import DashboardHome from "@/components/Dashboard/DashboardHome";
 import { useToast } from "@/components/ui/use-toast";
-import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
+import { motion } from "framer-motion";
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -22,6 +22,21 @@ const Dashboard = () => {
   // Track if we've already checked the connection on mount
   const hasCheckedOnMount = useRef(false);
   
+  // Show success message when coming from QuickBooks callback
+  useEffect(() => {
+    if (location.state?.fromQbCallback) {
+      // Clear the state to prevent duplicate toasts
+      navigate(location.pathname, { replace: true, state: {} });
+      
+      // Show success toast
+      toast({
+        title: "Connected to QuickBooks",
+        description: "Your QuickBooks connection was successful!",
+        duration: 5000,
+      });
+    }
+  }, [location.state, navigate]);
+
   // Check QuickBooks connection on mount - but only once and silently
   useEffect(() => {
     // Skip if we've already checked on mount
@@ -163,7 +178,16 @@ const Dashboard = () => {
         clearTimeout(redirectTimeout.current);
       }
     };
-  }, [isConnected, navigate]);
+  }, [isConnected, navigate, isLoading]);
+  
+  // Add smooth fade-in animation
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { duration: 0.3 }
+    }
+  };
   
   // Add document visibility change listener to check connection when user returns to the app
   useEffect(() => {
@@ -204,9 +228,16 @@ const Dashboard = () => {
   }
   
   return (
-    <DashboardLayout>
-      <DashboardHome />
-    </DashboardLayout>
+    <motion.div 
+      className="min-h-screen bg-gray-50"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <DashboardLayout>
+        <DashboardHome />
+      </DashboardLayout>
+    </motion.div>
   );
 };
 
