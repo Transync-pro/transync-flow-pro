@@ -141,6 +141,8 @@ const Delete = () => {
     
     setSelectedEntityIds(currentPageIds);
     setHasSelectedCurrentPage(true);
+    // Set selectedAll to true to make the checkbox filled
+    setSelectedAll(true);
   };
   
   // Handle selecting all records across all pages
@@ -511,19 +513,19 @@ const Delete = () => {
         {filteredRecords.length > 0 && (
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
                 <CardTitle>
                   {selectedEntity} Records
                   {` (${filteredRecords.length})`}
                   {selectedEntityIds.length > 0 && ` • ${selectedEntityIds.length} selected`}
                 </CardTitle>
                 
-                {hasSelectedCurrentPage && !selectedAll && filteredRecords.length > paginatedRecords.length && (
+                {hasSelectedCurrentPage && filteredRecords.length > paginatedRecords.length && (
                   <Button 
-                    variant="link" 
+                    variant="ghost" 
                     size="sm" 
                     onClick={selectAllEntries}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full flex items-center gap-1 px-3 py-1 h-auto transition-all duration-200"
                   >
                     Select all {filteredRecords.length} entries
                   </Button>
