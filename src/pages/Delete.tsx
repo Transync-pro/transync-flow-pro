@@ -480,10 +480,8 @@ const Delete = () => {
                     className="pr-8"
                   />
                   {searchTerm && (
-                    <Button
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon"
                       className="absolute right-0 top-0 h-full px-3 py-0 hover:bg-transparent"
                       onClick={() => {
                         setSearchTerm('');
@@ -491,7 +489,7 @@ const Delete = () => {
                       }}
                     >
                       <X className="h-4 w-4 text-gray-500" />
-                    </Button>
+                    </button>
                   )}
                 </div>
                 <Button
@@ -506,32 +504,35 @@ const Delete = () => {
             )}
           </CardContent>
           {/* Reserved space with smooth transition for delete button */}
-          <CardFooter className="h-[60px] relative">
-            <div 
-              className={`
-                absolute w-full 
-                transition-all duration-300 ease-in-out flex justify-between items-center
-                ${selectedEntityIds.length > 0 
-                  ? 'opacity-100 transform-none' 
-                  : 'opacity-0 transform -translate-y-2 pointer-events-none'}
-              `}
-            >
-              <p className="text-sm text-gray-500">
-                {selectedEntityIds.length} item(s) selected
-              </p>
-              <Button
-                variant="destructive"
-                onClick={confirmDelete}
-                className="flex items-center"
-                disabled={isDeleting}
+          <CardFooter className="h-[60px] py-0 overflow-hidden">
+            <div className="w-full h-full relative">
+              <div 
+                className={`
+                  absolute inset-0 w-full 
+                  transition-all duration-300 ease-in-out flex justify-between items-center
+                  ${selectedEntityIds.length > 0 
+                    ? 'opacity-100 transform-none' 
+                    : 'opacity-0 transform -translate-y-2 pointer-events-none'}
+                `}
               >
-                {isDeleting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="mr-2 h-4 w-4" />
-                )}
-                Delete Selected
-              </Button>
+                <p className="text-sm text-gray-500">
+                  {selectedEntityIds.length} item(s) selected
+                </p>
+                <Button
+                  variant="destructive"
+                  onClick={confirmDelete}
+                  className="flex items-center"
+                  disabled={isDeleting}
+                  size="sm"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                  )}
+                  Delete Selected
+                </Button>
+              </div>
             </div>
           </CardFooter>
         </Card>
@@ -540,22 +541,41 @@ const Delete = () => {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <CardTitle>
-                  {selectedEntity} Records
-                  {` (${filteredRecords.length})`}
-                  {selectedEntityIds.length > 0 && ` • ${selectedEntityIds.length} selected`}
-                </CardTitle>
+                <div className="flex-1">
+                  <CardTitle className="inline-flex items-center">
+                    {selectedEntity} Records
+                    {` (${filteredRecords.length})`}
+                    
+                    {/* Reserved space for selection count with smooth transition */}
+                    <span className="relative h-6 w-[120px] inline-flex items-center ml-1">
+                      <span 
+                        className={`
+                          absolute left-0
+                          transition-all duration-300 ease-in-out
+                          ${selectedEntityIds.length > 0 
+                            ? 'opacity-100 transform-none' 
+                            : 'opacity-0 transform -translate-y-1 pointer-events-none'}
+                        `}
+                      >
+                        • {selectedEntityIds.length} selected
+                      </span>
+                    </span>
+                  </CardTitle>
+                </div>
                 
-                {hasSelectedCurrentPage && filteredRecords.length > paginatedRecords.length && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={selectAllEntries}
-                    className="text-sm font-medium text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center gap-1 px-3 py-1 h-auto transition-all duration-200 shadow-sm border border-gray-200"
-                  >
-                    Select all {filteredRecords.length} entries
-                  </Button>
-                )}
+                {/* Reserved space for Select all entries button */}
+                <div className="h-8 min-w-[180px] flex items-center justify-end">
+                  {hasSelectedCurrentPage && filteredRecords.length > paginatedRecords.length && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={selectAllEntries}
+                      className="text-xs font-medium text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center gap-1 px-2 py-0.5 h-7 transition-all duration-200 shadow-sm border border-gray-200"
+                    >
+                      Select all {filteredRecords.length} entries
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>

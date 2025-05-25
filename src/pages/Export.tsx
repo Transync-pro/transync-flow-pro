@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Search, Download, ChevronLeft, Calendar } from "lucide-react";
+import { Loader2, Search, Download, ChevronLeft, Calendar, X } from "lucide-react";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
@@ -603,10 +603,8 @@ const Export = () => {
                       className="pr-8"
                     />
                     {searchTerm && (
-                      <Button
+                      <button
                         type="button"
-                        variant="ghost"
-                        size="icon"
                         className="absolute right-0 top-0 h-full px-3 py-0 hover:bg-transparent"
                         onClick={() => {
                           setSearchTerm('');
@@ -614,7 +612,7 @@ const Export = () => {
                         }}
                       >
                         <X className="h-4 w-4 text-gray-500" />
-                      </Button>
+                      </button>
                     )}
                   </div>
                   <Button
@@ -718,22 +716,41 @@ const Export = () => {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <CardTitle>
-                {selectedEntity || "Entity"} Records
-                {filteredRecords.length > 0 && ` (${filteredRecords.length})`}
-                {selectedRecordsCount > 0 && ` • ${selectedRecordsCount} selected`}
-              </CardTitle>
+              <div className="flex-1">
+                <CardTitle className="inline-flex items-center">
+                  {selectedEntity || "Entity"} Records
+                  {filteredRecords.length > 0 && ` (${filteredRecords.length})`}
+                  
+                  {/* Reserved space for selection count with smooth transition */}
+                  <span className="relative h-6 w-[120px] inline-flex items-center ml-1">
+                    <span 
+                      className={`
+                        absolute left-0
+                        transition-all duration-300 ease-in-out
+                        ${selectedRecordsCount > 0 
+                          ? 'opacity-100 transform-none' 
+                          : 'opacity-0 transform -translate-y-1 pointer-events-none'}
+                      `}
+                    >
+                      • {selectedRecordsCount} selected
+                    </span>
+                  </span>
+                </CardTitle>
+              </div>
               
-              {hasSelectedCurrentPage && filteredRecords.length > paginatedRecords.length && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={selectAllEntries}
-                  className="text-sm font-medium text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center gap-1 px-3 py-1 h-auto transition-all duration-200 shadow-sm border border-gray-200"
-                >
-                  Select all {filteredRecords.length} entries
-                </Button>
-              )}
+              {/* Reserved space for Select all entries button */}
+              <div className="h-8 min-w-[180px] flex items-center justify-end">
+                {hasSelectedCurrentPage && filteredRecords.length > paginatedRecords.length && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={selectAllEntries}
+                    className="text-xs font-medium text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center gap-1 px-2 py-0.5 h-7 transition-all duration-200 shadow-sm border border-gray-200"
+                  >
+                    Select all {filteredRecords.length} entries
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
