@@ -196,9 +196,34 @@ export const useQBConnectionStatus = (user: User | null) => {
     lastCheckTime.current = 0;
     maxConsecutiveChecks.current = 0;
     connectionCheckAttempts.current += 1;
-    console.log(`Manual refresh connection requested #${connectionCheckAttempts.current}`);
-    await checkConnectionStatus(force, silent);
-  }, [checkConnectionStatus]);
+    console.log(`Manual refresh connection requested #${connectionCheckAttempts.current}`, { force, silent });
+    
+    // Clear any cached connection data
+    if (force) {
+      if (user?.id) {
+        clearConnectionCache(user.id);
+      }
+      connectionCache.current = {
+        userId: null,
+        data: null,
+        timestamp: 0
+      };
+      
+      // Reset state to ensure we show loading state
+      if (!silent) {
+        setIsLoading(true);
+      }
+    }
+    
+    // Perform the connection check
+    try {
+      await checkConnectionStatus(force, silent);
+      return true;
+    } catch (error) {
+      console.error('Error during connection refresh:', error);
+      return false;
+    }
+  }, [checkConnectionStatus, user?.id]);
 
   return {
     isConnected,

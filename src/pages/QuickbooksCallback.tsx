@@ -201,8 +201,13 @@ const QuickbooksCallback = () => {
         // Mark as successful and show toast
         setSuccess(true);
         
+        // Store success in session storage as a fallback
+        sessionStorage.setItem('qb_connection_success', 'true');
+        sessionStorage.setItem('qb_auth_successful', 'true');
+        sessionStorage.setItem('qb_auth_timestamp', Date.now().toString());
+        
         // Show toast with company name and user identity info if available
-        let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected successfully!`;
+        let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected!`;
         
         // Add user identity info to toast if available
         if (tokenExchangeData.userIdentity) {
@@ -215,52 +220,29 @@ const QuickbooksCallback = () => {
         toast({
           title: "QuickBooks Connected",
           description: toastMessage,
+          duration: 2000 // Show for 2 seconds
         });
 
-        // Ensure current session is still valid before redirecting
-        const { data: validationSessionData } = await supabase.auth.getSession();
-        
-        if (!validationSessionData?.session) {
-          console.log('Session lost during QuickBooks connection, attempting to restore');
-          
-          // If we don't have a session, but we know who the user is, try to avoid losing progress
-          if (userId) {
-            // Store that we need to refresh the connection after auth completes
-            sessionStorage.setItem('qb_auth_success', 'true');
-            sessionStorage.setItem('qb_connect_user', userId);
-            
-            // Redirect to login with dashboard as the return destination
-            navigate('/login', { state: { redirectAfter: '/dashboard' } });
-            return;
-          }
+        // Update connection status in context
+        try {
+          await refreshConnection(true); // Force refresh
+        } catch (refreshError) {
+          console.error('Error refreshing connection:', refreshError);
         }
         
-        // Get redirect path from session storage or default to dashboard
-        const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || '/dashboard';
+        // Clear any pending redirects to avoid loops
         sessionStorage.removeItem('qb_redirect_after_connect');
         
-        console.log('QuickBooks connection success, redirecting to:', redirectPath);
-        
-        // Set a flag that processing is complete before redirecting
+        // Mark processing as complete
         setProcessingComplete(true);
         
-        // Mark the successful authentication in session storage to prevent
-        // unnecessary rechecks on the dashboard
-        sessionStorage.setItem('qb_auth_successful', 'true');
-        sessionStorage.setItem('qb_auth_timestamp', Date.now().toString());
+        // Redirect immediately to dashboard
+        navigate('/dashboard', { replace: true });
         
-        // Set a flag to skip unnecessary connection checks on the dashboard
-        // @ts-ignore - Adding a temporary property to window
-        window.__skipNextQBConnectionCheck = true;
-        
-        // Session is valid, refresh connection once
-        await refreshConnection(true); // Force refresh
-        
-        // Give a small delay for the connection state to update
+        // Clean up session storage after a delay
         setTimeout(() => {
-          // Always navigate to dashboard after successful connection
-          navigate('/dashboard', { replace: true });
-        }, 500);
+          sessionStorage.removeItem('qb_connection_success');
+        }, 5000);
         
       } catch (err: any) {
         logError("QuickBooks callback error", {

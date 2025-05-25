@@ -219,8 +219,23 @@ const RouteGuard = ({
       // Don't process redirects while still checking or for QB callback route
       if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) return;
       
+      // Check for successful connection in session storage
+      const qbConnectionSuccess = sessionStorage.getItem('qb_connection_success');
+      
       // Set redirecting flag to prevent multiple redirects
       redirectingRef.current = true;
+      
+      // Handle successful connection from session storage
+      if (qbConnectionSuccess) {
+        console.log('RouteGuard: Detected successful QuickBooks connection from session');
+        // Clear the flag to prevent future redirects
+        sessionStorage.removeItem('qb_connection_success');
+        // Force refresh the connection status
+        refreshConnection(true).then(() => {
+          navigate('/dashboard', { replace: true });
+        });
+        return;
+      }
       
       // Handle authenticate page logic
       if (isAuthenticateRoute) {
@@ -234,10 +249,20 @@ const RouteGuard = ({
       
       // Handle QuickBooks requirement for other pages
       if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
-        console.log('RouteGuard: No QuickBooks connection found, redirecting to /authenticate');
-        navigate('/authenticate', { replace: true });
+        // Check if we've already redirected to avoid loops
+        const redirected = sessionStorage.getItem('qb_redirected_to_authenticate');
+        if (!redirected) {
+          console.log('RouteGuard: No QuickBooks connection found, redirecting to /authenticate');
+          sessionStorage.setItem('qb_redirected_to_authenticate', 'true');
+          navigate('/authenticate', { replace: true });
+        }
         redirectingRef.current = false;
         return;
+      }
+      
+      // Reset the redirected flag if we have a connection
+      if (hasQbConnection || isConnected) {
+        sessionStorage.removeItem('qb_redirected_to_authenticate');
       }
       
       redirectingRef.current = false;
@@ -254,7 +279,8 @@ const RouteGuard = ({
     isQbCallbackRoute,
     isQBLoading,
     isLoading,
-    navigate
+    navigate,
+    refreshConnection
   ]);
 
   // Special admin route check
