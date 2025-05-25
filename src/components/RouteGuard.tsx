@@ -1,14 +1,13 @@
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
-import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Loader2 } from "lucide-react";
-import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
+import { logError } from "@/utils/errorLogger";
+import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickbooksApi/connections";
 import { isUserAdmin } from "@/services/blog/users";
 import { toast } from "@/components/ui/use-toast";
-import TrialExpiredModal from "@/components/TrialExpiredModal";
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -16,160 +15,266 @@ interface RouteGuardProps {
   requiresQuickbooks?: boolean;
   isPublicOnly?: boolean;
   requiresAdmin?: boolean;
-  requiresActiveSubscription?: boolean;
 }
 
 const RouteGuard = ({ 
   children, 
+  requiresAuth = true, 
   requiresQuickbooks = false,
   isPublicOnly = false,
-  requiresAdmin = false,
-  requiresActiveSubscription = false
+  requiresAdmin = false
 }: RouteGuardProps) => {
-  // ALL HOOKS MUST BE CALLED FIRST - NO CONDITIONAL LOGIC BEFORE HOOKS
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { isConnected, isLoading: isQBLoading, refreshConnection } = useQuickbooks();
-  const { subscriptionData, isTrialExpired } = useSubscription();
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  // Only protect /dashboard and its subroutes
-  const isDashboardProtected = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
-  
-  // State hooks - all called unconditionally
   const [isLoading, setIsLoading] = useState(true);
-  const [isChecking, setIsChecking] = useState(false);
+  const { isConnected, isLoading: isQBLoading, refreshConnection } = useQuickbooks();
+  const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [roleChecked, setRoleChecked] = useState(false);
-  const [showTrialModal, setShowTrialModal] = useState(false);
-  const [hasRedirected, setHasRedirected] = useState(false);
-
-  // Route flags
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Flag special routes
   const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
   const isAuthenticateRoute = location.pathname === "/authenticate";
+  const isDashboardRoute = location.pathname === "/dashboard";
   const isAdminRoute = location.pathname.startsWith("/admin");
+  const isLoginPage = location.pathname === "/login";
+  const isSignupPage = location.pathname === "/signup";
 
-  console.log("RouteGuard: Rendering for path:", location.pathname, {
-    user: user?.id || "none",
-    isAuthLoading,
-    isQBLoading,
-    isConnected,
-    isDashboardProtected,
-    requiresQuickbooks,
-    isPublicOnly,
-    hasRedirected
-  });
-    user: user?.id || "none",
-    isAuthLoading,
-    isQBLoading,
-    isConnected,
-    requiresAuth,
-    requiresQuickbooks,
-    isPublicOnly,
-    hasRedirected
-  });
-
-  // Effect hooks - all called unconditionally
-  useEffect(() => {
-    setIsLoading(isAuthLoading);
-  }, [isAuthLoading]);
-
-  useEffect(() => {
-    if (!requiresAdmin && !isAdminRoute) {
-      setRoleChecked(true);
-      return;
+  // Flag to prevent multiple redirects
+  const redirectingRef = useRef(false);
+  
+  // Track if this is the first check after mount
+  const isInitialCheck = useRef(true);
+  
+  // For tracking previous user ID to detect changes
+  const prevUserIdRef = useRef<string | null>(null);
+  
+  // Direct database check for QuickBooks connection with better error handling and retry
+  const checkQbConnectionDirectly = useCallback(async () => {
+    if (!user) {
+      console.log("RouteGuard: No user available for QB connection check");
+      return false;
     }
-
-    if (isAuthLoading || !user) {
-      return;
+    
+    // If user ID changed, clear the connection cache
+    if (prevUserIdRef.current && prevUserIdRef.current !== user.id) {
+      console.log(`RouteGuard: User changed from ${prevUserIdRef.current} to ${user.id}, clearing cache`);
+      clearConnectionCache();
     }
+    prevUserIdRef.current = user.id;
+    
+    try {
+      console.log(`RouteGuard: Checking QB connection for user ${user.id}`);
+      
+      // Use the optimized connection check function with retry
+      let connectionExists = await checkQBConnectionExists(user.id);
+      
+      // If connection is not found but should exist, try refreshing and checking again
+      if (!connectionExists && isConnected) {
+        console.log("RouteGuard: Connection not found but context says connected, refreshing...");
+        await refreshConnection();
+        // Try one more time after refresh
+        connectionExists = await checkQBConnectionExists(user.id);
+      }
+      
+      console.log('RouteGuard: Direct QB connection check result:', connectionExists);
+      
+      setHasQbConnection(connectionExists);
+      
+      // If we found a connection but the context doesn't know yet, refresh it
+      if (connectionExists && !isConnected && !isQBLoading) {
+        console.log("RouteGuard: Found connection in DB but context isn't aware, refreshing context");
+        refreshConnection();
+      }
+      
+      return connectionExists;
+    } catch (error: any) {
+      logError("Error checking QB connection", {
+        source: "RouteGuard",
+        stack: error instanceof Error ? error.stack : undefined,
+        context: { userId: user.id }
+      });
+      return false;
+    }
+  }, [user, isConnected, isQBLoading, refreshConnection]);
 
-    let isMounted = true;
+  // Check if user is admin
+  useEffect(() => {
+    if (isAuthLoading) return; // Wait for auth to finish loading
 
     const checkAdminRole = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        setRoleChecked(true);
+        setIsLoading(false);
+        return;
+      }
+      
       try {
         console.log("RouteGuard: Checking admin role for user:", user.id);
         const adminStatus = await isUserAdmin();
+        console.log("RouteGuard: Is user admin:", adminStatus);
         
-        if (isMounted) {
-          setIsAdmin(adminStatus);
-          setRoleChecked(true);
+        // Set admin status and role checked in one update
+        setIsAdmin(adminStatus);
+        setRoleChecked(true);
+        
+        // If not admin and on admin route, redirect immediately
+        if (!adminStatus && isAdminRoute) {
+          console.log("RouteGuard: Admin route access denied after check completed");
+          toast({
+            title: "Access Denied",
+            description: "You don't have permission to access the admin area.",
+            variant: "destructive"
+          });
+          navigate('/', { replace: true });
         }
+        
+        setIsLoading(false);
       } catch (error) {
         console.error("RouteGuard: Error checking admin role:", error);
-        if (isMounted) {
-          setIsAdmin(false);
-          setRoleChecked(true);
+        setIsAdmin(false);
+        setRoleChecked(true);
+        setIsLoading(false);
+        
+        if (isAdminRoute) {
+          toast({
+            title: "Error",
+            description: "Failed to verify admin permissions",
+            variant: "destructive"
+          });
+          navigate('/', { replace: true });
         }
       }
     };
-
-    checkAdminRole();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [requiresAdmin, isAdminRoute, user, isAuthLoading]);
-
-  useEffect(() => {
-    if (!requiresQuickbooks || isQbCallbackRoute || isAuthenticateRoute || !user || isAuthLoading) {
-      setIsChecking(false);
-      return;
+    
+    if ((requiresAdmin || isAdminRoute) && user) {
+      checkAdminRole();
+    } else {
+      setRoleChecked(true);
+      setIsLoading(false);
     }
+  }, [user, requiresAdmin, isAdminRoute, isAuthLoading, navigate]);
 
-    let isMounted = true;
-
-    const checkQbConnection = async () => {
-      try {
-        setIsChecking(true);
-        console.log("RouteGuard: Checking QB connection for user:", user.id);
-        
-        const connectionExists = await checkQBConnectionExists(user.id);
-        
-        if (isMounted) {
-          setHasQbConnection(connectionExists);
-          setIsChecking(false);
-        }
-      } catch (error) {
-        console.error("RouteGuard: Error checking QB connection:", error);
-        if (isMounted) {
-          setHasQbConnection(false);
-          setIsChecking(false);
-        }
-      }
-    };
-
-    checkQbConnection();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [requiresQuickbooks, user, isAuthLoading, isQbCallbackRoute, isAuthenticateRoute]);
-
-  useEffect(() => {
-    if (requiresActiveSubscription && user && subscriptionData && isTrialExpired) {
-      setShowTrialModal(true);
-    }
-  }, [requiresActiveSubscription, user, subscriptionData, isTrialExpired]);
-
-  useEffect(() => {
-    setHasRedirected(false);
-  }, [location.pathname]);
-
-  // NOW we can do conditional logic and early returns - all hooks have been called
+  // Track if we've already checked the connection for this user
+  const connectionCheckedRef = useRef(false);
   
-  // Special case for QB callback route
+  // Check access on mount and when dependencies change
+  useEffect(() => {
+    const checkAccess = async () => {
+      // Wait for auth to load first
+      if (isAuthLoading) return;
+      
+      // Skip QB check for special routes
+      if (isQbCallbackRoute) {
+        setIsChecking(false);
+        return;
+      }
+      
+      // If we need QuickBooks and are not yet on the authenticate page, do direct DB check
+      // But only if we haven't already checked for this user
+      if (user && requiresQuickbooks && !isAuthenticateRoute && !connectionCheckedRef.current) {
+        await checkQbConnectionDirectly();
+        // Mark that we've checked the connection for this user
+        connectionCheckedRef.current = true;
+      } 
+      
+      if (!requiresAdmin || roleChecked) {
+        setIsChecking(false);
+      }
+      
+      // Reset the initial check flag after first run
+      isInitialCheck.current = false;
+    };
+    
+    checkAccess();
+    
+    // Reset the connection checked flag when user changes
+    return () => {
+      if (user?.id !== prevUserIdRef.current) {
+        connectionCheckedRef.current = false;
+      }
+    };
+  }, [
+    isAuthLoading, 
+    requiresQuickbooks, 
+    user, 
+    checkQbConnectionDirectly, 
+    isQbCallbackRoute, 
+    isAuthenticateRoute,
+    requiresAdmin,
+    roleChecked
+  ]);
+
+  // Handle redirection based on connection status
+  useEffect(() => {
+    // Add debounce to prevent redirect loops
+    const timeoutId = setTimeout(() => {
+      // Don't process redirects while still checking or for QB callback route
+      if (isChecking || isQbCallbackRoute || redirectingRef.current || isLoading) return;
+      
+      // Set redirecting flag to prevent multiple redirects
+      redirectingRef.current = true;
+      
+      // Handle authenticate page logic
+      if (isAuthenticateRoute) {
+        if (hasQbConnection || isConnected) {
+          console.log('RouteGuard: Connection found while on authenticate page, redirecting to dashboard');
+          navigate('/dashboard', { replace: true });
+        }
+        redirectingRef.current = false;
+        return;
+      }
+      
+      // Handle QuickBooks requirement for other pages
+      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
+        console.log('RouteGuard: No QuickBooks connection found, redirecting to /authenticate');
+        navigate('/authenticate', { replace: true });
+        redirectingRef.current = false;
+        return;
+      }
+      
+      redirectingRef.current = false;
+    }, 200); // Small delay to prevent rapid redirects
+    
+    return () => clearTimeout(timeoutId);
+  }, [
+    isChecking,
+    hasQbConnection,
+    isConnected,
+    isAuthenticateRoute,
+    requiresQuickbooks,
+    user,
+    isQbCallbackRoute,
+    isQBLoading,
+    isLoading,
+    navigate
+  ]);
+
+  // Special admin route check
+  useEffect(() => {
+    if (isAdminRoute && roleChecked && !isChecking && !isLoading) {
+      if (!isAdmin) {
+        console.log('RouteGuard: Admin route access denied after check completed');
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access the admin area.",
+          variant: "destructive"
+        });
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isAdminRoute, roleChecked, isChecking, isAdmin, navigate]);
+
+  // Fix for QuickBooks callback handling - a special case to always render children
   if (isQbCallbackRoute) {
     return <>{children}</>;
   }
 
-  // Determine if we should show loading
-  const shouldShowLoading = isAuthLoading || 
-    (requiresAdmin && !roleChecked) || 
-    (requiresQuickbooks && isChecking);
-
-  if (shouldShowLoading) {
+  // Show loading state while checking
+  if (isChecking || (requiresAdmin && !roleChecked) || isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
@@ -178,74 +283,28 @@ const RouteGuard = ({
     );
   }
 
-  // Show trial modal if needed
-  if (showTrialModal && requiresActiveSubscription) {
-    return (
-      <>
-        <TrialExpiredModal 
-          isOpen={showTrialModal} 
-          onClose={() => setShowTrialModal(false)}
-        />
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-          <div className="text-center p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Trial Expired</h2>
-            <p className="text-gray-600 mb-6">Your free trial has ended. Please subscribe to continue using this feature.</p>
-            <button
-              onClick={() => navigate('/subscription')}
-              className="bg-transyncpro-button text-white px-6 py-3 rounded-lg hover:bg-transyncpro-button/90"
-            >
-              View Plans
-            </button>
-          </div>
-        </div>
-      </>
-    );
+  // Redirect authenticated users away from public-only pages
+  if (isPublicOnly && user) {
+    return <Navigate to="/dashboard" replace />;
   }
 
-  // Handle redirects - only redirect once per route change
-  if (!hasRedirected && !isAuthLoading) {
-    // Public only routes - redirect authenticated users
-    if (isPublicOnly && user) {
-      console.log("RouteGuard: Redirecting authenticated user from public-only route");
-      setHasRedirected(true);
-      return <Navigate to="/dashboard" replace />;
-    }
-
-    // Only protect /dashboard and its subroutes
-    if (isDashboardProtected && !user) {
-      console.log("RouteGuard: Redirecting unauthenticated user to login");
-      setHasRedirected(true);
-      return <Navigate to="/login" state={{ from: location }} replace />;
-    }
-
-    // Admin routes - check admin access
-    if (requiresAdmin && roleChecked && !isAdmin) {
-      console.log("RouteGuard: Redirecting non-admin user from admin route");
-      toast({
-        title: "Access Denied",
-        description: "You don't have permission to access the admin area.",
-        variant: "destructive"
-      });
-      setHasRedirected(true);
-      return <Navigate to="/" replace />;
-    }
-
-    // QuickBooks routes - check connection
-    if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isAuthenticateRoute) {
-      console.log("RouteGuard: Redirecting to authenticate due to no QB connection");
-      setHasRedirected(true);
-      return <Navigate to="/authenticate" replace />;
-    }
-
-    // Authenticate route - redirect if already connected
-    if (isAuthenticateRoute && (hasQbConnection || isConnected)) {
-      console.log("RouteGuard: Redirecting from authenticate route - already connected");
-      setHasRedirected(true);
-      return <Navigate to="/dashboard" replace />;
-    }
+  // Redirect unauthenticated users to login
+  if (requiresAuth && !user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  
+  // For admin routes, only check if we've completed the role check
+  if (requiresAdmin && roleChecked && !isAdmin) {
+    console.log("RouteGuard: Admin route access denied, redirecting to home");
+    return <Navigate to="/" replace />;
+  }
+  
+  // Special case: don't redirect from the authenticate route if we don't have a connection
+  if (isAuthenticateRoute && !hasQbConnection && !isConnected) {
+    return <>{children}</>;
   }
 
-  // If all checks pass, render children
+  // If all requirements are met, render the children
   return <>{children}</>;
 };
 
