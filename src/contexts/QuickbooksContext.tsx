@@ -22,13 +22,13 @@ interface QuickbooksContextType {
   companyName: string | null;
   connection: QuickbooksConnection | null;
   error: string | null;
-  refreshConnection: () => Promise<void>;
+  refreshConnection: (force?: boolean, silent?: boolean) => Promise<void>;
   disconnect: () => Promise<void>;
   connect: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   getRealmId: () => Promise<string | null>;
   clearError: () => void;
-  checkConnection: () => Promise<void>;
+  checkConnection: (force?: boolean, silent?: boolean) => Promise<void>;
 }
 
 const QuickbooksContext = createContext<QuickbooksContextType | null>(null);
@@ -56,19 +56,25 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setError(null);
   }, []);
 
-  const refreshConnection = useCallback(async () => {
+  const refreshConnection = useCallback(async (force = false, silent = false) => {
     if (!user) {
       console.log("QuickbooksProvider: No user, setting not connected");
       setIsConnected(false);
       setRealmId(null);
       setCompanyName(null);
       setConnection(null);
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
       return;
     }
 
     try {
-      console.log("QuickbooksProvider: Checking connection for user:", user.id);
+      console.log("QuickbooksProvider: Checking connection for user:", user.id, "force:", force, "silent:", silent);
+      
+      if (!silent) {
+        setIsLoading(true);
+      }
       
       const { data, error } = await supabase
         .from('quickbooks_connections')
@@ -106,7 +112,9 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setCompanyName(null);
       setConnection(null);
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }, [user]);
 
@@ -213,8 +221,8 @@ export const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return realmId;
   }, [realmId]);
 
-  const checkConnection = useCallback(async () => {
-    await refreshConnection();
+  const checkConnection = useCallback(async (force = false, silent = false) => {
+    await refreshConnection(force, silent);
   }, [refreshConnection]);
 
   useEffect(() => {
