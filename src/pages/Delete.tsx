@@ -124,7 +124,7 @@ const Delete = () => {
     setPageIndex(0);
   };
 
-  // Handle checkbox select all with two-step behavior
+  // Handle checkbox select/deselect all on current page
   const handleSelectAll = (checked: boolean) => {
     if (!checked) {
       // If unchecking, clear all selections
@@ -134,36 +134,29 @@ const Delete = () => {
       return;
     }
 
-    if (!hasSelectedCurrentPage) {
-      // First click: Select only current page
-      const currentPageIds = paginatedRecords
-        .filter(record => record.Id)
-        .map(record => record.Id);
-      
-      setSelectedEntityIds(currentPageIds);
-      setHasSelectedCurrentPage(true);
-      
-      if (currentPageIds.length > 0) {
-        toast({
-          title: "Page Selected",
-          description: `Selected ${currentPageIds.length} records on this page. Click again to select all ${filteredRecords.length} records.`,
-        });
-      }
-    } else {
-      // Second click: Select all records across all pages
-      setSelectedAll(true);
-      const allIds = filteredRecords
-        .filter(record => record.Id)
-        .map(record => record.Id);
-      
-      setSelectedEntityIds(allIds);
-      
-      if (allIds.length > 0) {
-        toast({
-          title: "All Records Selected",
-          description: `Selected all ${allIds.length} records.`,
-        });
-      }
+    // Select all records on current page
+    const currentPageIds = paginatedRecords
+      .filter(record => record.Id)
+      .map(record => record.Id);
+    
+    setSelectedEntityIds(currentPageIds);
+    setHasSelectedCurrentPage(true);
+  };
+  
+  // Handle selecting all records across all pages
+  const selectAllEntries = () => {
+    setSelectedAll(true);
+    const allIds = filteredRecords
+      .filter(record => record.Id)
+      .map(record => record.Id);
+    
+    setSelectedEntityIds(allIds);
+    
+    if (allIds.length > 0) {
+      toast({
+        title: "All Records Selected",
+        description: `Selected all ${allIds.length} records.`,
+      });
     }
   };
 
@@ -518,11 +511,24 @@ const Delete = () => {
         {filteredRecords.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>
-                {selectedEntity} Records
-                {` (${filteredRecords.length})`}
-                {selectedEntityIds.length > 0 && ` • ${selectedEntityIds.length} selected`}
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>
+                  {selectedEntity} Records
+                  {` (${filteredRecords.length})`}
+                  {selectedEntityIds.length > 0 && ` • ${selectedEntityIds.length} selected`}
+                </CardTitle>
+                
+                {hasSelectedCurrentPage && !selectedAll && filteredRecords.length > paginatedRecords.length && (
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    onClick={selectAllEntries}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  >
+                    Select all {filteredRecords.length} entries
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
