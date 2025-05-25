@@ -40,15 +40,6 @@ const Export = () => {
   const [dateError, setDateError] = useState<string | null>(null);
   const [showExportOptions, setShowExportOptions] = useState(false);
   
-  // Show export options when an entity is selected
-  useEffect(() => {
-    if (selectedEntity) {
-      setShowExportOptions(true);
-    } else {
-      setShowExportOptions(false);
-    }
-  }, [selectedEntity]);
-  
   const {
     selectedEntity,
     setSelectedEntity,
@@ -58,13 +49,21 @@ const Export = () => {
     fetchEntities,
     filterEntities,
     entityOptions,
-    getNestedValue: contextGetNestedValue
   } = useQuickbooksEntities();
 
   const currentEntityState = selectedEntity ? entityState[selectedEntity] : null;
   const filteredRecords = currentEntityState?.filteredRecords || [];
   const isLoading = currentEntityState?.isLoading || false;
   const error = currentEntityState?.error || null;
+
+  // Show export options when an entity is selected
+  useEffect(() => {
+    if (selectedEntity) {
+      setShowExportOptions(true);
+    } else {
+      setShowExportOptions(false);
+    }
+  }, [selectedEntity]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredRecords.length / pageSize);
@@ -150,15 +149,8 @@ const Export = () => {
       await checkConnection(true, false); // force=true, silent=false
       
       await fetchEntities();
-      
-      // Export options are now shown when entity is selected
     } catch (error: any) {
       console.error(`Error fetching ${selectedEntity} data:`, error);
-      logError(`Error fetching ${selectedEntity} data for export`, {
-        source: "Export",
-        stack: error.stack,
-        context: { selectedEntity, dateRange }
-      });
     }
   };
 
@@ -239,7 +231,6 @@ const Export = () => {
       }
       
       // Check QuickBooks connection before exporting data
-      // This is a critical operation, so we use non-silent mode
       await checkConnection(true, false); // force=true, silent=false
       
       if (selectedFields.length === 0) {
@@ -464,7 +455,7 @@ const Export = () => {
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal h-10", // Match height with SelectTrigger
+                              "w-full justify-start text-left font-normal h-10",
                               dateError && !dateRange?.from && "border-red-500"
                             )}
                           >
@@ -483,11 +474,9 @@ const Export = () => {
                             defaultMonth={dateRange?.from || undefined}
                             selected={dateRange?.from || undefined}
                             onSelect={(date) => {
-                              // Handle start date selection with end date validation
                               const newFrom = date || null;
                               let newTo = dateRange.to;
                               
-                              // If new start date is after current end date, clear end date
                               if (newFrom && newTo && newFrom > newTo) {
                                 newTo = null;
                               }
@@ -498,11 +487,11 @@ const Export = () => {
                               }
                             }}
                             numberOfMonths={1}
-                            disabled={[{ after: new Date() }]} // Disable future dates
+                            disabled={[{ after: new Date() }]}
                             className="p-3 pointer-events-auto"
                             captionLayout="dropdown"
                             fromYear={2000}
-                            toYear={new Date().getFullYear()} // Current year as max
+                            toYear={new Date().getFullYear()}
                           />
                         </PopoverContent>
                       </Popover>
@@ -515,7 +504,7 @@ const Export = () => {
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal h-10", // Match height with SelectTrigger
+                              "w-full justify-start text-left font-normal h-10",
                               dateError && !dateRange?.to && "border-red-500"
                             )}
                           >
@@ -541,13 +530,13 @@ const Export = () => {
                             }}
                             numberOfMonths={1}
                             disabled={[
-                              { after: new Date() }, // Disable future dates
-                              { before: dateRange.from || undefined } // Disable dates before start date
+                              { after: new Date() },
+                              { before: dateRange.from || undefined }
                             ]}
                             className="p-3 pointer-events-auto"
                             captionLayout="dropdown"
                             fromYear={2000}
-                            toYear={new Date().getFullYear()} // Current year as max
+                            toYear={new Date().getFullYear()}
                           />
                         </PopoverContent>
                       </Popover>
@@ -570,14 +559,6 @@ const Export = () => {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
                   {isLoading ? "Loading Data..." : "Fetch Data"}
-                </Button>
-              )}
-              {!selectedEntity && (
-                <Button
-                  disabled
-                  className="flex items-center opacity-50 cursor-not-allowed"
-                >
-                  Fetch Data
                 </Button>
               )}
 
