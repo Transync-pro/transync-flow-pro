@@ -186,7 +186,7 @@ const Authenticate = () => {
             <div className="w-full flex justify-center">
               <Button
                 variant="outline"
-                className="w-auto px-8"
+                className="w-[280px]" // Match the width of the QuickBooks button
                 onClick={handleBackToHome}
               >
                 Back to Home
