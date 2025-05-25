@@ -4,8 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 // Constants
-const IDLE_TIMEOUT = 1 * 60 * 1000; // 1 minute for testing (normally 10 minutes)
-const WARNING_DURATION = 30 * 1000; // 30 seconds for testing (normally 2 minutes)
+const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+const WARNING_DURATION = 2 * 60 * 1000; // 2 minutes
 const MOUSE_MOVE_THROTTLE = 15 * 1000; // 15 seconds throttle for mouse movement
 
 interface IdleTimeoutContextType {
