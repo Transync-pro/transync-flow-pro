@@ -74,7 +74,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-bold text-gray-700 whitespace-nowrap [&:has([role=checkbox])]:pr-0 border-b-2 border-gray-200 bg-gray-50/80 uppercase text-xs tracking-wider",
+      "h-12 px-4 text-left align-middle font-bold text-gray-800 whitespace-nowrap [&:has([role=checkbox])]:pr-0 border-b-2 border-gray-300 bg-gray-200 uppercase text-xs tracking-wider shadow-sm",
       className
     )}
     {...props}

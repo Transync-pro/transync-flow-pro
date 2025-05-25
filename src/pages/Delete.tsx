@@ -471,13 +471,28 @@ const Delete = () => {
             
             {selectedEntity && !isLoading && filteredRecords.length > 0 && (
               <div className="flex space-x-2">
-                <div className="flex-1">
+                <div className="flex-1 relative">
                   <Input
                     placeholder="Search by name or ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    className="pr-8"
                   />
+                  {searchTerm && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-0 hover:bg-transparent"
+                      onClick={() => {
+                        setSearchTerm('');
+                        filterEntities(''); // Reset to show all records
+                      }}
+                    >
+                      <X className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  )}
                 </div>
                 <Button
                   variant="outline"
@@ -490,8 +505,17 @@ const Delete = () => {
               </div>
             )}
           </CardContent>
-          {selectedEntityIds.length > 0 && (
-            <CardFooter className="flex justify-between pt-4">
+          {/* Reserved space with smooth transition for delete button */}
+          <CardFooter className="h-[60px] relative">
+            <div 
+              className={`
+                absolute w-full 
+                transition-all duration-300 ease-in-out flex justify-between items-center
+                ${selectedEntityIds.length > 0 
+                  ? 'opacity-100 transform-none' 
+                  : 'opacity-0 transform -translate-y-2 pointer-events-none'}
+              `}
+            >
               <p className="text-sm text-gray-500">
                 {selectedEntityIds.length} item(s) selected
               </p>
@@ -508,8 +532,8 @@ const Delete = () => {
                 )}
                 Delete Selected
               </Button>
-            </CardFooter>
-          )}
+            </div>
+          </CardFooter>
         </Card>
 
         {filteredRecords.length > 0 && (
@@ -527,7 +551,7 @@ const Delete = () => {
                     variant="ghost" 
                     size="sm" 
                     onClick={selectAllEntries}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full flex items-center gap-1 px-3 py-1 h-auto transition-all duration-200"
+                    className="text-sm font-medium text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center gap-1 px-3 py-1 h-auto transition-all duration-200 shadow-sm border border-gray-200"
                   >
                     Select all {filteredRecords.length} entries
                   </Button>

@@ -594,13 +594,28 @@ const Export = () => {
 
               {selectedEntity && !isLoading && filteredRecords.length > 0 && (
                 <div className="flex space-x-2">
-                  <div className="flex-1">
+                  <div className="flex-1 relative">
                     <Input
                       placeholder="Search by name or ID..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                      className="pr-8"
                     />
+                    {searchTerm && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3 py-0 hover:bg-transparent"
+                        onClick={() => {
+                          setSearchTerm('');
+                          filterEntities(''); // Reset to show all records
+                        }}
+                      >
+                        <X className="h-4 w-4 text-gray-500" />
+                      </Button>
+                    )}
                   </div>
                   <Button
                     variant="outline"
@@ -636,11 +651,22 @@ const Export = () => {
                 </div>
               </div>
               
-              {selectedRecordsCount > 0 && (
-                <div className="bg-muted p-2 rounded-md text-sm">
-                  <p>{selectedRecordsCount} record(s) selected for export</p>
+              {/* Reserved space with smooth transition for selection message */}
+              <div className="h-[40px] relative">
+                <div 
+                  className={`
+                    absolute w-full 
+                    transition-all duration-300 ease-in-out
+                    ${selectedRecordsCount > 0 
+                      ? 'opacity-100 transform-none' 
+                      : 'opacity-0 transform -translate-y-1 pointer-events-none'}
+                  `}
+                >
+                  <div className="bg-muted p-2 rounded-md text-sm">
+                    <p>{selectedRecordsCount} record(s) selected for export</p>
+                  </div>
                 </div>
-              )}
+              </div>
               
               {filteredRecords.length > 0 && (
                 <Button
@@ -703,7 +729,7 @@ const Export = () => {
                   variant="ghost" 
                   size="sm" 
                   onClick={selectAllEntries}
-                  className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full flex items-center gap-1 px-3 py-1 h-auto transition-all duration-200"
+                  className="text-sm font-medium text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center gap-1 px-3 py-1 h-auto transition-all duration-200 shadow-sm border border-gray-200"
                 >
                   Select all {filteredRecords.length} entries
                 </Button>
