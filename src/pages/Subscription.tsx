@@ -13,8 +13,8 @@ const Subscription = () => {
     {
       name: "Starter",
       description: "Perfect for small businesses just getting started with QuickBooks.",
-      monthlyPrice: 19,
-      annualPrice: 190,
+      monthlyPrice: 9.99,
+      annualPrice: 95.88, // $7.99 * 12
       features: [
         "Connect 1 QuickBooks company",
         "Bulk import up to 1,000 records/month",
@@ -29,8 +29,8 @@ const Subscription = () => {
     {
       name: "Business",
       description: "Ideal for growing businesses with more QuickBooks data to manage.",
-      monthlyPrice: 49,
-      annualPrice: 490,
+      monthlyPrice: 19.99,
+      annualPrice: 203.88, // $16.99 * 12
       features: [
         "Connect 3 QuickBooks companies",
         "Bulk import up to 10,000 records/month",
@@ -47,8 +47,8 @@ const Subscription = () => {
     {
       name: "Enterprise",
       description: "For larger organizations with complex QuickBooks needs.",
-      monthlyPrice: 99,
-      annualPrice: 990,
+      monthlyPrice: 29.99,
+      annualPrice: 323.88, // $26.99 * 12
       features: [
         "Connect unlimited QuickBooks companies",
         "Unlimited imports and exports",
@@ -72,7 +72,7 @@ const Subscription = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Simple, Transparent Pricing</h1>
           <p className="text-xl text-white/90 max-w-3xl mx-auto mb-8">
-            Choose the plan that's right for your business. All plans include our core QuickBooks data management features.
+            Choose the plan that's right for your business. All plans include our core QuickBooks data management features with a free month to get started.
           </p>
           
           {/* Billing Toggle */}
@@ -106,14 +106,19 @@ const Subscription = () => {
                 <div>
                   <h3 className="text-2xl font-bold text-transyncpro-heading mb-2">{plan.name}</h3>
                   <p className="text-gray-600 mb-6">{plan.description}</p>
+                  <div className="mb-2">
+                    <div className="bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full inline-block mb-4">
+                      First month FREE
+                    </div>
+                  </div>
                   <div className="mb-6">
                     <p className="text-4xl font-bold">
-                      ${billingAnnually ? plan.annualPrice / 12 : plan.monthlyPrice}
+                      ${billingAnnually ? (plan.annualPrice / 12).toFixed(2) : plan.monthlyPrice}
                       <span className="text-lg font-normal text-gray-500">/month</span>
                     </p>
                     {billingAnnually && (
                       <p className="text-sm text-gray-500">
-                        Billed annually (${plan.annualPrice}/year)
+                        Billed annually (${plan.annualPrice.toFixed(2)}/year)
                       </p>
                     )}
                   </div>
@@ -226,7 +231,7 @@ const Subscription = () => {
           <div className="space-y-8">
             <div>
               <h3 className="text-xl font-semibold text-transyncpro-heading mb-2">Do you offer a free trial?</h3>
-              <p className="text-gray-600">Yes, we offer a 14-day free trial on our Business plan so you can experience the full power of TransyncPro before committing.</p>
+              <p className="text-gray-600">Yes, all plans include a completely free first month so you can experience the full power of TransyncPro before committing to a subscription.</p>
             </div>
             
             <div>
@@ -241,7 +246,7 @@ const Subscription = () => {
             
             <div>
               <h3 className="text-xl font-semibold text-transyncpro-heading mb-2">Is there a setup fee?</h3>
-              <p className="text-gray-600">No, there are no setup fees for any of our plans. You only pay the subscription price shown.</p>
+              <p className="text-gray-600">No, there are no setup fees for any of our plans. You only pay the subscription price shown after your free month.</p>
             </div>
             
             <div>
