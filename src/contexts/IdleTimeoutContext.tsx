@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,134 +36,129 @@ export const IdleTimeoutProvider: React.FC<IdleTimeoutProviderProps> = ({ childr
   const [showWarning, setShowWarning] = useState(false);
   const [remainingTime, setRemainingTime] = useState(WARNING_DURATION / 1000);
   
-  // Reset timer function - called ONLY when the Keep Me Logged In button is clicked
-  // This should not be called by general user activity
-  const resetTimer = useCallback(() => {
-    setIsIdle(false);
-    setShowWarning(false);
+  // Use refs to store timer IDs to avoid dependency issues
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityTimeRef = useRef<number>(Date.now());
+  
+  // Clear all timers
+  const clearAllTimers = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
   }, []);
   
-  // Handle the idle timer
-  useEffect(() => {
-    if (!user) return; // Only track idle time for authenticated users
+  // Start the idle timer
+  const startIdleTimer = useCallback(() => {
+    // Clear any existing timers first
+    clearAllTimers();
     
-    let idleTimer: NodeJS.Timeout;
-    let warningTimer: NodeJS.Timeout;
+    // Reset state
+    setIsIdle(false);
+    setShowWarning(false);
+    setRemainingTime(WARNING_DURATION / 1000);
     
-    const startIdleTimer = () => {
-      // Clear any existing timers
-      clearTimeout(idleTimer);
-      clearTimeout(warningTimer);
+    // Set the idle timer
+    idleTimerRef.current = setTimeout(() => {
+      console.log('User idle detected - showing warning');
+      setIsIdle(true);
+      setShowWarning(true);
       
-      // Set a new idle timer
-      idleTimer = setTimeout(() => {
-        console.log('User idle detected - showing warning');
-        setIsIdle(true);
-        setShowWarning(true);
+      // Start the warning countdown
+      let secondsLeft = WARNING_DURATION / 1000;
+      
+      countdownIntervalRef.current = setInterval(() => {
+        secondsLeft -= 1;
+        setRemainingTime(secondsLeft);
         
-        // Set a warning timer for logout
-        warningTimer = setTimeout(() => {
-          console.log('Warning timer expired - logging out user');
-          // Log the user out when warning timer expires
-          // Add a small delay to ensure the state update completes
-          setTimeout(() => {
-            toast({
-              title: "Session Expired",
-              description: "You have been logged out due to inactivity.",
-              variant: "destructive"
-            });
-            // Hide the warning dialog before signing out
-            setShowWarning(false);
-            // Force logout after timer expires
-            signOut();
-          }, 100);
-        }, WARNING_DURATION);
-      }, IDLE_TIMEOUT);
-    };
-    
-    // Start the timer initially
-    startIdleTimer();
-    
-    // Reset the timer when user becomes active again, but ONLY when not in warning state
-    // This ensures the warning can only be dismissed by the Keep Me Logged In button
-    if (!isIdle) {
-      startIdleTimer();
-    }
-    
-    // Cleanup timers on unmount
-    return () => {
-      clearTimeout(idleTimer);
-      clearTimeout(warningTimer);
-    };
-  }, [user, isIdle, signOut, toast]);
-  
-  // Handle the countdown timer for the warning dialog
-  useEffect(() => {
-    if (!showWarning) {
-      setRemainingTime(WARNING_DURATION / 1000);
-      return;
-    }
-    
-    const countdownInterval = setInterval(() => {
-      setRemainingTime(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval);
-          // Force logout when timer reaches zero
-          if (user) {
-            console.log('Session expired - logging out user');
-            // Add a small delay to ensure the state update completes
-            setTimeout(() => {
-              toast({
-                title: "Session Expired",
-                description: "You have been logged out due to inactivity.",
-                variant: "destructive"
-              });
-              // Hide the warning dialog before signing out
-              setShowWarning(false);
-              // Force logout
-              signOut();
-            }, 100);
+        if (secondsLeft <= 0) {
+          // Clear the interval
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
           }
-          return 0;
+          
+          // Log the user out
+          console.log('Warning timer expired - logging out user');
+          toast({
+            title: "Session Expired",
+            description: "You have been logged out due to inactivity.",
+            variant: "destructive"
+          });
+          
+          // Hide the warning dialog and sign out
+          setShowWarning(false);
+          signOut();
         }
-        return prev - 1;
-      });
-    }, 1000);
+      }, 1000);
+      
+    }, IDLE_TIMEOUT);
     
-    return () => clearInterval(countdownInterval);
-  }, [showWarning, user, signOut, toast]);
+    lastActivityTimeRef.current = Date.now();
+  }, [clearAllTimers, signOut, toast]);
   
-  // Track user activity to reset the idle timer
+  // Reset timer function - called when the Keep Me Logged In button is clicked
+  const resetTimer = useCallback(() => {
+    console.log('Timer manually reset by user');
+    startIdleTimer();
+  }, [startIdleTimer]);
+  
+  // Initialize timer when user logs in
   useEffect(() => {
     if (!user) return;
-
-    let lastMouseMove = 0;
-
-    const activityHandler = (e: Event) => {
-      // If warning is active, only explicit button resets timer
+    
+    console.log('Initializing idle timer for authenticated user');
+    startIdleTimer();
+    
+    // Clean up on unmount or when user logs out
+    return clearAllTimers;
+  }, [user, startIdleTimer, clearAllTimers]);
+  
+  // Track user activity
+  useEffect(() => {
+    if (!user) return;
+    
+    const handleActivity = (e: Event) => {
+      // If warning is showing, don't reset automatically
       if (showWarning) return;
+      
+      const now = Date.now();
+      
       // Throttle mousemove events
       if (e.type === 'mousemove') {
         const now = Date.now();
-        if (now - lastMouseMove < 1000) return; // 1s throttle for mousemove
-        lastMouseMove = now;
+        if (now - lastActivityTimeRef.current < MOUSE_MOVE_THROTTLE) return; // Use the defined throttle constant
+        lastActivityTimeRef.current = now;
       }
-      setIsIdle(false);
-      setShowWarning(false);
+      
+      // Update last activity time
+      lastActivityTimeRef.current = now;
+      
+      // Reset the timer
+      startIdleTimer();
     };
-
-    window.addEventListener('mousemove', activityHandler);
-    window.addEventListener('mousedown', activityHandler);
-    window.addEventListener('keydown', activityHandler);
-    window.addEventListener('touchstart', activityHandler);
-
+    
+    // Add event listeners
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('mousedown', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('touchstart', handleActivity);
+    window.addEventListener('scroll', handleActivity);
+    
     return () => {
-      window.removeEventListener('mousemove', activityHandler);
-      window.removeEventListener('mousedown', activityHandler);
-      window.removeEventListener('keydown', activityHandler);
-      window.removeEventListener('touchstart', activityHandler);
+      // Remove event listeners on cleanup
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('mousedown', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('touchstart', handleActivity);
+      window.removeEventListener('scroll', handleActivity);
     };
-  }, [user, showWarning]);
+  }, [user, showWarning, startIdleTimer]);
   
   const value: IdleTimeoutContextType = {
     isIdle,
