@@ -162,6 +162,22 @@ const RouteGuard = ({
   // Check access on mount and when dependencies change
   useEffect(() => {
     const checkAccess = async () => {
+      // CRITICAL: Check for skip flags BEFORE any other operations
+      // These flags come from successful QuickBooks authentication
+      const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
+      const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+      const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      const isRecentAuth = authTimestamp && 
+        (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second cooldown
+      
+      // If we have a recent successful auth, skip ALL checks and render children
+      if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
+        console.log('RouteGuard: Skip flags detected, bypassing ALL connection checks');
+        setIsChecking(false);
+        connectionCheckedRef.current = true;
+        return;
+      }
+      
       if (isAuthLoading) return;
       
       if (isQbCallbackRoute) {
