@@ -211,6 +211,12 @@ const RouteGuard = ({
       const connectionData = sessionStorage.getItem('qb_connection_data');
       const parsedConnection = connectionData ? JSON.parse(connectionData) : null;
       
+      // Check if we have a verified connection from a recent authentication
+      const connectionVerified = sessionStorage.getItem('qb_connection_verified');
+      const connectionTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      const hasRecentVerifiedConnection = connectionVerified && connectionTimestamp && 
+        (Date.now() - parseInt(connectionTimestamp, 10) < 60000); // 60 second window
+      
       // Check if we're in the middle of a QuickBooks connection process
       const isInConnectionProcess = 
         location.pathname.includes('quickbooks-callback') || 
@@ -219,6 +225,7 @@ const RouteGuard = ({
         location.state?.connectionEstablished === true ||
         sessionStorage.getItem('qb_connecting_user') ||
         sessionStorage.getItem('qb_connection_in_progress') ||
+        hasRecentVerifiedConnection ||
         (parsedConnection && (Date.now() - parsedConnection.timestamp) < 30000); // 30 second window for connection
       
       if (isInConnectionProcess) {
