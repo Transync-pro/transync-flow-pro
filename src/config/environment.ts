@@ -57,10 +57,16 @@ export const getBasePath = () => {
 // Helper function to add staging prefix to paths
 export const addStagingPrefix = (path: string) => {
   const basePath = getBasePath();
-  if (basePath && !path.startsWith(basePath)) {
-    return `${basePath}${path}`;
-  }
-  return path;
+  if (!basePath) return path;
+  
+  // Remove leading/trailing slashes for consistency
+  const cleanPath = path.replace(/^\/+|\/+$/g, '');
+  
+  // If path is just '/', return basePath
+  if (!cleanPath) return basePath;
+  
+  // Otherwise, combine basePath and path with a single slash
+  return `${basePath}/${cleanPath}`;
 };
 
 // Helper function to remove staging prefix from paths
