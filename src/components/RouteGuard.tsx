@@ -315,16 +315,25 @@ const RouteGuard = ({
       // Handle redirection when QuickBooks connection is required but not found
       if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
         const redirected = sessionStorage.getItem('qb_redirected_to_authenticate');
-        if (!redirected) {
+        const lastRedirectTime = sessionStorage.getItem('qb_redirect_timestamp');
+        const currentTime = Date.now();
+        const redirectThreshold = 5000; // 5 seconds between redirects to prevent loops
+        
+        // Only redirect if we haven't redirected recently (prevents rapid cycling)
+        const canRedirect = !lastRedirectTime || (currentTime - parseInt(lastRedirectTime, 10)) > redirectThreshold;
+        
+        if (!redirected && canRedirect) {
           console.log('RouteGuard: No QuickBooks connection found, redirecting to /authenticate');
           sessionStorage.setItem('qb_redirected_to_authenticate', 'true');
+          sessionStorage.setItem('qb_redirect_timestamp', currentTime.toString());
           navigate(addStagingPrefix('/authenticate'), { 
             replace: true,
             state: { fromDisconnect: true } // Mark that this redirect is due to disconnection
           });
-        } else {
-          // If we've already been redirected once, clear the flag to prevent loops
-          sessionStorage.removeItem('qb_redirected_to_authenticate');
+        } else if (redirected) {
+          // If we've already been redirected once, don't redirect again for this session
+          // This prevents redirect loops completely
+          console.log('RouteGuard: Already redirected once, staying on current page to prevent loops');
         }
         redirectingRef.current = false;
         return;

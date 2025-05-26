@@ -32,7 +32,8 @@ export const clearConnectionCache = (userId?: string): void => {
     'processed_qb_codes',      // Added this item which was missing
     'qb_auth_success',         // Added this item which was missing
     'qb_connect_user',         // Added this item which was missing
-    'qb_redirect_after_connect' // Added this item which was missing
+    'qb_redirect_after_connect', // Added this item which was missing
+    'qb_redirect_timestamp'     // Added to prevent redirect loops
   ];
   
   qbItems.forEach(key => sessionStorage.removeItem(key));
