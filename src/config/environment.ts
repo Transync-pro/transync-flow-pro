@@ -50,3 +50,18 @@ export const getCurrentConfig = () => {
 export const isProduction = () => getEnvironment() === 'production';
 export const isStaging = () => getEnvironment() === 'staging';
 export const isDevelopment = () => false; // No longer supported
+
+// Helper functions for staging prefix
+export const addStagingPrefix = (path: string): string => {
+  if (isStaging() && !path.startsWith('/staging')) {
+    return `/staging${path}`;
+  }
+  return path;
+};
+
+export const removeStagingPrefix = (path: string): string => {
+  if (path.startsWith('/staging')) {
+    return path.replace('/staging', '') || '/';
+  }
+  return path;
+};

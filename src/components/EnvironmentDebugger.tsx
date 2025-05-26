@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/environmentClient";
+import { supabase } from "@/integrations/supabase/client";
 import { getCurrentConfig, getEnvironment } from "@/config/environment";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
