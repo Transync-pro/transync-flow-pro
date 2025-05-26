@@ -126,23 +126,36 @@ const Delete = () => {
 
   // Handle checkbox select/deselect all on current page
   const handleSelectAll = (checked: boolean) => {
-    if (!checked) {
+    // Check if all records are already selected (across all pages)
+    const allSelected = filteredRecords.length > 0 && 
+      filteredRecords.every(record => record.Id && selectedEntityIds.includes(record.Id));
+    
+    if (allSelected) {
+      // If all records are selected, deselect everything
+      setSelectedEntityIds([]);
+      setSelectedAll(false);
+      setHasSelectedCurrentPage(false);
+      
+      toast({
+        title: "All Records Deselected",
+        description: `Deselected all ${filteredRecords.length} records.`,
+      });
+    } else if (!checked) {
       // If unchecking, clear all selections
       setSelectedAll(false);
       setHasSelectedCurrentPage(false);
       setSelectedEntityIds([]);
-      return;
+    } else {
+      // Select all records on current page
+      const currentPageIds = paginatedRecords
+        .filter(record => record.Id)
+        .map(record => record.Id);
+      
+      setSelectedEntityIds(currentPageIds);
+      setHasSelectedCurrentPage(true);
+      // Set selectedAll to true to make the checkbox filled
+      setSelectedAll(true);
     }
-
-    // Select all records on current page
-    const currentPageIds = paginatedRecords
-      .filter(record => record.Id)
-      .map(record => record.Id);
-    
-    setSelectedEntityIds(currentPageIds);
-    setHasSelectedCurrentPage(true);
-    // Set selectedAll to true to make the checkbox filled
-    setSelectedAll(true);
   };
   
   // Handle selecting/deselecting all records across all pages
