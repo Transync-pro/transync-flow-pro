@@ -187,13 +187,24 @@ const QuickbooksCallback = () => {
         if (processedCodes.includes(codeFingerprint)) {
           console.log("This code exchange was already processed, skipping to avoid duplicate processing");
           
-          // CRITICAL: Set the skip redirect flag FIRST before any clearing or other operations
-          // This ensures RouteGuard will see this flag even if it checks during our processing
+          // CRITICAL: Set ALL THREE redirect flags IMMEDIATELY at the beginning
+          // This ensures RouteGuard will see these flags even if it checks during our processing
+          const currentTimestamp = Date.now();
+          console.log(`Setting ALL critical auth flags with timestamp ${currentTimestamp}`);
           sessionStorage.setItem('qb_skip_auth_redirect', 'true');
+          sessionStorage.setItem('qb_auth_success', 'true');
+          sessionStorage.setItem('qb_connection_timestamp', currentTimestamp.toString());
           
-          // Instead of calling clearConnectionCache which clears ALL QB flags including the ones we want to set,
+          // Log the values we just set to verify
+          console.log('VERIFICATION - Auth flags set:', {
+            skip: sessionStorage.getItem('qb_skip_auth_redirect'),
+            success: sessionStorage.getItem('qb_auth_success'),
+            timestamp: sessionStorage.getItem('qb_connection_timestamp')
+          });
+          
+          // Instead of calling clearConnectionCache which clears ALL QB flags including the ones we set,
           // selectively clear only the items we need to refresh
-          console.log("Selectively clearing connection items while preserving critical auth flags (already processed path)");
+          console.log("Selectively clearing non-critical connection items (already processed path)");
           const itemsToClear = [
             'qb_connection_data',
             'qb_connection_success',
@@ -201,14 +212,10 @@ const QuickbooksCallback = () => {
             'qb_redirected_to_authenticate',
             'qb_connection_in_progress'
             // Don't clear processed_qb_codes here since we're using it to detect duplicate processing
+            // IMPORTANT: Don't clear the critical flags we just set above!
           ];
           
           itemsToClear.forEach(key => sessionStorage.removeItem(key));
-          
-          // Now set the critical auth flags that RouteGuard checks
-          console.log("Setting critical auth success flags for RouteGuard (already processed path)");
-          sessionStorage.setItem('qb_auth_success', 'true');
-          sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
 
           toast({
             title: "Connected to QuickBooks",
@@ -301,13 +308,24 @@ const QuickbooksCallback = () => {
         if (tokenExchangeData && tokenExchangeData.success) {
           console.log("QuickBooks token exchange successful, proceeding to set flags and redirect.");
           
-          // CRITICAL: Set the skip redirect flag FIRST before any clearing or other operations
-          // This ensures RouteGuard will see this flag even if it checks during our processing
+          // CRITICAL: Set ALL THREE redirect flags IMMEDIATELY at the beginning
+          // This ensures RouteGuard will see these flags even if it checks during our processing
+          const currentTimestamp = Date.now();
+          console.log(`Setting ALL critical auth flags with timestamp ${currentTimestamp}`);
           sessionStorage.setItem('qb_skip_auth_redirect', 'true');
+          sessionStorage.setItem('qb_auth_success', 'true');
+          sessionStorage.setItem('qb_connection_timestamp', currentTimestamp.toString());
           
-          // Instead of calling clearConnectionCache which clears ALL QB flags including the ones we want to set,
+          // Log the values we just set to verify
+          console.log('VERIFICATION - Auth flags set:', {
+            skip: sessionStorage.getItem('qb_skip_auth_redirect'),
+            success: sessionStorage.getItem('qb_auth_success'),
+            timestamp: sessionStorage.getItem('qb_connection_timestamp')
+          });
+          
+          // Instead of calling clearConnectionCache which clears ALL QB flags including the ones we set,
           // selectively clear only the items we need to refresh
-          console.log("Selectively clearing connection items while preserving critical auth flags");
+          console.log("Selectively clearing non-critical connection items (new token exchange path)");
           const itemsToClear = [
             'qb_connection_data',
             'qb_connection_success',
@@ -315,14 +333,10 @@ const QuickbooksCallback = () => {
             'qb_redirected_to_authenticate',
             'qb_connection_in_progress',
             'processed_qb_codes'
+            // IMPORTANT: Don't clear the critical flags we just set above!
           ];
           
           itemsToClear.forEach(key => sessionStorage.removeItem(key));
-          
-          // Now set the critical auth flags that RouteGuard checks
-          console.log("Setting critical auth success flags for RouteGuard");
-          sessionStorage.setItem('qb_auth_success', 'true');
-          sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
 
           // Store additional connection data (optional, but was previously there)
           const successTimestamp = Date.now(); // Can re-use the timestamp for consistency
