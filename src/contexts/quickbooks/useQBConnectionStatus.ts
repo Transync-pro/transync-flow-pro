@@ -159,8 +159,11 @@ export const useQBConnectionStatus = (user: User | null) => {
       clearConnectionCache(user.id);
     }
     
+    // Track if we set loading to true so we can reset it
+    const didSetLoading = !silent;
+    
     // Reset state to ensure we show loading state
-    if (!silent) {
+    if (didSetLoading) {
       setIsLoading(true);
     }
     
@@ -171,6 +174,12 @@ export const useQBConnectionStatus = (user: User | null) => {
     } catch (error) {
       console.error('Error during connection refresh:', error);
       return false;
+    } finally {
+      // Always reset loading state if we set it, regardless of silent mode
+      if (didSetLoading) {
+        console.log('Resetting loading state after refresh');
+        setIsLoading(false);
+      }
     }
   }, [checkConnectionStatus, user?.id]);
 
