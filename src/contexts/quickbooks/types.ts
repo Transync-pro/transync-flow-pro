@@ -1,4 +1,5 @@
 
+
 export interface QuickbooksConnection {
   id: string;
   user_id: string;
@@ -66,6 +67,7 @@ export interface EntityOption {
 export interface EntityColumnConfig {
   field: string;
   header: string;
+  accessor?: (obj: any) => any;
 }
 
 // Generic entity record type
@@ -107,3 +109,4 @@ export interface QuickbooksEntitiesContextType {
   entityOptions: EntityOption[];
   getNestedValue: (obj: any, path: string) => any;
 }
+
