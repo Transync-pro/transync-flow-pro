@@ -284,8 +284,15 @@ const RouteGuard = ({
         }
       }
       
+      // Clear any redirect flags when on the authenticate page
       if (isAuthenticateRoute) {
-        if (hasQbConnection || isConnected) {
+        // Only clear the flag if we're not in the middle of a connection process
+        if (!isInConnectionProcess) {
+          sessionStorage.removeItem('qb_redirected_to_authenticate');
+        }
+        
+        // Only redirect to dashboard if we have an active connection
+        if ((hasQbConnection || isConnected) && !location.state?.fromDisconnect) {
           console.log('RouteGuard: Connection found while on authenticate page, redirecting to dashboard');
           navigate(addStagingPrefix('/dashboard'), { replace: true });
         }
@@ -293,17 +300,25 @@ const RouteGuard = ({
         return;
       }
       
+      // Handle redirection when QuickBooks connection is required but not found
       if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
         const redirected = sessionStorage.getItem('qb_redirected_to_authenticate');
         if (!redirected) {
           console.log('RouteGuard: No QuickBooks connection found, redirecting to /authenticate');
           sessionStorage.setItem('qb_redirected_to_authenticate', 'true');
-          navigate(addStagingPrefix('/authenticate'), { replace: true });
+          navigate(addStagingPrefix('/authenticate'), { 
+            replace: true,
+            state: { fromDisconnect: true } // Mark that this redirect is due to disconnection
+          });
+        } else {
+          // If we've already been redirected once, clear the flag to prevent loops
+          sessionStorage.removeItem('qb_redirected_to_authenticate');
         }
         redirectingRef.current = false;
         return;
       }
       
+      // Clear redirect flag when we have an active connection
       if (hasQbConnection || isConnected) {
         sessionStorage.removeItem('qb_redirected_to_authenticate');
       }

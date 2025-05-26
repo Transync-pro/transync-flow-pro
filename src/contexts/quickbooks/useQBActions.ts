@@ -73,6 +73,9 @@ export const useQBActions = (
     try {
       console.log("Attempting to disconnect QuickBooks for user:", user.id);
       
+      // Clear any existing redirect flags to prevent loops
+      sessionStorage.removeItem('qb_redirected_to_authenticate');
+      
       // Call the edge function to revoke the token
       const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
         body: { 
@@ -100,6 +103,14 @@ export const useQBActions = (
       // Refresh the connection status
       await refreshConnection();
       
+      // Clear any remaining session storage flags
+      sessionStorage.removeItem('qb_connection_success');
+      sessionStorage.removeItem('qb_connection_company');
+      sessionStorage.removeItem('qb_auth_timestamp');
+      sessionStorage.removeItem('qb_connection_data');
+      sessionStorage.removeItem('qb_connection_in_progress');
+      sessionStorage.removeItem('qb_connecting_user');
+      
       toast({
         title: "Disconnected",
         description: "QuickBooks account has been disconnected successfully",
@@ -108,6 +119,9 @@ export const useQBActions = (
     } catch (error: any) {
       console.error("Error in disconnect flow:", error);
       handleError(`Failed to disconnect from QuickBooks: ${error.message || "Unknown error"}`, true);
+      
+      // Still try to clear the redirect flag even if there was an error
+      sessionStorage.removeItem('qb_redirected_to_authenticate');
     }
   };
 
