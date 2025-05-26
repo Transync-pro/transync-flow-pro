@@ -104,11 +104,44 @@ export async function updateConnectionTokens(
   }
 }
 
-// Direct connection check for RouteGuard - no caching
+// Temporary forced connection state for transitions (authentication/disconnection)
+let forcedConnectionState: { userId: string; connected: boolean; expireTime: number } | null = null;
+
+// Force connection state for a limited time (used during authentication and disconnection)
+export const forceConnectionState = (userId: string, connected: boolean, durationMs: number = 5000): void => {
+  forcedConnectionState = {
+    userId,
+    connected,
+    expireTime: Date.now() + durationMs
+  };
+  console.log(`Forced QB connection state for user ${userId} to ${connected ? 'connected' : 'disconnected'} for ${durationMs}ms`);
+};
+
+// Clear forced connection state
+export const clearForcedConnectionState = (): void => {
+  forcedConnectionState = null;
+  console.log('Cleared forced QB connection state');
+};
+
+// Direct connection check for RouteGuard - no caching but respects forced state
 export const checkQBConnectionExists = async (userId: string): Promise<boolean> => {
   if (!userId) {
     console.log('No user ID provided for connection check');
     return false;
+  }
+  
+  // Check if we have a forced connection state that hasn't expired
+  if (forcedConnectionState && 
+      forcedConnectionState.userId === userId && 
+      forcedConnectionState.expireTime > Date.now()) {
+    console.log(`Using forced connection state for user ${userId}: ${forcedConnectionState.connected}`);
+    return forcedConnectionState.connected;
+  }
+  
+  // If forced state expired, clear it
+  if (forcedConnectionState && forcedConnectionState.expireTime <= Date.now()) {
+    console.log('Forced connection state expired, clearing');
+    forcedConnectionState = null;
   }
   
   try {

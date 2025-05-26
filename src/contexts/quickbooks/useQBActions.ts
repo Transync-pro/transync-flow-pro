@@ -2,7 +2,7 @@
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
-import { clearConnectionCache } from "@/services/quickbooksApi/connections";
+import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 
 export const useQBActions = (
   user: User | null,
@@ -124,6 +124,11 @@ export const useQBActions = (
       // Set a disconnection flag with timestamp to prevent redirect loops
       sessionStorage.setItem('qb_disconnected', 'true');
       sessionStorage.setItem('qb_disconnect_timestamp', Date.now().toString());
+      
+      // Force the connection state to be false for this user for 10 seconds
+      // This overrides any database checks during the critical navigation period
+      forceConnectionState(user.id, false, 10000); // 10 seconds of forced disconnected state
+      console.log(`Forced connection state to false for user ${user.id} after disconnection`);
       
       console.log("QuickBooks disconnection process completed, refreshing connection status...");
       

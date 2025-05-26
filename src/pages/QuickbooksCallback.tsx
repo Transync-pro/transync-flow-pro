@@ -9,7 +9,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { logError } from "@/utils/errorLogger";
-import { clearConnectionCache } from "@/services/quickbooksApi/connections";
+import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { motion } from "framer-motion";
 
 const QuickbooksCallback = () => {
@@ -69,6 +69,13 @@ const QuickbooksCallback = () => {
       
       // Set a special flag to completely bypass the RouteGuard redirect logic
       sessionStorage.setItem('qb_skip_auth_redirect', 'true');
+      
+      // Force the connection state to be true for this user for 10 seconds
+      // This overrides any database checks during the critical navigation period
+      if (user?.id) {
+        forceConnectionState(user.id, true, 10000); // 10 seconds of forced connected state
+        console.log(`Forced connection state to true for user ${user.id} after successful authentication`);
+      }
       
       console.log('Navigating to dashboard...');
       // Navigate to dashboard with a flag to prevent immediate redirection
