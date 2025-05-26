@@ -3,11 +3,11 @@
 export type Environment = 'staging' | 'production';
 
 export const getEnvironment = (): Environment => {
-  // Check for staging path prefix
+  // Check for staging path prefix or preview domain
   if (typeof window !== 'undefined') {
     const pathname = window.location.pathname;
     
-    // Check if URL is exactly /staging or starts with /staging/
+    // Check if URL starts with /staging
     if (pathname === '/staging' || pathname.startsWith('/staging/')) {
       return 'staging';
     }
@@ -50,42 +50,3 @@ export const getCurrentConfig = () => {
 export const isProduction = () => getEnvironment() === 'production';
 export const isStaging = () => getEnvironment() === 'staging';
 export const isDevelopment = () => false; // No longer supported
-
-// Helper function to get the base path for routing
-export const getBasePath = () => {
-  return isStaging() ? '/staging' : '';
-};
-
-// Helper function to add staging prefix to paths
-export const addStagingPrefix = (path: string) => {
-  // If not in staging, return the path as is
-  if (!isStaging()) return path;
-  
-  // Handle empty path or root - redirect to staging root
-  if (!path || path === '/') return '/staging';
-  
-  // Remove any existing /staging prefix to prevent duplication
-  const cleanPath = path.startsWith('/staging/') ? path.substring(8) : 
-                   path.startsWith('staging/') ? path.substring(7) :
-                   path.startsWith('/') ? path.substring(1) : path;
-  
-  return `/staging/${cleanPath}`.replace(/\/+/g, '/');
-};
-
-// Helper function to remove staging prefix from paths
-export const removeStagingPrefix = (path: string) => {
-  if (path.startsWith('/staging')) {
-    const cleanPath = path.substring(8);
-    return cleanPath || '/';
-  }
-  return path;
-};
-
-// Helper function to normalize path for staging environment
-export const normalizeStagingPath = (path: string) => {
-  // If we're in staging and the path is exactly '/staging', redirect to dashboard
-  if (isStaging() && path === '/staging') {
-    return '/staging/dashboard';
-  }
-  return path;
-};

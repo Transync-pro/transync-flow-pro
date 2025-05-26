@@ -1,52 +1,16 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
 
-// Environment-aware configuration
-const getEnvironmentFromRequest = (request: Request) => {
-  const url = new URL(request.url);
-  const origin = request.headers.get('origin') || '';
-  
-  // Check if request comes from staging environment
-  if (origin.includes('preview--transync-flow-pro') || 
-      origin.includes('/staging') || 
-      url.pathname.includes('staging')) {
-    return 'staging';
-  }
-  
-  return 'production';
-};
+// Environment configuration
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const QUICKBOOKS_CLIENT_ID = Deno.env.get('SANDBOX_ID') || '';
+const QUICKBOOKS_CLIENT_SECRET = Deno.env.get('SANDBOX_SECRET') || '';
+const QUICKBOOKS_ENVIRONMENT = Deno.env.get('QUICKBOOKS_ENVIRONMENT') || 'sandbox';
 
-// Get environment-specific QuickBooks credentials
-const getQuickBooksCredentials = (environment: string) => {
-  if (environment === 'staging') {
-    return {
-      clientId: Deno.env.get('SANDBOX_ID') || '',
-      clientSecret: Deno.env.get('SANDBOX_SECRET') || '',
-      qbEnvironment: 'sandbox'
-    };
-  } else {
-    return {
-      clientId: Deno.env.get('PRODUCTION_QB_CLIENT_ID') || Deno.env.get('SANDBOX_ID') || '',
-      clientSecret: Deno.env.get('PRODUCTION_QB_CLIENT_SECRET') || Deno.env.get('SANDBOX_SECRET') || '',
-      qbEnvironment: 'production'
-    };
-  }
-};
-
-// Get environment-specific Supabase configuration
-const getSupabaseConfig = (environment: string) => {
-  if (environment === 'staging') {
-    return {
-      url: "https://lawshaoxrsxucrxjfbeu.supabase.co",
-      serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    };
-  } else {
-    return {
-      url: Deno.env.get('SUPABASE_URL') || '',
-      serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    };
-  }
-};
+// Create Supabase client
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // CORS headers for browser requests
 const corsHeaders = {
@@ -55,8 +19,8 @@ const corsHeaders = {
 };
 
 // Get the appropriate QuickBooks API base URL
-const getQBApiBaseUrl = (qbEnvironment: string) => {
-  return qbEnvironment === 'production' 
+const getQBApiBaseUrl = () => {
+  return QUICKBOOKS_ENVIRONMENT === 'production' 
     ? 'https://quickbooks.api.intuit.com'
     : 'https://sandbox-quickbooks.api.intuit.com';
 };
@@ -67,7 +31,7 @@ const getOAuthBaseUrl = () => {
 };
 
 // Save the connection to Supabase
-const saveConnection = async (supabase: any, userId: string, realmId: string, tokenResponse: any) => {
+const saveConnection = async (userId: string, realmId: string, tokenResponse: any) => {
   console.log(`Saving connection for user ${userId} and realmId ${realmId}`);
   try {
     // Calculate when the token expires
@@ -142,7 +106,7 @@ const saveConnection = async (supabase: any, userId: string, realmId: string, to
 };
 
 // Get the connection for a user
-const getConnection = async (supabase: any, userId: string) => {
+const getConnection = async (userId: string) => {
   console.log(`Getting connection for user ${userId}`);
   const { data, error } = await supabase
     .from('quickbooks_connections')
@@ -159,10 +123,10 @@ const getConnection = async (supabase: any, userId: string) => {
 };
 
 // Get company info from QuickBooks
-const getCompanyInfo = async (accessToken: string, realmId: string, qbEnvironment: string) => {
+const getCompanyInfo = async (accessToken: string, realmId: string) => {
   try {
     console.log(`Fetching company info for realm ${realmId}`);
-    const response = await fetch(`${getQBApiBaseUrl(qbEnvironment)}/v3/company/${realmId}/companyinfo/${realmId}`, {
+    const response = await fetch(`${getQBApiBaseUrl()}/v3/company/${realmId}/companyinfo/${realmId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -246,41 +210,6 @@ const fetchUserIdentity = async (accessToken, realmId) => {
   } catch (error) {
     console.error('Error fetching user identity from Account API:', error);
     return null;
-  }
-};
-
-// NEW FUNCTION: Save user identity to Supabase
-const saveUserIdentity = async (userId, realmId, userInfo) => {
-  if (!userInfo) {
-    console.log('No user identity information to save');
-    return;
-  }
-
-  try {
-    console.log(`Saving user identity for user ${userId} and realm ${realmId}:`, userInfo);
-    
-    const { data, error } = await supabase
-      .from('quickbooks_user_info')
-      .upsert({
-        user_id: userId,
-        realm_id: realmId,
-        first_name: userInfo.first_name,
-        last_name: userInfo.last_name,
-        email: userInfo.email,
-        phone: userInfo.phone,
-        updated_at: new Date().toISOString()
-      });
-
-    if (error) {
-      console.error('Error saving user identity:', error);
-      throw error;
-    }
-
-    console.log('User identity saved successfully');
-    return { success: true };
-  } catch (error) {
-    console.error('Error in saveUserIdentity:', error);
-    return { success: false, error };
   }
 };
 
@@ -416,7 +345,7 @@ const handleTokenExchange = async (params) => {
 };
 
 // Handle the request
-serve(async (req)=>{
+serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -424,6 +353,7 @@ serve(async (req)=>{
       status: 204
     });
   }
+  
   try {
     console.log('Edge function received request. Environment:', QUICKBOOKS_ENVIRONMENT);
     console.log('Client ID configured:', QUICKBOOKS_CLIENT_ID ? 'Yes' : 'No');
@@ -627,7 +557,7 @@ serve(async (req)=>{
     }
     // Endpoint not found
     throw new Error(`Unknown endpoint: ${path}`);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in QuickBooks auth function:', error);
     return new Response(JSON.stringify({
       error: error.message || 'Internal server error'
