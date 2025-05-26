@@ -1,3 +1,4 @@
+
 // Environment configuration for staging and production only
 export type Environment = 'staging' | 'production';
 
@@ -60,7 +61,7 @@ export const addStagingPrefix = (path: string) => {
   // If not in staging, return the path as is
   if (!isStaging()) return path;
   
-  // Handle empty path or root
+  // Handle empty path or root - redirect to staging root
   if (!path || path === '/') return '/staging';
   
   // Remove any existing /staging prefix to prevent duplication
@@ -74,7 +75,17 @@ export const addStagingPrefix = (path: string) => {
 // Helper function to remove staging prefix from paths
 export const removeStagingPrefix = (path: string) => {
   if (path.startsWith('/staging')) {
-    return path.substring(8) || '/';
+    const cleanPath = path.substring(8);
+    return cleanPath || '/';
+  }
+  return path;
+};
+
+// Helper function to normalize path for staging environment
+export const normalizeStagingPath = (path: string) => {
+  // If we're in staging and the path is exactly '/staging', redirect to dashboard
+  if (isStaging() && path === '/staging') {
+    return '/staging/dashboard';
   }
   return path;
 };
