@@ -2,21 +2,35 @@
 // Environment configuration for staging and production only
 export type Environment = 'staging' | 'production';
 
+// Store the environment at module level to prevent repeated checks
+let _environment: Environment | null = null;
+
 export const getEnvironment = (): Environment => {
+  // Return cached value if available
+  if (_environment !== null) {
+    return _environment;
+  }
+
   // Check for staging path prefix
   if (typeof window !== 'undefined') {
     const pathname = window.location.pathname;
     
-    // Check if URL starts with /staging
-    if (pathname.startsWith('/staging')) {
-      return 'staging';
+    // Check if URL is exactly /staging or starts with /staging/
+    if (pathname === '/staging' || pathname.startsWith('/staging/')) {
+      _environment = 'staging';
+      return _environment;
     }
     
-    // Everything else is production
-    return 'production';
+    // Check for preview domain
+    if (window.location.hostname.includes('preview--transync-flow-pro')) {
+      _environment = 'staging';
+      return _environment;
+    }
   }
   
-  return 'production';
+  // Default to production
+  _environment = 'production';
+  return _environment;
 };
 
 export const config = {
@@ -56,17 +70,17 @@ export const getBasePath = () => {
 
 // Helper function to add staging prefix to paths
 export const addStagingPrefix = (path: string) => {
+  // Handle empty path
+  if (!path || path === '/') return isStaging() ? '/staging' : '/';
+  
   const basePath = getBasePath();
   if (!basePath) return path;
   
-  // Remove leading/trailing slashes for consistency
-  const cleanPath = path.replace(/^\/+|\/+$/g, '');
+  // Remove leading slash from path if present
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
   
-  // If path is just '/', return basePath
-  if (!cleanPath) return basePath;
-  
-  // Otherwise, combine basePath and path with a single slash
-  return `${basePath}/${cleanPath}`;
+  // Combine basePath and path with a single slash
+  return `/${basePath}/${cleanPath}`.replace(/\/+/g, '/');
 };
 
 // Helper function to remove staging prefix from paths
