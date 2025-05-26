@@ -19,11 +19,10 @@ export const useQuickbooks = () => {
 
 interface QuickbooksProviderProps {
   children: ReactNode;
+  user: User | null;
 }
 
-export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children }) => {
-  const { user } = useAuth();
-  
+export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children, user }) => {
   // Use custom hooks for different aspects of QuickBooks functionality
   const { 
     isConnected, 
@@ -88,6 +87,3 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     </QuickbooksContext.Provider>
   );
 };
-
-// Import at the end to avoid circular dependencies
-import { useAuth } from "@/contexts/AuthContext";
