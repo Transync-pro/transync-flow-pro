@@ -350,73 +350,49 @@ const QuickbooksCallback = () => {
 
           setSuccess(true); // Update component state
 
-          // The redirectToDashboard function will be called after this block if successful
-          // It handles refreshing connection, clearing other flags, and navigating.
+          // Show toast with company name and user identity info if available
+          let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected!`;
+          
+          // Add user identity info to toast if available
+          if (tokenExchangeData.userIdentity) {
+            const identity = tokenExchangeData.userIdentity;
+            if (identity.first_name && identity.last_name) {
+              toastMessage += ` Connected user: ${identity.first_name} ${identity.last_name}`;
+            }
+          }
+          
+          toast({
+            title: "QuickBooks Connected",
+            description: toastMessage,
+            duration: 2000 // Show for 2 seconds
+          });
 
+          // Update connection status in context
+          try {
+            await refreshConnection(true); // Force refresh
+          } catch (refreshError) {
+            console.error('Error refreshing connection:', refreshError);
+          }
+          
+          // Clear any pending redirects to avoid loops
+          sessionStorage.removeItem('qb_redirect_after_connect');
+          
+          // Mark processing as complete
+          setProcessingComplete(true);
+          
+          // Use the redirect function
+          await redirectToDashboard();
+          
+          // Clean up session storage after a delay
+          setTimeout(() => {
+            sessionStorage.removeItem('qb_connection_success');
+          }, 5000);
         } else {
           // This case should ideally be caught by the tokenError catch block earlier
           // but as a fallback:
           console.error("Token exchange data not found or marked as not successful after try/catch block.");
           throw new Error("Token exchange failed or data was not processed correctly.");
         }
-
-          // All success path operations are done, now redirect.
-          await redirectToDashboard();
-
-        } catch (err) { // This catch is for errors during the token exchange or subsequent flag setting
-          // Log the specific error from this phase
-          console.error('Error during token exchange or post-exchange processing:', err);
-          // Re-throw the error to be caught by the outer catch (err: any) block, 
-          // which handles UI updates (setError, toast) and general error logging.
-          throw err;
-        } // End of inner try...catch for token exchange success/failure processing
-
-        // If we've reached here, it means the inner try...catch completed successfully (either set flags and called redirectToDashboard, or handled a specific error and returned).
-        // The following code for toasts and setProcessingComplete should only run if the main success path was taken
-        // AND redirectToDashboard within the success block hasn't fully navigated away yet or if we want to show messages before full navigation.
-        // However, redirectToDashboard is async and might complete navigation before this runs.
-        // For clarity, success toasts should ideally be triggered right before or within redirectToDashboard on the success path.
-
-        // Assuming tokenExchangeData is available here if successful:
-        if (tokenExchangeData && tokenExchangeData.success) {
-          // Show toast with company name and user identity info if available
-        let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected!`;
-        
-        // Add user identity info to toast if available
-        if (tokenExchangeData.userIdentity) {
-          const identity = tokenExchangeData.userIdentity;
-          if (identity.first_name && identity.last_name) {
-            toastMessage += ` Connected user: ${identity.first_name} ${identity.last_name}`;
-          }
-        }
-        
-        toast({
-          title: "QuickBooks Connected",
-          description: toastMessage,
-          duration: 2000 // Show for 2 seconds
-        });
-
-        // Update connection status in context
-        try {
-          await refreshConnection(true); // Force refresh
-        } catch (refreshError) {
-          console.error('Error refreshing connection:', refreshError);
-        }
-        
-        // Clear any pending redirects to avoid loops
-        sessionStorage.removeItem('qb_redirect_after_connect');
-        
-        // Mark processing as complete
-        setProcessingComplete(true);
-        
-        // Use the redirect function
-        await redirectToDashboard();
-        
-        // Clean up session storage after a delay
-        setTimeout(() => {
-          sessionStorage.removeItem('qb_connection_success');
-        }, 5000);
-      } // End of "if (tokenExchangeData && tokenExchangeData.success)" block
         
       } catch (err: any) {
         logError("QuickBooks callback error", {
