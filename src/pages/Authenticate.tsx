@@ -106,6 +106,14 @@ const Authenticate = () => {
       // Clear any stale connection cache before connecting
       clearConnectionCache(user.id);
       
+      // Clear any disconnection flags to ensure clean authentication
+      sessionStorage.removeItem('qb_disconnected');
+      sessionStorage.removeItem('qb_disconnect_timestamp');
+      sessionStorage.removeItem('qb_redirected_to_authenticate');
+      
+      // Reset the hasCheckedConnection flag to ensure we do a fresh check after authentication
+      hasCheckedConnection.current = false;
+      
       await connect();
       // The connect function will handle the redirection to QuickBooks auth
     } catch (error) {

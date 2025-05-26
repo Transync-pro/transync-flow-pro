@@ -23,7 +23,9 @@ export const useQBActions = (
       'qb_auth_success',
       'qb_connect_user',
       'qb_connection_verified',
-      'qb_connection_timestamp'
+      'qb_connection_timestamp',
+      'qb_disconnected',
+      'qb_disconnect_timestamp'
     ];
     
     qbItems.forEach(key => sessionStorage.removeItem(key));
@@ -97,8 +99,8 @@ export const useQBActions = (
     try {
       console.log("Attempting to disconnect QuickBooks for user:", user.id);
       
-      // Clear any existing redirect flags to prevent loops
-      sessionStorage.removeItem('qb_redirected_to_authenticate');
+      // Use our comprehensive clear function instead of individual removals
+      clearQBSessionData();
       
       // Call the edge function to revoke the token
       const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
@@ -119,21 +121,18 @@ export const useQBActions = (
         // We continue anyway since we want to remove the connection from our database
       }
       
-      // Clear connection cache to ensure future checks reflect the disconnection
-      clearConnectionCache(user.id);
+      // Set a disconnection flag with timestamp to prevent redirect loops
+      sessionStorage.setItem('qb_disconnected', 'true');
+      sessionStorage.setItem('qb_disconnect_timestamp', Date.now().toString());
       
       console.log("QuickBooks disconnection process completed, refreshing connection status...");
       
       // Refresh the connection status
       await refreshConnection();
       
-      // Clear any remaining session storage flags
-      sessionStorage.removeItem('qb_connection_success');
-      sessionStorage.removeItem('qb_connection_company');
-      sessionStorage.removeItem('qb_auth_timestamp');
-      sessionStorage.removeItem('qb_connection_data');
-      sessionStorage.removeItem('qb_connection_in_progress');
-      sessionStorage.removeItem('qb_connecting_user');
+      // Clear the connection verified flag to ensure we don't think we're still connected
+      sessionStorage.removeItem('qb_connection_verified');
+      sessionStorage.removeItem('qb_connection_timestamp');
       
       toast({
         title: "Disconnected",
@@ -144,8 +143,9 @@ export const useQBActions = (
       console.error("Error in disconnect flow:", error);
       handleError(`Failed to disconnect from QuickBooks: ${error.message || "Unknown error"}`, true);
       
-      // Still try to clear the redirect flag even if there was an error
+      // Still try to clear critical flags even if there was an error
       sessionStorage.removeItem('qb_redirected_to_authenticate');
+      sessionStorage.removeItem('qb_connection_verified');
     }
   };
 

@@ -319,8 +319,14 @@ const RouteGuard = ({
         return;
       }
       
+      // Check if we've just disconnected from QuickBooks
+      const disconnected = sessionStorage.getItem('qb_disconnected');
+      const disconnectTimestamp = sessionStorage.getItem('qb_disconnect_timestamp');
+      const isRecentDisconnect = disconnected && disconnectTimestamp && 
+        (Date.now() - parseInt(disconnectTimestamp, 10) < 10000); // 10 second window after disconnect
+      
       // Handle redirection when QuickBooks connection is required but not found
-      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
+      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading && !isRecentDisconnect) {
         const redirected = sessionStorage.getItem('qb_redirected_to_authenticate');
         const lastRedirectTime = sessionStorage.getItem('qb_redirect_timestamp');
         const currentTime = Date.now();
@@ -342,6 +348,14 @@ const RouteGuard = ({
           // This prevents redirect loops completely
           console.log('RouteGuard: Already redirected once, staying on current page to prevent loops');
         }
+      } else if (isRecentDisconnect && !isAuthenticateRoute) {
+        // If we've just disconnected and we're not already on the authenticate page, redirect there
+        console.log('RouteGuard: Recent disconnect detected, redirecting to /authenticate');
+        sessionStorage.removeItem('qb_disconnected'); // Clear the flag to prevent future redirects
+        navigate(addStagingPrefix('/authenticate'), { 
+          replace: true,
+          state: { fromDisconnect: true }
+        });
         redirectingRef.current = false;
         return;
       }
