@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { logError } from "@/utils/errorLogger";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
+import { navigationController } from "@/services/navigation/NavigationController";
 import { motion } from "framer-motion";
 
 const QuickbooksCallback = () => {
@@ -58,45 +59,28 @@ const QuickbooksCallback = () => {
       console.log('Waiting before navigation...');
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Clear all redirect flags to prevent any unwanted redirects
+      // Clear any existing redirect flags
       sessionStorage.removeItem('qb_redirected_to_authenticate');
       
-      // Set flags to indicate a successful authentication and prevent any redirects
+      // Still set basic flags for other components to use if needed
       sessionStorage.setItem('qb_connection_verified', 'true');
-      sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
       sessionStorage.setItem('qb_connection_success', 'true');
-      sessionStorage.setItem('qb_auth_success', 'true');
-      
-      // Set a special flag to completely bypass the RouteGuard redirect logic
-      sessionStorage.setItem('qb_skip_auth_redirect', 'true');
-      
-      // Set auth success timestamp for the 20-second cooldown in RouteGuard
-      sessionStorage.setItem('qb_auth_success', 'true');
-      sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
-      
-      // Log the flags being set
-      console.log('QuickbooksCallback: Set post-authentication flags to prevent redirects for 20 seconds');
       
       // Force the connection state to be true for this user for 10 seconds
-      // This overrides any database checks during the critical navigation period
+      // This helps with database check overrides during the transition
       if (user?.id) {
         forceConnectionState(user.id, true, 10000); // 10 seconds of forced connected state
         console.log(`Forced connection state to true for user ${user.id} after successful authentication`);
       }
       
-      console.log('Navigating to dashboard...');
-      // Navigate to dashboard with a flag to prevent immediate redirection
-      navigate('/dashboard', { 
-        replace: true,
-        state: { 
-          fromQbCallback: true,
-          connectionEstablished: true,
-          timestamp: Date.now()
-        }
-      });
+      console.log('Using NavigationController to handle auth success navigation');
+      // Use the NavigationController to handle navigation after successful auth
+      // This provides centralized navigation control with locking
+      navigationController.handleAuthSuccess(user?.id || '', navigate);
       
-      // Set a flag to prevent duplicate navigation
-      hasProcessedCallback.current = true;
+      // No need to call navigate directly - NavigationController handles it
+      // This prevents competing navigation attempts from other components
+      // timestamp: Date.now()
       
     } catch (error) {
       console.error('Error during navigation:', error);

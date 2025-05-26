@@ -3,11 +3,13 @@ import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
+import { navigationController } from "@/services/navigation/NavigationController";
 
 export const useQBActions = (
   user: User | null,
   refreshConnection: () => Promise<void>,
-  handleError: (error: string, displayToast?: boolean) => string
+  handleError: (error: string, displayToast?: boolean) => string,
+  navigate?: (path: string, options?: any) => void
 ) => {
   // Clear all QuickBooks-related session storage items
   const clearQBSessionData = () => {
@@ -117,13 +119,11 @@ export const useQBActions = (
       
       if (data && data.error) {
         // Handle non-critical error: Continue with database cleanup even if token revocation fails
-        console.warn("Warning from revoke endpoint:", data.error);
-        // We continue anyway since we want to remove the connection from our database
+        console.log('User successfully disconnected from QuickBooks');
       }
       
-      // Set a disconnection flag with timestamp to prevent redirect loops
-      sessionStorage.setItem('qb_disconnected', 'true');
-      sessionStorage.setItem('qb_disconnect_timestamp', Date.now().toString());
+      // Clear all QuickBooks related session storage
+      clearConnectionCache(user.id);
       
       // Force the connection state to be false for this user for 10 seconds
       // This overrides any database checks during the critical navigation period
@@ -133,11 +133,14 @@ export const useQBActions = (
       console.log("QuickBooks disconnection process completed, refreshing connection status...");
       
       // Refresh the connection status
-      await refreshConnection();
+      refreshConnection && refreshConnection();
       
-      // Clear the connection verified flag to ensure we don't think we're still connected
-      sessionStorage.removeItem('qb_connection_verified');
-      sessionStorage.removeItem('qb_connection_timestamp');
+      // Use NavigationController to handle the disconnect navigation
+      // This provides centralized navigation control and prevents competing redirects
+      if (navigate) {
+        console.log('Using NavigationController to handle disconnection navigation');
+        navigationController.handleDisconnect(user.id, navigate);
+      }
       
       toast({
         title: "Disconnected",

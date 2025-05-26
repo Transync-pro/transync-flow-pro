@@ -8,6 +8,7 @@ import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickb
 import { isUserAdmin } from "@/services/blog/users";
 import { toast } from "@/components/ui/use-toast";
 import { addStagingPrefix, removeStagingPrefix } from "@/config/environment";
+import { navigationController } from "@/services/navigation/NavigationController";
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -205,6 +206,22 @@ const RouteGuard = ({
   // Handle redirection based on connection status with staging support
   useEffect(() => {
     const timeoutId = setTimeout(() => {
+      // First check if navigation is locked by the NavigationController
+      // This is the most decisive check that overrides everything else
+      if (navigationController.isNavigationLocked()) {
+        console.log('RouteGuard: Navigation is currently locked by NavigationController, skipping ALL redirect logic');
+        redirectingRef.current = false;
+        return;
+      }
+      
+      // Check for navigation in progress flag set by NavigationController
+      const navigationInProgress = sessionStorage.getItem('qb_navigation_in_progress') === 'true';
+      if (navigationInProgress) {
+        console.log('RouteGuard: Navigation in progress flag detected, skipping ALL redirect logic');
+        redirectingRef.current = false;
+        return;
+      }
+      
       // Get all relevant flags first - check these at the very beginning
       // Get ALL session storage items we'll need throughout this function to avoid redeclarations
       const qbAuthSkipRedirect = sessionStorage.getItem('qb_skip_auth_redirect');
