@@ -28,8 +28,9 @@ const QuickbooksCallback = () => {
 
   const [isNavigating, setIsNavigating] = useState(false);
 
-  const redirectToDashboard = useCallback(async () => {
-    if (isNavigating) {
+  const redirectToDashboard = useCallback(async (options: { force?: boolean } = {}) => {
+    // Skip if already navigating and not forcing
+    if (isNavigating && !options.force) {
       console.log('Navigation already in progress, skipping');
       return;
     }
@@ -67,6 +68,10 @@ const QuickbooksCallback = () => {
           timestamp: Date.now()
         }
       });
+      
+      // Set a flag to prevent duplicate navigation
+      hasProcessedCallback.current = true;
+      
     } catch (error) {
       console.error('Error during navigation:', error);
       // Still navigate to dashboard even if there's an error
