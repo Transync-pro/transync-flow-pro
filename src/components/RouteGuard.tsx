@@ -222,8 +222,23 @@ const RouteGuard = ({
   // Handle redirection based on connection status with staging support
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      // First check if navigation is locked by the NavigationController
-      // This is the most decisive check that overrides everything else
+      // CRITICAL CHECK FIRST: Check for skip flags before ANY other processing
+      // This is our primary defense against redirect loops
+      const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
+      const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+      const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      // Extend cooldown to 30 seconds
+      const isRecentAuth = authTimestamp && 
+        (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second cooldown
+      
+      // If we have a recent successful auth, skip ALL redirect logic immediately
+      if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
+        console.log('RouteGuard: Skip flags detected in redirect logic, bypassing ALL redirects');
+        redirectingRef.current = false;
+        return;
+      }
+      
+      // Only check navigation controller if skip flags aren't active
       if (navigationController.isNavigationLocked()) {
         console.log('RouteGuard: Navigation is currently locked by NavigationController, skipping ALL redirect logic');
         redirectingRef.current = false;
@@ -238,29 +253,15 @@ const RouteGuard = ({
         return;
       }
       
-      // Get all relevant flags first - check these at the very beginning
-      // Get ALL session storage items we'll need throughout this function to avoid redeclarations
-      const qbAuthSkipRedirect = sessionStorage.getItem('qb_skip_auth_redirect');
-      const qbAuthSuccess = sessionStorage.getItem('qb_auth_success');
-      const qbConnectionTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      // Get all other relevant session storage items we need
       const qbConnectionVerified = sessionStorage.getItem('qb_connection_verified');
       const qbDisconnected = sessionStorage.getItem('qb_disconnected');
       const qbDisconnectTimestamp = sessionStorage.getItem('qb_disconnect_timestamp');
       const qbRedirectedToAuth = sessionStorage.getItem('qb_redirected_to_authenticate');
       const qbRedirectTimestamp = sessionStorage.getItem('qb_redirect_timestamp');
       
-      // Parse boolean flags and timestamps
-      const skipAuthRedirect = qbAuthSkipRedirect === 'true';
-      const authSuccess = qbAuthSuccess === 'true';
-      const isRecentAuth = qbConnectionTimestamp && 
-        (Date.now() - parseInt(qbConnectionTimestamp, 10) < 20000); // 20 second cooldown after auth
-      
-      // If we've recently authenticated successfully, skip ALL redirect logic
-      if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
-        console.log('RouteGuard: Recent successful authentication detected, skipping ALL redirect logic');
-        redirectingRef.current = false;
-        return;
-      }
+      // The authentication skip check has already been performed at the top of this function
+      // No need to check again here
       
       if (isChecking || redirectingRef.current || isLoading) return;
       
@@ -268,12 +269,13 @@ const RouteGuard = ({
       const connectionData = sessionStorage.getItem('qb_connection_data');
       const parsedConnection = connectionData ? JSON.parse(connectionData) : null;
       
-      // Use our pre-declared variables for connection verification
-      const hasRecentVerifiedConnection = qbConnectionVerified && qbConnectionTimestamp && 
-        (Date.now() - parseInt(qbConnectionTimestamp, 10) < 60000); // 60 second window
+      // Directly get connection timestamp from session storage since we removed the earlier variable
+      const connectionTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      const hasRecentVerifiedConnection = qbConnectionVerified && connectionTimestamp && 
+        (Date.now() - parseInt(connectionTimestamp, 10) < 60000); // 60 second window
       
-      // Use our pre-declared skipAuthRedirect variable
-      const shouldSkipRedirect = skipAuthRedirect;
+      // Get skip flag from session storage directly since we removed the earlier variable
+      const shouldSkipRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
       
       // Check if we're in the middle of a QuickBooks connection process
       const isInConnectionProcess = 
