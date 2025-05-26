@@ -70,6 +70,13 @@ const QuickbooksCallback = () => {
       // Set a special flag to completely bypass the RouteGuard redirect logic
       sessionStorage.setItem('qb_skip_auth_redirect', 'true');
       
+      // Set auth success timestamp for the 20-second cooldown in RouteGuard
+      sessionStorage.setItem('qb_auth_success', 'true');
+      sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
+      
+      // Log the flags being set
+      console.log('QuickbooksCallback: Set post-authentication flags to prevent redirects for 20 seconds');
+      
       // Force the connection state to be true for this user for 10 seconds
       // This overrides any database checks during the critical navigation period
       if (user?.id) {
