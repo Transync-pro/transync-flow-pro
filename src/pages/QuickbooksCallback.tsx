@@ -1,7 +1,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +9,8 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { logError } from "@/utils/errorLogger";
-import { clearConnectionCache } from "@/services/quickbooksApi/connections";
+import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
+import { navigationController } from "@/services/navigation/NavigationController";
 import { motion } from "framer-motion";
 
 const QuickbooksCallback = () => {
@@ -58,19 +59,28 @@ const QuickbooksCallback = () => {
       console.log('Waiting before navigation...');
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      console.log('Navigating to dashboard...');
-      // Navigate to dashboard with a flag to prevent immediate redirection
-      navigate('/dashboard', { 
-        replace: true,
-        state: { 
-          fromQbCallback: true,
-          connectionEstablished: true,
-          timestamp: Date.now()
-        }
-      });
+      // Clear any existing redirect flags
+      sessionStorage.removeItem('qb_redirected_to_authenticate');
       
-      // Set a flag to prevent duplicate navigation
-      hasProcessedCallback.current = true;
+      // Still set basic flags for other components to use if needed
+      sessionStorage.setItem('qb_connection_verified', 'true');
+      sessionStorage.setItem('qb_connection_success', 'true');
+      
+      // Force the connection state to be true for this user for 10 seconds
+      // This helps with database check overrides during the transition
+      if (user?.id) {
+        forceConnectionState(user.id, true, 10000); // 10 seconds of forced connected state
+        console.log(`Forced connection state to true for user ${user.id} after successful authentication`);
+      }
+      
+      console.log('Using NavigationController to handle auth success navigation');
+      // Use the NavigationController to handle navigation after successful auth
+      // This provides centralized navigation control with locking
+      navigationController.handleAuthSuccess(user?.id || '', navigate);
+      
+      // No need to call navigate directly - NavigationController handles it
+      // This prevents competing navigation attempts from other components
+      // timestamp: Date.now()
       
     } catch (error) {
       console.error('Error during navigation:', error);
@@ -101,6 +111,10 @@ const QuickbooksCallback = () => {
     
     // Mark as processed immediately to prevent duplicate processing
     hasProcessedCallback.current = true;
+    
+    // Clear any stale processed codes to ensure we don't skip token exchange
+    sessionStorage.removeItem('processed_qb_codes');
+    console.log('Cleared processed QB codes to ensure fresh token exchange');
     
     // Set connection in progress flags immediately
     sessionStorage.setItem('qb_connection_in_progress', 'true');
@@ -172,8 +186,37 @@ const QuickbooksCallback = () => {
         
         if (processedCodes.includes(codeFingerprint)) {
           console.log("This code exchange was already processed, skipping to avoid duplicate processing");
-          // Skip to success flow without re-exchanging the code
-          clearConnectionCache();
+          
+          // CRITICAL: Set ALL THREE redirect flags IMMEDIATELY at the beginning
+          // This ensures RouteGuard will see these flags even if it checks during our processing
+          const currentTimestamp = Date.now();
+          console.log(`Setting ALL critical auth flags with timestamp ${currentTimestamp}`);
+          sessionStorage.setItem('qb_skip_auth_redirect', 'true');
+          sessionStorage.setItem('qb_auth_success', 'true');
+          sessionStorage.setItem('qb_connection_timestamp', currentTimestamp.toString());
+          
+          // Log the values we just set to verify
+          console.log('VERIFICATION - Auth flags set:', {
+            skip: sessionStorage.getItem('qb_skip_auth_redirect'),
+            success: sessionStorage.getItem('qb_auth_success'),
+            timestamp: sessionStorage.getItem('qb_connection_timestamp')
+          });
+          
+          // Instead of calling clearConnectionCache which clears ALL QB flags including the ones we set,
+          // selectively clear only the items we need to refresh
+          console.log("Selectively clearing non-critical connection items (already processed path)");
+          const itemsToClear = [
+            'qb_connection_data',
+            'qb_connection_success',
+            'qb_connection_company',
+            'qb_redirected_to_authenticate',
+            'qb_connection_in_progress'
+            // Don't clear processed_qb_codes here since we're using it to detect duplicate processing
+            // IMPORTANT: Don't clear the critical flags we just set above!
+          ];
+          
+          itemsToClear.forEach(key => sessionStorage.removeItem(key));
+
           toast({
             title: "Connected to QuickBooks",
             description: "Your account has been successfully connected to QuickBooks.",
@@ -261,78 +304,95 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        // Store success in session storage with a timestamp
-        const successTimestamp = Date.now();
-        const connectionData = {
-          success: true,
-          timestamp: successTimestamp,
-          companyName: tokenExchangeData.companyName || 'Unknown Company',
-          realmId: tokenExchangeData.realmId
-        };
-        
-        // Store the connection data in session storage
-        sessionStorage.setItem('qb_connection_data', JSON.stringify(connectionData));
-        
-        // Mark as successful in state
-        setSuccess(true);
-        
-        try {
-          // Force update the connection status
-          await refreshConnection(true);
-          console.log('QuickBooks connection refresh completed');
+        // Check if tokenExchangeData is populated (implies success from the try/catch block above)
+        if (tokenExchangeData && tokenExchangeData.success) {
+          console.log("QuickBooks token exchange successful, proceeding to set flags and redirect.");
           
-          // Clear the in-progress flags
-          sessionStorage.removeItem('qb_connecting_user');
-          sessionStorage.removeItem('qb_connection_in_progress');
+          // CRITICAL: Set ALL THREE redirect flags IMMEDIATELY at the beginning
+          // This ensures RouteGuard will see these flags even if it checks during our processing
+          const currentTimestamp = Date.now();
+          console.log(`Setting ALL critical auth flags with timestamp ${currentTimestamp}`);
+          sessionStorage.setItem('qb_skip_auth_redirect', 'true');
+          sessionStorage.setItem('qb_auth_success', 'true');
+          sessionStorage.setItem('qb_connection_timestamp', currentTimestamp.toString());
+          
+          // Log the values we just set to verify
+          console.log('VERIFICATION - Auth flags set:', {
+            skip: sessionStorage.getItem('qb_skip_auth_redirect'),
+            success: sessionStorage.getItem('qb_auth_success'),
+            timestamp: sessionStorage.getItem('qb_connection_timestamp')
+          });
+          
+          // Instead of calling clearConnectionCache which clears ALL QB flags including the ones we set,
+          // selectively clear only the items we need to refresh
+          console.log("Selectively clearing non-critical connection items (new token exchange path)");
+          const itemsToClear = [
+            'qb_connection_data',
+            'qb_connection_success',
+            'qb_connection_company',
+            'qb_redirected_to_authenticate',
+            'qb_connection_in_progress',
+            'processed_qb_codes'
+            // IMPORTANT: Don't clear the critical flags we just set above!
+          ];
+          
+          itemsToClear.forEach(key => sessionStorage.removeItem(key));
+
+          // Store additional connection data (optional, but was previously there)
+          const successTimestamp = Date.now(); // Can re-use the timestamp for consistency
+          const connectionData = {
+            success: true,
+            timestamp: successTimestamp,
+            companyName: tokenExchangeData.companyName || 'Unknown Company',
+            realmId: tokenExchangeData.realmId
+          };
+          sessionStorage.setItem('qb_connection_data', JSON.stringify(connectionData));
+
+          setSuccess(true); // Update component state
+
+          // Show toast with company name and user identity info if available
+          let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected!`;
+          
+          // Add user identity info to toast if available
+          if (tokenExchangeData.userIdentity) {
+            const identity = tokenExchangeData.userIdentity;
+            if (identity.first_name && identity.last_name) {
+              toastMessage += ` Connected user: ${identity.first_name} ${identity.last_name}`;
+            }
+          }
+          
+          toast({
+            title: "QuickBooks Connected",
+            description: toastMessage,
+            duration: 2000 // Show for 2 seconds
+          });
+
+          // Update connection status in context
+          try {
+            await refreshConnection(true); // Force refresh
+          } catch (refreshError) {
+            console.error('Error refreshing connection:', refreshError);
+          }
+          
+          // Clear any pending redirects to avoid loops
+          sessionStorage.removeItem('qb_redirect_after_connect');
+          
+          // Mark processing as complete
+          setProcessingComplete(true);
           
           // Use the redirect function
           await redirectToDashboard();
           
-        } catch (err) {
-          console.error('Error refreshing QuickBooks connection:', err);
-          // Even if refresh fails, we still want to proceed to dashboard
-          sessionStorage.removeItem('qb_connecting_user');
-          sessionStorage.removeItem('qb_connection_in_progress');
-          await redirectToDashboard();
+          // Clean up session storage after a delay
+          setTimeout(() => {
+            sessionStorage.removeItem('qb_connection_success');
+          }, 5000);
+        } else {
+          // This case should ideally be caught by the tokenError catch block earlier
+          // but as a fallback:
+          console.error("Token exchange data not found or marked as not successful after try/catch block.");
+          throw new Error("Token exchange failed or data was not processed correctly.");
         }
-        
-        // Show toast with company name and user identity info if available
-        let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected!`;
-        
-        // Add user identity info to toast if available
-        if (tokenExchangeData.userIdentity) {
-          const identity = tokenExchangeData.userIdentity;
-          if (identity.first_name && identity.last_name) {
-            toastMessage += ` Connected user: ${identity.first_name} ${identity.last_name}`;
-          }
-        }
-        
-        toast({
-          title: "QuickBooks Connected",
-          description: toastMessage,
-          duration: 2000 // Show for 2 seconds
-        });
-
-        // Update connection status in context
-        try {
-          await refreshConnection(true); // Force refresh
-        } catch (refreshError) {
-          console.error('Error refreshing connection:', refreshError);
-        }
-        
-        // Clear any pending redirects to avoid loops
-        sessionStorage.removeItem('qb_redirect_after_connect');
-        
-        // Mark processing as complete
-        setProcessingComplete(true);
-        
-        // Use the redirect function
-        await redirectToDashboard();
-        
-        // Clean up session storage after a delay
-        setTimeout(() => {
-          sessionStorage.removeItem('qb_connection_success');
-        }, 5000);
         
       } catch (err: any) {
         logError("QuickBooks callback error", {

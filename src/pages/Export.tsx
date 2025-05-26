@@ -199,9 +199,22 @@ const Export = () => {
 
   // Handle select/deselect all records on current page
   const toggleSelectAllRecords = () => {
-    // Simple toggle for current page only
-    if (hasSelectedCurrentPage) {
-      // If current page is selected, deselect all
+    // Check if all records are already selected (across all pages)
+    const allSelected = filteredRecords.length > 0 && 
+      filteredRecords.every(record => record.Id && selectedRecords[record.Id]);
+    
+    if (allSelected) {
+      // If all records are selected, deselect everything
+      setSelectedRecords({});
+      setHasSelectedCurrentPage(false);
+      setSelectAllRecords(false);
+      
+      toast({
+        title: "All Records Deselected",
+        description: `Deselected all ${filteredRecords.length} records.`,
+      });
+    } else if (hasSelectedCurrentPage) {
+      // If current page is selected but not all records, deselect all
       setSelectedRecords({});
       setHasSelectedCurrentPage(false);
       setSelectAllRecords(false);

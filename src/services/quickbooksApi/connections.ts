@@ -1,5 +1,4 @@
-
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 
 interface QuickbooksConnection {
   id: string;
@@ -12,23 +11,36 @@ interface QuickbooksConnection {
   company_name?: string;
 }
 
-// Enhanced connection cache with optimized TTL
-const connectionCache = new Map<string, {data: QuickbooksConnection | null, timestamp: number}>();
-const CACHE_TTL = 30000; // Shortened to 30 seconds for better reliability
-const EXISTENCE_CACHE_TTL = 15000; // Shortened to 15 seconds for existence checks
+// No connection cache - always query database directly
 
-// Clear connection cache (use when disconnecting or auth state changes)
+// Clear session storage items related to connection state
 export const clearConnectionCache = (userId?: string): void => {
-  if (userId) {
-    console.log(`Clearing connection cache for user ${userId}`);
-    connectionCache.delete(userId);
-  } else {
-    console.log('Clearing entire connection cache');
-    connectionCache.clear();
-  }
+  console.log('Clearing connection session storage', userId ? `for user ${userId}` : 'for all users');
+  
+  // Clear all session storage items related to connection
+  const qbItems = [
+    'qb_connection_data',
+    'qb_connection_success',
+    'qb_connection_company',
+    'qb_redirected_to_authenticate',
+    'qb_connecting_user',
+    'qb_connection_in_progress',
+    'qb_connection_verified',
+    'qb_connection_timestamp',
+    'qb_auth_timestamp',
+    'processed_qb_codes',      // Added this item which was missing
+    'qb_auth_success',         // Added this item which was missing
+    'qb_connect_user',         // Added this item which was missing
+    'qb_redirect_after_connect', // Added this item which was missing
+    'qb_redirect_timestamp'     // Added to prevent redirect loops
+  ];
+  
+  qbItems.forEach(key => sessionStorage.removeItem(key));
+  
+  console.log('Connection session storage cleared', userId ? `for user ${userId}` : 'for all users');
 };
 
-// Get the current auth user's QuickBooks connection with enhanced caching
+// Get the current auth user's QuickBooks connection - always query database directly
 export const getQBConnection = async (): Promise<QuickbooksConnection | null> => {
   try {
     const { data: userData } = await supabase.auth.getUser();
@@ -38,28 +50,14 @@ export const getQBConnection = async (): Promise<QuickbooksConnection | null> =>
     }
     
     const userId = userData.user.id;
-    const now = Date.now();
-    
-    // Check cache first
-    const cached = connectionCache.get(userId);
-    if (cached && (now - cached.timestamp < CACHE_TTL)) {
-      console.log('Using cached connection data');
-      return cached.data;
-    }
     
     console.log(`Fetching QB connection for user ${userId} from database`);
-    // Not in cache or expired, fetch from DB
+    // Always fetch fresh data from DB
     const { data, error } = await supabase
       .from('quickbooks_connections')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
-    
-    // Update cache
-    connectionCache.set(userId, {
-      data: data as QuickbooksConnection || null,
-      timestamp: now
-    });
     
     if (error) {
       console.error("Error fetching QuickBooks connection:", error);
@@ -105,23 +103,47 @@ export async function updateConnectionTokens(
   }
 }
 
-// Optimized and improved connection check for RouteGuard
+// Temporary forced connection state for transitions (authentication/disconnection)
+let forcedConnectionState: { userId: string; connected: boolean; expireTime: number } | null = null;
+
+// Force connection state for a limited time (used during authentication and disconnection)
+export const forceConnectionState = (userId: string, connected: boolean, durationMs: number = 5000): void => {
+  forcedConnectionState = {
+    userId,
+    connected,
+    expireTime: Date.now() + durationMs
+  };
+  console.log(`Forced QB connection state for user ${userId} to ${connected ? 'connected' : 'disconnected'} for ${durationMs}ms`);
+};
+
+// Clear forced connection state
+export const clearForcedConnectionState = (): void => {
+  forcedConnectionState = null;
+  console.log('Cleared forced QB connection state');
+};
+
+// Direct connection check for RouteGuard - no caching but respects forced state
 export const checkQBConnectionExists = async (userId: string): Promise<boolean> => {
   if (!userId) {
     console.log('No user ID provided for connection check');
     return false;
   }
   
+  // Check if we have a forced connection state that hasn't expired
+  if (forcedConnectionState && 
+      forcedConnectionState.userId === userId && 
+      forcedConnectionState.expireTime > Date.now()) {
+    console.log(`Using forced connection state for user ${userId}: ${forcedConnectionState.connected}`);
+    return forcedConnectionState.connected;
+  }
+  
+  // If forced state expired, clear it
+  if (forcedConnectionState && forcedConnectionState.expireTime <= Date.now()) {
+    console.log('Forced connection state expired, clearing');
+    forcedConnectionState = null;
+  }
+  
   try {
-    // Check cache first with shorter TTL for existence checks
-    const now = Date.now();
-    const cached = connectionCache.get(userId);
-    
-    if (cached && (now - cached.timestamp < EXISTENCE_CACHE_TTL)) {
-      console.log('Using cached connection existence data');
-      return cached.data !== null;
-    }
-    
     console.log(`Checking QB connection existence for user ${userId} directly in database`);
     // Use a direct count query that's faster and more reliable
     const { count, error } = await supabase
@@ -134,15 +156,9 @@ export const checkQBConnectionExists = async (userId: string): Promise<boolean> 
       return false;
     }
     
-    // Store result
+    // Return result directly without caching
     const exists = (count || 0) > 0;
     console.log(`QuickBooks connection exists for user ${userId}: ${exists}`);
-    
-    // Update cache with the result
-    connectionCache.set(userId, {
-      data: exists ? {} as QuickbooksConnection : null, // Placeholder
-      timestamp: now
-    });
     
     return exists;
   } catch (error) {

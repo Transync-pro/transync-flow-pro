@@ -1,21 +1,24 @@
 
-import { ReactNode } from "react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import React from "react";
+import Navbar from "./Navbar";
+import Footer from "./Footer";
+import EnvironmentDebugger from "./EnvironmentDebugger";
 
 interface PageLayoutProps {
-  children: ReactNode;
-  className?: string;
+  children: React.ReactNode;
+  showNavbar?: boolean;
+  showFooter?: boolean;
 }
 
-const PageLayout = ({ children, className = "" }: PageLayoutProps) => {
+const PageLayout = ({ children, showNavbar = true, showFooter = true }: PageLayoutProps) => {
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className={`flex-1 ${className}`}>
+      {showNavbar && <Navbar />}
+      <main className="flex-1">
         {children}
       </main>
-      <Footer />
+      {showFooter && <Footer />}
+      {process.env.NODE_ENV !== 'production' && <EnvironmentDebugger />}
     </div>
   );
 };

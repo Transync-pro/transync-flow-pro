@@ -53,6 +53,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Handle auth events with staging-aware navigation
         if (event === 'SIGNED_IN') {
+          // Clear connection cache on login to ensure fresh data
+          clearConnectionCache();
+          console.log('Connection cache cleared on login');
+          
+          // If there's a user ID, check for QB connection in the background
+          if (currentUserId) {
+            // We'll check this asynchronously without waiting
+            import('@/services/quickbooksApi/connections')
+              .then(({ checkQBConnectionExists }) => {
+                checkQBConnectionExists(currentUserId)
+                  .then(exists => {
+                    console.log(`QB connection check during login: ${exists ? 'connected' : 'not connected'}`);
+                    if (exists) {
+                      // Set a flag that we can use in RouteGuard to prevent unnecessary redirects
+                      sessionStorage.setItem('qb_connection_verified', 'true');
+                      sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
+                    }
+                  })
+                  .catch(err => console.error('Error checking QB connection during login:', err));
+              })
+              .catch(err => console.error('Error importing checkQBConnectionExists:', err));
+          }
+          
           toast({
             title: "Signed in successfully",
             description: "Welcome back!"
@@ -62,7 +85,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             navigate(addStagingPrefix('/dashboard'));
           }, 100);
         } else if (event === 'SIGNED_OUT') {
+          // Thoroughly clear all connection cache and session storage on logout
           clearConnectionCache();
+          console.log('Connection cache cleared on logout');
+          
+          // Clear any additional session storage items related to QB
+          sessionStorage.removeItem('qb_connection_verified');
+          sessionStorage.removeItem('qb_connection_timestamp');
+          sessionStorage.removeItem('qb_auth_timestamp');
+          
           navigate(addStagingPrefix('/login'));
         } else if (event === 'USER_UPDATED') {
           const emailVerified = currentSession?.user?.email_confirmed_at;

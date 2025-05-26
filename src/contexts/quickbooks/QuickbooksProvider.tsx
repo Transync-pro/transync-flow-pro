@@ -37,13 +37,17 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   
   const { refreshToken, getAccessToken } = useQBTokenManagement(
     connection,
-    refreshConnection,
+    async (force?: boolean, silent?: boolean) => {
+      await refreshConnection(force, silent);
+    },
     handleError
   );
   
   const { connect, disconnect } = useQBActions(
     user,
-    refreshConnection,
+    async (force?: boolean, silent?: boolean) => {
+      await refreshConnection(force, silent);
+    },
     handleError
   );
 
@@ -53,7 +57,9 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   };
 
   // Expose the checkConnectionStatus function from useQBConnectionStatus
-  const checkConnection = refreshConnection;
+  const checkConnection = async (force?: boolean, silent?: boolean): Promise<void> => {
+    await refreshConnection(force, silent);
+  };
 
   const value: QuickbooksContextType = {
     isConnected,
@@ -67,7 +73,9 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     getAccessToken,
     getRealmId,
     clearError,
-    refreshConnection,
+    refreshConnection: async (force?: boolean, silent?: boolean) => {
+      await refreshConnection(force, silent);
+    },
     checkConnection
   };
 

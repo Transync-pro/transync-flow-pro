@@ -1,14 +1,39 @@
 
 import { User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
-import { clearConnectionCache } from "@/services/quickbooksApi/connections";
+import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
+import { navigationController } from "@/services/navigation/NavigationController";
 
 export const useQBActions = (
   user: User | null,
   refreshConnection: () => Promise<void>,
-  handleError: (error: string, displayToast?: boolean) => string
+  handleError: (error: string, displayToast?: boolean) => string,
+  navigate?: (path: string, options?: any) => void
 ) => {
+  // Clear all QuickBooks-related session storage items
+  const clearQBSessionData = () => {
+    const qbItems = [
+      'qb_connection_data',
+      'qb_connection_success',
+      'qb_connection_company',
+      'qb_redirected_to_authenticate',
+      'qb_connecting_user',
+      'qb_connection_in_progress',
+      'qb_auth_timestamp',
+      'processed_qb_codes',
+      'qb_auth_success',
+      'qb_connect_user',
+      'qb_connection_verified',
+      'qb_connection_timestamp',
+      'qb_disconnected',
+      'qb_disconnect_timestamp'
+    ];
+    
+    qbItems.forEach(key => sessionStorage.removeItem(key));
+    console.log('Cleared all QB session storage items before starting authentication');
+  };
+
   // Start OAuth flow to connect to QuickBooks
   const connect = async () => {
     if (!user) {
@@ -21,6 +46,9 @@ export const useQBActions = (
     }
 
     try {
+      // Clear all QuickBooks session data before starting a new authentication flow
+      clearQBSessionData();
+      
       // Store the user ID in session storage in case we lose auth state during the OAuth flow
       sessionStorage.setItem("qb_connecting_user", user.id);
       
@@ -73,8 +101,8 @@ export const useQBActions = (
     try {
       console.log("Attempting to disconnect QuickBooks for user:", user.id);
       
-      // Clear any existing redirect flags to prevent loops
-      sessionStorage.removeItem('qb_redirected_to_authenticate');
+      // Use our comprehensive clear function instead of individual removals
+      clearQBSessionData();
       
       // Call the edge function to revoke the token
       const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
@@ -91,25 +119,28 @@ export const useQBActions = (
       
       if (data && data.error) {
         // Handle non-critical error: Continue with database cleanup even if token revocation fails
-        console.warn("Warning from revoke endpoint:", data.error);
-        // We continue anyway since we want to remove the connection from our database
+        console.log('User successfully disconnected from QuickBooks');
       }
       
-      // Clear connection cache to ensure future checks reflect the disconnection
+      // Clear all QuickBooks related session storage
       clearConnectionCache(user.id);
+      
+      // Force the connection state to be false for this user for 10 seconds
+      // This overrides any database checks during the critical navigation period
+      forceConnectionState(user.id, false, 10000); // 10 seconds of forced disconnected state
+      console.log(`Forced connection state to false for user ${user.id} after disconnection`);
       
       console.log("QuickBooks disconnection process completed, refreshing connection status...");
       
       // Refresh the connection status
-      await refreshConnection();
+      refreshConnection && refreshConnection();
       
-      // Clear any remaining session storage flags
-      sessionStorage.removeItem('qb_connection_success');
-      sessionStorage.removeItem('qb_connection_company');
-      sessionStorage.removeItem('qb_auth_timestamp');
-      sessionStorage.removeItem('qb_connection_data');
-      sessionStorage.removeItem('qb_connection_in_progress');
-      sessionStorage.removeItem('qb_connecting_user');
+      // Use NavigationController to handle the disconnect navigation
+      // This provides centralized navigation control and prevents competing redirects
+      if (navigate) {
+        console.log('Using NavigationController to handle disconnection navigation');
+        navigationController.handleDisconnect(user.id, navigate);
+      }
       
       toast({
         title: "Disconnected",
@@ -120,8 +151,9 @@ export const useQBActions = (
       console.error("Error in disconnect flow:", error);
       handleError(`Failed to disconnect from QuickBooks: ${error.message || "Unknown error"}`, true);
       
-      // Still try to clear the redirect flag even if there was an error
+      // Still try to clear critical flags even if there was an error
       sessionStorage.removeItem('qb_redirected_to_authenticate');
+      sessionStorage.removeItem('qb_connection_verified');
     }
   };
 

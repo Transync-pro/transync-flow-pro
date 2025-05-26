@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +9,7 @@ import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickb
 import { isUserAdmin } from "@/services/blog/users";
 import { toast } from "@/components/ui/use-toast";
 import { addStagingPrefix, removeStagingPrefix } from "@/config/environment";
+import { navigationController } from "@/services/navigation/NavigationController";
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -160,7 +162,27 @@ const RouteGuard = ({
   
   // Check access on mount and when dependencies change
   useEffect(() => {
+    console.log("[RouteGuard] useEffect triggered. Pathname:", location.pathname);
+    console.log("[RouteGuard] Auth state: isAuthLoading:", isAuthLoading);
+    console.log("[RouteGuard] User data:", user);
+    
     const checkAccess = async () => {
+      // CRITICAL: Check for skip flags BEFORE any other operations
+      // These flags come from successful QuickBooks authentication
+      const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
+      const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+      const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      const isRecentAuth = authTimestamp && 
+        (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second cooldown
+      
+      // If we have a recent successful auth, skip ALL checks and render children
+      if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
+        console.log('RouteGuard: Skip flags detected, bypassing ALL connection checks');
+        setIsChecking(false);
+        connectionCheckedRef.current = true;
+        return;
+      }
+      
       if (isAuthLoading) return;
       
       if (isQbCallbackRoute) {
@@ -202,14 +224,82 @@ const RouteGuard = ({
     roleChecked
   ]);
 
+  // Check auth and redirect helper function
+  const checkAuthAndRedirect = useCallback(() => {
+    if (!user && requiresAuth) {
+      console.log('RouteGuard: No user found, redirecting to login');
+      navigate(addStagingPrefix('/login'), { replace: true });
+      return true; // Return true to indicate redirect occurred
+    }
+    return false; // Return false to indicate no redirect
+  }, [user, requiresAuth, navigate]);
+
   // Handle redirection based on connection status with staging support
   useEffect(() => {
+    console.log("[RouteGuard] useEffect triggered. Pathname:", location.pathname);
+    console.log("[RouteGuard] Auth state: isAuthLoading:", isAuthLoading);
+    console.log("[RouteGuard] User data:", user);
+    
     const timeoutId = setTimeout(() => {
+      // CRITICAL CHECK FIRST: Check for skip flags before ANY other processing
+      // This is our primary defense against redirect loops
+      const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
+      const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+      const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      // Extend cooldown to 30 seconds
+      const isRecentAuth = authTimestamp && 
+        (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second cooldown
+        console.log('[RouteGuard DEBUG] Timeout - Initial flags: skipAuthRedirect:', skipAuthRedirect, 'authSuccess:', authSuccess, 'authTimestamp:', authTimestamp, 'isRecentAuth:', isRecentAuth);
+      
+      // If we have a recent successful auth, skip ALL redirect logic immediately
+      if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
+        console.log('RouteGuard: Skip flags detected in redirect logic, bypassing ALL redirects');
+        redirectingRef.current = false;
+        return;
+      }
+      
+      // Only check navigation controller if skip flags aren't active
+      if (navigationController.isNavigationLocked()) {
+        console.log('RouteGuard: Navigation is currently locked by NavigationController, skipping ALL redirect logic');
+        redirectingRef.current = false;
+        return;
+      }
+      
+      // Check for navigation in progress flag set by NavigationController
+      const navigationInProgress = sessionStorage.getItem('qb_navigation_in_progress') === 'true';
+      console.log('[RouteGuard DEBUG] Timeout - Navigation in progress flag:', navigationInProgress);
+      if (navigationInProgress) {
+        console.log('RouteGuard: Navigation in progress flag detected, skipping ALL redirect logic');
+        redirectingRef.current = false;
+        return;
+      }
+      
+      // Get all other relevant session storage items we need
+      const qbConnectionVerified = sessionStorage.getItem('qb_connection_verified');
+      const qbDisconnected = sessionStorage.getItem('qb_disconnected');
+      const qbDisconnectTimestamp = sessionStorage.getItem('qb_disconnect_timestamp');
+      const qbRedirectedToAuth = sessionStorage.getItem('qb_redirected_to_authenticate');
+      const qbRedirectTimestamp = sessionStorage.getItem('qb_redirect_timestamp');
+      console.log('[RouteGuard DEBUG] Timeout - QB session items: qbConnectionVerified:', qbConnectionVerified, 'qbDisconnected:', qbDisconnected, 'qbDisconnectTimestamp:', qbDisconnectTimestamp, 'qbRedirectedToAuth:', qbRedirectedToAuth, 'qbRedirectTimestamp:', qbRedirectTimestamp);
+      
+      // The authentication skip check has already been performed at the top of this function
+      // No need to check again here
+      
+      console.log('[RouteGuard DEBUG] Timeout - Exiting early check: isChecking:', isChecking, 'redirectingRef.current:', redirectingRef.current, 'isLoading:', isLoading);
       if (isChecking || redirectingRef.current || isLoading) return;
       
       // Check for connection data in session storage
       const connectionData = sessionStorage.getItem('qb_connection_data');
       const parsedConnection = connectionData ? JSON.parse(connectionData) : null;
+      
+      // Directly get connection timestamp from session storage since we removed the earlier variable
+      const connectionTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      console.log('[RouteGuard DEBUG] Timeout - Connection data: connectionData exists:', !!connectionData, 'parsedConnection:', parsedConnection, 'connectionTimestamp:', connectionTimestamp);
+      const hasRecentVerifiedConnection = qbConnectionVerified && connectionTimestamp && 
+        (Date.now() - parseInt(connectionTimestamp, 10) < 60000); // 60 second window
+      
+      // Get skip flag from session storage directly since we removed the earlier variable
+      const shouldSkipRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
       
       // Check if we're in the middle of a QuickBooks connection process
       const isInConnectionProcess = 
@@ -219,6 +309,7 @@ const RouteGuard = ({
         location.state?.connectionEstablished === true ||
         sessionStorage.getItem('qb_connecting_user') ||
         sessionStorage.getItem('qb_connection_in_progress') ||
+        hasRecentVerifiedConnection ||
         (parsedConnection && (Date.now() - parsedConnection.timestamp) < 30000); // 30 second window for connection
       
       if (isInConnectionProcess) {
@@ -266,16 +357,28 @@ const RouteGuard = ({
         if (currentTime - connectionTime < maxAge) {
           console.log('RouteGuard: Detected recent QuickBooks connection from session');
           
-          sessionStorage.removeItem('qb_connection_success');
-          sessionStorage.removeItem('qb_connection_company');
+          // Assume connected for a better UX - skip the connection check
+          setHasQbConnection(true);
           
-          refreshConnection(true).then(() => {
-            console.log('RouteGuard: Connection refresh completed, redirecting to dashboard');
-            navigate(addStagingPrefix('/dashboard'), { replace: true });
+          // Don't remove success flag immediately - keep it for the duration of this session
+          // This ensures we don't redirect to authenticate during this session
+          
+          // Refresh connection in the background without waiting
+          refreshConnection(true, true).then(() => {
+            console.log('RouteGuard: Connection refresh completed in background');
+            // Only clear flags after successful refresh
+            sessionStorage.removeItem('qb_connection_success');
+            sessionStorage.removeItem('qb_connection_company');
           }).catch(err => {
-            console.error('RouteGuard: Error refreshing connection:', err);
-            navigate(addStagingPrefix('/dashboard'), { replace: true });
+            console.error('RouteGuard: Error refreshing connection in background:', err);
           });
+          
+          // If we're not already on the dashboard, redirect there
+          if (location.pathname !== addStagingPrefix('/dashboard')) {
+            navigate(addStagingPrefix('/dashboard'), { replace: true });
+          }
+          
+          redirectingRef.current = false;
           return;
         } else {
           console.log('RouteGuard: Stale connection success detected, cleaning up');
@@ -300,30 +403,53 @@ const RouteGuard = ({
         return;
       }
       
-      // Handle redirection when QuickBooks connection is required but not found
-      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
-        const redirected = sessionStorage.getItem('qb_redirected_to_authenticate');
-        if (!redirected) {
-          console.log('RouteGuard: No QuickBooks connection found, redirecting to /authenticate');
-          sessionStorage.setItem('qb_redirected_to_authenticate', 'true');
-          navigate(addStagingPrefix('/authenticate'), { 
-            replace: true,
-            state: { fromDisconnect: true } // Mark that this redirect is due to disconnection
-          });
-        } else {
-          // If we've already been redirected once, clear the flag to prevent loops
-          sessionStorage.removeItem('qb_redirected_to_authenticate');
-        }
+      // Use our pre-declared variables for disconnect checks
+      const isRecentDisconnect = qbDisconnected && qbDisconnectTimestamp && 
+        (Date.now() - parseInt(qbDisconnectTimestamp, 10) < 10000); // 10 second window after disconnect
+      
+      // Skip all redirect logic if the skip flag is set (post-authentication)
+      if (shouldSkipRedirect && isDashboardRoute) {
+        console.log('RouteGuard: Skipping redirect logic due to qb_skip_auth_redirect flag');
+        // Clear the flag after using it to prevent it from affecting future navigation
+        setTimeout(() => {
+          sessionStorage.removeItem('qb_skip_auth_redirect');
+          console.log('RouteGuard: Cleared qb_skip_auth_redirect flag');
+        }, 2000); // Clear after 2 seconds to ensure it's used for the initial navigation
         redirectingRef.current = false;
         return;
       }
       
-      // Clear redirect flag when we have an active connection
-      if (hasQbConnection || isConnected) {
-        sessionStorage.removeItem('qb_redirected_to_authenticate');
+      // Handle redirection when QuickBooks connection is required but not found
+      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading && !isRecentDisconnect && !shouldSkipRedirect) {
+        const redirected = sessionStorage.getItem('qb_redirected_to_authenticate');
+        const lastRedirectTime = sessionStorage.getItem('qb_redirect_timestamp');
+        const currentTime = Date.now();
+        const redirectThreshold = 5000; // 5 seconds between redirects to prevent loops
+        
+        // Only redirect if we haven't redirected recently (prevents rapid cycling)
+        const canRedirect = !lastRedirectTime || (currentTime - parseInt(lastRedirectTime, 10)) > redirectThreshold;
+        
+        if (!redirected && canRedirect) {
+          console.log('RouteGuard: No QuickBooks connection found, redirecting to /authenticate');
+          sessionStorage.setItem('qb_redirected_to_authenticate', 'true');
+          sessionStorage.setItem('qb_redirect_timestamp', currentTime.toString());
+          navigate(addStagingPrefix('/authenticate'), { 
+            replace: true,
+            state: { fromDisconnect: true } // Mark that this redirect is due to disconnection
+          });
+        } else if (redirected) {
+        }
+        
+        // Clear redirect flag when we have an active connection
+        if (hasQbConnection || isConnected) {
+          sessionStorage.removeItem('qb_redirected_to_authenticate');
+        }
+        
+        redirectingRef.current = false;
       }
       
-      redirectingRef.current = false;
+      // Call the checkAuthAndRedirect function
+      checkAuthAndRedirect();
     }, 200);
     
     return () => clearTimeout(timeoutId);
@@ -338,7 +464,8 @@ const RouteGuard = ({
     isQBLoading,
     isLoading,
     navigate,
-    refreshConnection
+    refreshConnection,
+    checkAuthAndRedirect
   ]);
 
   // Special admin route check

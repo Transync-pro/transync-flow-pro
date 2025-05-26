@@ -6,7 +6,7 @@ import { CheckCircle, Loader2 } from "lucide-react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickbooksApi/connections";
+import { checkQBConnectionExists, clearConnectionCache, forceConnectionState, clearForcedConnectionState } from "@/services/quickbooksApi/connections";
 import { toast } from "@/components/ui/use-toast";
 import PageLayout from "@/components/PageLayout";
 
@@ -105,6 +105,22 @@ const Authenticate = () => {
       
       // Clear any stale connection cache before connecting
       clearConnectionCache(user.id);
+      
+      // Clear any disconnection flags to ensure clean authentication
+      sessionStorage.removeItem('qb_disconnected');
+      sessionStorage.removeItem('qb_disconnect_timestamp');
+      sessionStorage.removeItem('qb_redirected_to_authenticate');
+      
+      // Reset the hasCheckedConnection flag to ensure we do a fresh check after authentication
+      hasCheckedConnection.current = false;
+      
+      // Clear any existing forced connection state
+      clearForcedConnectionState();
+      
+      // During the OAuth flow (which might take some time), we don't want the system
+      // to be constantly checking the database for a connection that doesn't exist yet
+      // Setting a neutral state that doesn't force true or false but just clears existing flags
+      console.log("Cleared forced connection state before starting authentication");
       
       await connect();
       // The connect function will handle the redirection to QuickBooks auth
