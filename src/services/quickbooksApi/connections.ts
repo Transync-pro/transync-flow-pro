@@ -19,15 +19,23 @@ export const clearConnectionCache = (userId?: string): void => {
   console.log('Clearing connection session storage', userId ? `for user ${userId}` : 'for all users');
   
   // Clear all session storage items related to connection
-  sessionStorage.removeItem('qb_connection_data');
-  sessionStorage.removeItem('qb_connection_success');
-  sessionStorage.removeItem('qb_connection_company');
-  sessionStorage.removeItem('qb_redirected_to_authenticate');
-  sessionStorage.removeItem('qb_connecting_user');
-  sessionStorage.removeItem('qb_connection_in_progress');
-  sessionStorage.removeItem('qb_connection_verified');
-  sessionStorage.removeItem('qb_connection_timestamp');
-  sessionStorage.removeItem('qb_auth_timestamp');
+  const qbItems = [
+    'qb_connection_data',
+    'qb_connection_success',
+    'qb_connection_company',
+    'qb_redirected_to_authenticate',
+    'qb_connecting_user',
+    'qb_connection_in_progress',
+    'qb_connection_verified',
+    'qb_connection_timestamp',
+    'qb_auth_timestamp',
+    'processed_qb_codes',      // Added this item which was missing
+    'qb_auth_success',         // Added this item which was missing
+    'qb_connect_user',         // Added this item which was missing
+    'qb_redirect_after_connect' // Added this item which was missing
+  ];
+  
+  qbItems.forEach(key => sessionStorage.removeItem(key));
   
   console.log('Connection session storage cleared', userId ? `for user ${userId}` : 'for all users');
 };
