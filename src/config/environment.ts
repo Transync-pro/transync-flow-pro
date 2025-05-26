@@ -1,17 +1,19 @@
+
 // Environment configuration for staging and production
 export type Environment = 'development' | 'staging' | 'production';
 
 export const getEnvironment = (): Environment => {
   // Check for explicit environment variable first
   if (typeof window !== 'undefined') {
-    // Check for /staging in the path
-    if (window.location.pathname.startsWith('/staging')) {
+    const hostname = window.location.hostname;
+    
+    // Check for staging domain patterns
+    if (hostname.includes('staging') || hostname.includes('stage')) {
       return 'staging';
     }
     
     // Check for localhost/development
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('stage')) {
       return 'development';
     }
     
