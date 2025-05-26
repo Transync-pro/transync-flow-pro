@@ -188,6 +188,10 @@ const QuickbooksCallback = () => {
           console.log("This code exchange was already processed, skipping to avoid duplicate processing");
           // Skip to success flow without re-exchanging the code
           clearConnectionCache();
+          // Set flags AFTER clearing, as this path implies a previous success
+          sessionStorage.setItem('qb_auth_success', 'true');
+          sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
+
           toast({
             title: "Connected to QuickBooks",
             description: "Your account has been successfully connected to QuickBooks.",
@@ -275,51 +279,57 @@ const QuickbooksCallback = () => {
           return;
         }
 
-        // Store success in session storage with a timestamp
-        const successTimestamp = Date.now();
-        const connectionData = {
-          success: true,
-          timestamp: successTimestamp,
-          companyName: tokenExchangeData.companyName || 'Unknown Company',
-          realmId: tokenExchangeData.realmId
-        };
-        
-        // Store the connection data in session storage
-        sessionStorage.setItem('qb_connection_data', JSON.stringify(connectionData));
-        
-        // Mark as successful in state
-        setSuccess(true);
-        
-        try {
-          // Clear connection cache to ensure fresh data
-          clearConnectionCache(userId);
-          console.log('Connection cache cleared after successful QB authentication');
+        // Check if tokenExchangeData is populated (implies success from the try/catch block above)
+        if (tokenExchangeData && tokenExchangeData.success) {
+          console.log("QuickBooks token exchange successful, proceeding to set flags and redirect.");
+          clearConnectionCache(); // Clear old/stale connection data first
           
-          // Set authentication success flags with timestamp
-          sessionStorage.setItem('qb_auth_timestamp', successTimestamp.toString());
-          sessionStorage.setItem('qb_connection_success', 'true');
-          sessionStorage.setItem('qb_connection_company', tokenExchangeData.companyName || 'Unknown Company');
-          
-          // Force update the connection status
-          await refreshConnection(true);
-          console.log('QuickBooks connection refresh completed');
-          
-          // Clear the in-progress flags
-          sessionStorage.removeItem('qb_connecting_user');
-          sessionStorage.removeItem('qb_connection_in_progress');
-          
-          // Use the redirect function with connection established state
-          await redirectToDashboard();
-          
-        } catch (err) {
-          console.error('Error refreshing QuickBooks connection:', err);
-          // Even if refresh fails, we still want to proceed to dashboard
-          sessionStorage.removeItem('qb_connecting_user');
-          sessionStorage.removeItem('qb_connection_in_progress');
-          await redirectToDashboard();
+          // Set fresh success flags AFTER clearing
+          sessionStorage.setItem('qb_auth_success', 'true');
+          sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
+
+          // Store additional connection data (optional, but was previously there)
+          const successTimestamp = Date.now(); // Can re-use the timestamp for consistency
+          const connectionData = {
+            success: true,
+            timestamp: successTimestamp,
+            companyName: tokenExchangeData.companyName || 'Unknown Company',
+            realmId: tokenExchangeData.realmId
+          };
+          sessionStorage.setItem('qb_connection_data', JSON.stringify(connectionData));
+
+          setSuccess(true); // Update component state
+
+          // The redirectToDashboard function will be called after this block if successful
+          // It handles refreshing connection, clearing other flags, and navigating.
+
+        } else {
+          // This case should ideally be caught by the tokenError catch block earlier
+          // but as a fallback:
+          console.error("Token exchange data not found or marked as not successful after try/catch block.");
+          throw new Error("Token exchange failed or data was not processed correctly.");
         }
-        
-        // Show toast with company name and user identity info if available
+
+          // All success path operations are done, now redirect.
+          await redirectToDashboard();
+
+        } catch (err) { // This catch is for errors during the token exchange or subsequent flag setting
+          // Log the specific error from this phase
+          console.error('Error during token exchange or post-exchange processing:', err);
+          // Re-throw the error to be caught by the outer catch (err: any) block, 
+          // which handles UI updates (setError, toast) and general error logging.
+          throw err;
+        } // End of inner try...catch for token exchange success/failure processing
+
+        // If we've reached here, it means the inner try...catch completed successfully (either set flags and called redirectToDashboard, or handled a specific error and returned).
+        // The following code for toasts and setProcessingComplete should only run if the main success path was taken
+        // AND redirectToDashboard within the success block hasn't fully navigated away yet or if we want to show messages before full navigation.
+        // However, redirectToDashboard is async and might complete navigation before this runs.
+        // For clarity, success toasts should ideally be triggered right before or within redirectToDashboard on the success path.
+
+        // Assuming tokenExchangeData is available here if successful:
+        if (tokenExchangeData && tokenExchangeData.success) {
+          // Show toast with company name and user identity info if available
         let toastMessage = `Your QuickBooks account (${tokenExchangeData.companyName || 'Unknown Company'}) has been connected!`;
         
         // Add user identity info to toast if available
@@ -356,6 +366,7 @@ const QuickbooksCallback = () => {
         setTimeout(() => {
           sessionStorage.removeItem('qb_connection_success');
         }, 5000);
+      } // End of "if (tokenExchangeData && tokenExchangeData.success)" block
         
       } catch (err: any) {
         logError("QuickBooks callback error", {
