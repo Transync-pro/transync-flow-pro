@@ -1,4 +1,3 @@
-
 // Environment configuration for staging and production only
 export type Environment = 'staging' | 'production';
 
@@ -7,13 +6,15 @@ export const getEnvironment = (): Environment => {
   if (typeof window !== 'undefined') {
     const pathname = window.location.pathname;
     
-    // Check if URL starts with /staging
-    if (pathname.startsWith('/staging')) {
+    // Check if URL is exactly /staging or starts with /staging/
+    if (pathname === '/staging' || pathname.startsWith('/staging/')) {
       return 'staging';
     }
     
-    // Everything else is production
-    return 'production';
+    // Check for preview domain
+    if (window.location.hostname.includes('preview--transync-flow-pro')) {
+      return 'staging';
+    }
   }
   
   return 'production';
@@ -56,17 +57,18 @@ export const getBasePath = () => {
 
 // Helper function to add staging prefix to paths
 export const addStagingPrefix = (path: string) => {
-  const basePath = getBasePath();
-  if (!basePath) return path;
+  // If not in staging, return the path as is
+  if (!isStaging()) return path;
   
-  // Remove leading/trailing slashes for consistency
-  const cleanPath = path.replace(/^\/+|\/+$/g, '');
+  // Handle empty path or root
+  if (!path || path === '/') return '/staging';
   
-  // If path is just '/', return basePath
-  if (!cleanPath) return basePath;
+  // Remove any existing /staging prefix to prevent duplication
+  const cleanPath = path.startsWith('/staging/') ? path.substring(8) : 
+                   path.startsWith('staging/') ? path.substring(7) :
+                   path.startsWith('/') ? path.substring(1) : path;
   
-  // Otherwise, combine basePath and path with a single slash
-  return `${basePath}/${cleanPath}`;
+  return `/staging/${cleanPath}`.replace(/\/+/g, '/');
 };
 
 // Helper function to remove staging prefix from paths
