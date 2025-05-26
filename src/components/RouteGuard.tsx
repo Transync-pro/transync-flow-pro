@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +7,7 @@ import { logError } from "@/utils/errorLogger";
 import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickbooksApi/connections";
 import { isUserAdmin } from "@/services/blog/users";
 import { toast } from "@/components/ui/use-toast";
+import { addStagingPrefix, removeStagingPrefix } from "@/config/environment";
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -34,13 +34,16 @@ const RouteGuard = ({
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Flag special routes
-  const isQbCallbackRoute = location.pathname === "/dashboard/quickbooks-callback";
-  const isAuthenticateRoute = location.pathname === "/authenticate";
-  const isDashboardRoute = location.pathname === "/dashboard";
-  const isAdminRoute = location.pathname.startsWith("/admin");
-  const isLoginPage = location.pathname === "/login";
-  const isSignupPage = location.pathname === "/signup";
+  // Remove staging prefix for route comparison
+  const normalizedPath = removeStagingPrefix(location.pathname);
+  
+  // Flag special routes using normalized paths
+  const isQbCallbackRoute = normalizedPath === "/dashboard/quickbooks-callback";
+  const isAuthenticateRoute = normalizedPath === "/authenticate";
+  const isDashboardRoute = normalizedPath === "/dashboard";
+  const isAdminRoute = normalizedPath.startsWith("/admin");
+  const isLoginPage = normalizedPath === "/login";
+  const isSignupPage = normalizedPath === "/signup";
 
   // Flag to prevent multiple redirects
   const redirectingRef = useRef(false);
@@ -68,14 +71,11 @@ const RouteGuard = ({
     try {
       console.log(`RouteGuard: Checking QB connection for user ${user.id}`);
       
-      // Use the optimized connection check function with retry
       let connectionExists = await checkQBConnectionExists(user.id);
       
-      // If connection is not found but should exist, try refreshing and checking again
       if (!connectionExists && isConnected) {
         console.log("RouteGuard: Connection not found but context says connected, refreshing...");
         await refreshConnection();
-        // Try one more time after refresh
         connectionExists = await checkQBConnectionExists(user.id);
       }
       
@@ -83,7 +83,6 @@ const RouteGuard = ({
       
       setHasQbConnection(connectionExists);
       
-      // If we found a connection but the context doesn't know yet, refresh it
       if (connectionExists && !isConnected && !isQBLoading) {
         console.log("RouteGuard: Found connection in DB but context isn't aware, refreshing context");
         refreshConnection();
@@ -102,7 +101,7 @@ const RouteGuard = ({
 
   // Check if user is admin
   useEffect(() => {
-    if (isAuthLoading) return; // Wait for auth to finish loading
+    if (isAuthLoading) return;
 
     const checkAdminRole = async () => {
       if (!user) {
@@ -117,11 +116,9 @@ const RouteGuard = ({
         const adminStatus = await isUserAdmin();
         console.log("RouteGuard: Is user admin:", adminStatus);
         
-        // Set admin status and role checked in one update
         setIsAdmin(adminStatus);
         setRoleChecked(true);
         
-        // If not admin and on admin route, redirect immediately
         if (!adminStatus && isAdminRoute) {
           console.log("RouteGuard: Admin route access denied after check completed");
           toast({
@@ -129,7 +126,7 @@ const RouteGuard = ({
             description: "You don't have permission to access the admin area.",
             variant: "destructive"
           });
-          navigate('/', { replace: true });
+          navigate(addStagingPrefix('/'), { replace: true });
         }
         
         setIsLoading(false);
@@ -145,7 +142,7 @@ const RouteGuard = ({
             description: "Failed to verify admin permissions",
             variant: "destructive"
           });
-          navigate('/', { replace: true });
+          navigate(addStagingPrefix('/'), { replace: true });
         }
       }
     };
@@ -164,24 +161,19 @@ const RouteGuard = ({
   // Check access on mount and when dependencies change
   useEffect(() => {
     const checkAccess = async () => {
-      // Wait for auth to load first
       if (isAuthLoading) return;
       
-      // Skip QB check for special routes
       if (isQbCallbackRoute) {
         setIsChecking(false);
         return;
       }
       
-      // If we need QuickBooks and are not yet on the authenticate page, do direct DB check
-      // But only if we haven't already checked for this user
       if (user && requiresQuickbooks && !isAuthenticateRoute && !connectionCheckedRef.current) {
         try {
           await checkQbConnectionDirectly();
         } catch (error) {
           console.error('Error checking QB connection in RouteGuard:', error);
         } finally {
-          // Mark that we've checked the connection for this user
           connectionCheckedRef.current = true;
           setIsChecking(false);
         }
@@ -189,13 +181,11 @@ const RouteGuard = ({
         setIsChecking(false);
       }
       
-      // Reset the initial check flag after first run
       isInitialCheck.current = false;
     };
     
     checkAccess();
     
-    // Reset the connection checked flag when user changes
     return () => {
       if (user?.id !== prevUserIdRef.current) {
         connectionCheckedRef.current = false;
@@ -212,11 +202,9 @@ const RouteGuard = ({
     roleChecked
   ]);
 
-  // Handle redirection based on connection status
+  // Handle redirection based on connection status with staging support
   useEffect(() => {
-    // Add debounce to prevent redirect loops
     const timeoutId = setTimeout(() => {
-      // Don't process redirects while still checking or loading
       if (isChecking || redirectingRef.current || isLoading) return;
       
       // Check for connection data in session storage
@@ -233,7 +221,6 @@ const RouteGuard = ({
         sessionStorage.getItem('qb_connection_in_progress') ||
         (parsedConnection && (Date.now() - parsedConnection.timestamp) < 30000); // 30 second window for connection
       
-      // If we're in the middle of a connection process, don't redirect
       if (isInConnectionProcess) {
         console.log('RouteGuard: In QuickBooks connection process, skipping redirect', {
           path: location.pathname,
@@ -244,14 +231,12 @@ const RouteGuard = ({
           connectionData: parsedConnection
         });
         
-        // If we have connection data and we're on the dashboard, clear it
         if (parsedConnection && parsedConnection.success && location.pathname === '/dashboard') {
           console.log('RouteGuard: Connection successful, cleaning up session storage');
           sessionStorage.removeItem('qb_connection_data');
           sessionStorage.removeItem('qb_connection_in_progress');
           sessionStorage.removeItem('qb_connecting_user');
           
-          // Force a refresh of the connection state
           if (refreshConnection) {
             refreshConnection(true); // Force refresh
           }
@@ -261,45 +246,35 @@ const RouteGuard = ({
         return;
       }
       
-      // Check for successful connection in session storage
       const qbConnectionSuccess = sessionStorage.getItem('qb_connection_success');
       const qbConnectionCompany = sessionStorage.getItem('qb_connection_company');
       const qbAuthTimestamp = sessionStorage.getItem('qb_auth_timestamp');
       
-      // If we just came from the callback, skip the redirect check
       if (location.state?.fromQbCallback) {
         console.log('RouteGuard: Just came from QuickBooks callback, skipping redirect check');
-        // Clear the state to prevent it from affecting future renders
         navigate(location.pathname, { replace: true, state: {} });
         return;
       }
       
-      // Set redirecting flag to prevent multiple redirects
       redirectingRef.current = true;
       
-      // Handle successful connection from session storage
       if (qbConnectionSuccess && qbAuthTimestamp) {
         const connectionTime = parseInt(qbAuthTimestamp, 10);
         const currentTime = Date.now();
-        const maxAge = 5 * 60 * 1000; // 5 minutes max age for the connection success flag
+        const maxAge = 5 * 60 * 1000;
         
         if (currentTime - connectionTime < maxAge) {
-          console.log('RouteGuard: Detected recent QuickBooks connection from session', {
-            company: qbConnectionCompany,
-            age: ((currentTime - connectionTime) / 1000).toFixed(1) + 's ago'
-          });
+          console.log('RouteGuard: Detected recent QuickBooks connection from session');
           
-          // Clear the flag to prevent future redirects
           sessionStorage.removeItem('qb_connection_success');
           sessionStorage.removeItem('qb_connection_company');
           
-          // Force refresh the connection status and redirect
           refreshConnection(true).then(() => {
             console.log('RouteGuard: Connection refresh completed, redirecting to dashboard');
-            navigate('/dashboard', { replace: true });
+            navigate(addStagingPrefix('/dashboard'), { replace: true });
           }).catch(err => {
             console.error('RouteGuard: Error refreshing connection:', err);
-            navigate('/dashboard', { replace: true });
+            navigate(addStagingPrefix('/dashboard'), { replace: true });
           });
           return;
         } else {
@@ -309,36 +284,32 @@ const RouteGuard = ({
         }
       }
       
-      // Handle authenticate page logic
       if (isAuthenticateRoute) {
         if (hasQbConnection || isConnected) {
           console.log('RouteGuard: Connection found while on authenticate page, redirecting to dashboard');
-          navigate('/dashboard', { replace: true });
+          navigate(addStagingPrefix('/dashboard'), { replace: true });
         }
         redirectingRef.current = false;
         return;
       }
       
-      // Handle QuickBooks requirement for other pages
       if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading) {
-        // Check if we've already redirected to avoid loops
         const redirected = sessionStorage.getItem('qb_redirected_to_authenticate');
         if (!redirected) {
           console.log('RouteGuard: No QuickBooks connection found, redirecting to /authenticate');
           sessionStorage.setItem('qb_redirected_to_authenticate', 'true');
-          navigate('/authenticate', { replace: true });
+          navigate(addStagingPrefix('/authenticate'), { replace: true });
         }
         redirectingRef.current = false;
         return;
       }
       
-      // Reset the redirected flag if we have a connection
       if (hasQbConnection || isConnected) {
         sessionStorage.removeItem('qb_redirected_to_authenticate');
       }
       
       redirectingRef.current = false;
-    }, 200); // Small delay to prevent rapid redirects
+    }, 200);
     
     return () => clearTimeout(timeoutId);
   }, [
@@ -365,12 +336,12 @@ const RouteGuard = ({
           description: "You don't have permission to access the admin area.",
           variant: "destructive"
         });
-        navigate('/', { replace: true });
+        navigate(addStagingPrefix('/'), { replace: true });
       }
     }
   }, [isAdminRoute, roleChecked, isChecking, isAdmin, navigate]);
 
-  // Fix for QuickBooks callback handling - a special case to always render children
+  // Fix for QuickBooks callback handling
   if (isQbCallbackRoute) {
     return <>{children}</>;
   }
@@ -387,18 +358,18 @@ const RouteGuard = ({
 
   // Redirect authenticated users away from public-only pages
   if (isPublicOnly && user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={addStagingPrefix("/dashboard")} replace />;
   }
 
   // Redirect unauthenticated users to login
   if (requiresAuth && !user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to={addStagingPrefix("/login")} state={{ from: location }} replace />;
   }
   
   // For admin routes, only check if we've completed the role check
   if (requiresAdmin && roleChecked && !isAdmin) {
     console.log("RouteGuard: Admin route access denied, redirecting to home");
-    return <Navigate to="/" replace />;
+    return <Navigate to={addStagingPrefix("/")} replace />;
   }
   
   // Special case: don't redirect from the authenticate route if we don't have a connection

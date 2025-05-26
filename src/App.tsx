@@ -12,6 +12,7 @@ import { TabVisibilityProvider } from "@/contexts/TabVisibilityContext";
 import RouteGuard from "@/components/RouteGuard";
 import RouteRestorer from "@/components/RouteRestorer";
 import EnvironmentIndicator from "@/components/EnvironmentIndicator";
+import { getBasePath } from "@/config/environment";
 
 // Import statements for pages
 import Index from "./pages/Index";
@@ -51,6 +52,156 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const AppRoutes = () => {
+  const basePath = getBasePath();
+  
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path={`${basePath}/`} element={<Index />} />
+      <Route path={`${basePath}/login`} element={<Login />} />
+      <Route path={`${basePath}/signup`} element={<Signup />} />
+      <Route path={`${basePath}/forgot-password`} element={<ForgotPassword />} />
+      <Route path={`${basePath}/reset-password`} element={<ResetPassword />} />
+      <Route path={`${basePath}/verify`} element={<Verify />} />
+      <Route path={`${basePath}/demo`} element={<Demo />} />
+      <Route path={`${basePath}/features`} element={<Features />} />
+      <Route path={`${basePath}/documentation`} element={<Documentation />} />
+      <Route path={`${basePath}/support`} element={<Support />} />
+      <Route path={`${basePath}/tutorials`} element={<Tutorials />} />
+      <Route path={`${basePath}/contact`} element={<Contact />} />
+      <Route path={`${basePath}/about-us`} element={<AboutUs />} />
+      <Route path={`${basePath}/careers`} element={<Careers />} />
+      <Route path={`${basePath}/privacy-policy`} element={<PrivacyPolicy />} />
+      <Route path={`${basePath}/terms-of-use`} element={<TermsOfUse />} />
+      <Route path={`${basePath}/integrations`} element={<Integrations />} />
+      <Route 
+        path={`${basePath}/coming-soon`} 
+        element={
+          <ComingSoon 
+            title="Feature Coming Soon"
+            description="This feature is currently under development and will be available soon."
+          />
+        } 
+      />
+      <Route path={`${basePath}/blog`} element={<Blog />} />
+      <Route path={`${basePath}/blog/:slug`} element={<BlogDetail />} />
+
+      {/* Protected routes */}
+      <Route
+        path={`${basePath}/dashboard`}
+        element={
+          <RouteGuard>
+            <Dashboard />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/dashboard/quickbooks-callback`}
+        element={
+          <RouteGuard>
+            <QuickbooksCallback />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/profile`}
+        element={
+          <RouteGuard>
+            <Profile />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/authenticate`}
+        element={
+          <RouteGuard>
+            <Authenticate />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/disconnected`}
+        element={
+          <RouteGuard>
+            <Disconnected />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/export`}
+        element={
+          <RouteGuard>
+            <Export />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/import`}
+        element={
+          <RouteGuard>
+            <Import />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/delete`}
+        element={
+          <RouteGuard>
+            <Delete />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/history`}
+        element={
+          <RouteGuard>
+            <History />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/subscription`}
+        element={
+          <RouteGuard>
+            <Subscription />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/admin/blog`}
+        element={
+          <RouteGuard>
+            <BlogAdmin />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/admin/blog/import`}
+        element={
+          <RouteGuard>
+            <BlogImportPage />
+          </RouteGuard>
+        }
+      />
+      <Route
+        path={`${basePath}/admin/test`}
+        element={
+          <RouteGuard>
+            <TestAdmin />
+          </RouteGuard>
+        }
+      />
+
+      {/* Handle root path for staging */}
+      {basePath && <Route path="/" element={<Index />} />}
+
+      {/* Catch all route */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -64,146 +215,7 @@ const App = () => (
                 <TabVisibilityProvider>
                   <EnvironmentIndicator />
                   <RouteRestorer />
-                  <Routes>
-                    {/* Public routes */}
-                    <Route path="/" element={<Index />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
-                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route path="/reset-password" element={<ResetPassword />} />
-                    <Route path="/verify" element={<Verify />} />
-                    <Route path="/demo" element={<Demo />} />
-                    <Route path="/features" element={<Features />} />
-                    <Route path="/documentation" element={<Documentation />} />
-                    <Route path="/support" element={<Support />} />
-                    <Route path="/tutorials" element={<Tutorials />} />
-                    <Route path="/contact" element={<Contact />} />
-                    <Route path="/about-us" element={<AboutUs />} />
-                    <Route path="/careers" element={<Careers />} />
-                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                    <Route path="/terms-of-use" element={<TermsOfUse />} />
-                    <Route path="/integrations" element={<Integrations />} />
-                    <Route 
-                      path="/coming-soon" 
-                      element={
-                        <ComingSoon 
-                          title="Feature Coming Soon"
-                          description="This feature is currently under development and will be available soon."
-                        />
-                      } 
-                    />
-                    <Route path="/blog" element={<Blog />} />
-                    <Route path="/blog/:slug" element={<BlogDetail />} />
-
-                    {/* Protected routes */}
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <RouteGuard>
-                          <Dashboard />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/dashboard/quickbooks-callback"
-                      element={
-                        <RouteGuard>
-                          <QuickbooksCallback />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/profile"
-                      element={
-                        <RouteGuard>
-                          <Profile />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/authenticate"
-                      element={
-                        <RouteGuard>
-                          <Authenticate />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/disconnected"
-                      element={
-                        <RouteGuard>
-                          <Disconnected />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/export"
-                      element={
-                        <RouteGuard>
-                          <Export />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/import"
-                      element={
-                        <RouteGuard>
-                          <Import />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/delete"
-                      element={
-                        <RouteGuard>
-                          <Delete />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/history"
-                      element={
-                        <RouteGuard>
-                          <History />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/subscription"
-                      element={
-                        <RouteGuard>
-                          <Subscription />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/admin/blog"
-                      element={
-                        <RouteGuard>
-                          <BlogAdmin />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/admin/blog/import"
-                      element={
-                        <RouteGuard>
-                          <BlogImportPage />
-                        </RouteGuard>
-                      }
-                    />
-                    <Route
-                      path="/admin/test"
-                      element={
-                        <RouteGuard>
-                          <TestAdmin />
-                        </RouteGuard>
-                      }
-                    />
-
-                    {/* Catch all route */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
+                  <AppRoutes />
                 </TabVisibilityProvider>
               </IdleTimeoutProvider>
             </QuickbooksEntitiesProvider>

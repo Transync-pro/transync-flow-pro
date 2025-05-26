@@ -1,11 +1,11 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { processLoginAttempt } from "@/services/loginSecurity";
 import { clearConnectionCache } from "@/services/quickbooksApi/connections";
+import { addStagingPrefix } from "@/config/environment";
 
 interface AuthContextType {
   session: Session | null;
@@ -51,23 +51,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           clearConnectionCache();
         }
         
-        // Handle auth events
+        // Handle auth events with staging-aware navigation
         if (event === 'SIGNED_IN') {
-          // Don't navigate here - that's handled by the sign-in function
           toast({
             title: "Signed in successfully",
             description: "Welcome back!"
           });
           
-          // After a brief delay to allow connection checks to complete
           setTimeout(() => {
-            navigate('/dashboard');
+            navigate(addStagingPrefix('/dashboard'));
           }, 100);
         } else if (event === 'SIGNED_OUT') {
-          clearConnectionCache(); // Ensure cache is cleared on sign out
-          navigate('/login');
+          clearConnectionCache();
+          navigate(addStagingPrefix('/login'));
         } else if (event === 'USER_UPDATED') {
-          // Check if email was just verified
           const emailVerified = currentSession?.user?.email_confirmed_at;
           if (emailVerified) {
             toast({
@@ -94,13 +91,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign in with Google
   const signInWithGoogle = async () => {
     try {
-      // Clear any existing connection cache before OAuth flow
       clearConnectionCache();
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}${addStagingPrefix('/dashboard')}`,
         }
       });
       
@@ -125,7 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
-      // Check if account is locked or rate-limited
       const canProceed = await processLoginAttempt(email, false);
       
       if (!canProceed) {
@@ -143,22 +138,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        // Process failed login attempt
         await processLoginAttempt(email, false);
         
-        // Use a generic error message that doesn't reveal whether the account exists
         toast({
           title: "Sign in failed",
           description: "The email and password entered do not match.",
           variant: "destructive"
         });
         
-        // Still log the actual error for debugging
         console.error("Error signing in:", error);
         return;
       }
 
-      // Process successful login
       await processLoginAttempt(email, true);
 
       toast({
@@ -166,16 +157,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Welcome back!"
       });
 
-      navigate('/dashboard');
+      navigate(addStagingPrefix('/dashboard'));
     } catch (error) {
-      // Use a generic error message for all other errors as well
       toast({
         title: "Sign in failed",
         description: "The email and password entered do not match.",
         variant: "destructive"
       });
       
-      // Still log the actual error for debugging
       console.error("Error signing in:", error);
     }
   };
@@ -183,8 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUp = async (email: string, password: string, metadata?: object) => {
     try {
-      // Get the verification redirect URL based on current environment
-      const redirectTo = `${window.location.origin}/verify`;
+      const redirectTo = `${window.location.origin}${addStagingPrefix('/verify')}`;
 
       const { error, data } = await supabase.auth.signUp({
         email,
@@ -199,7 +187,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
 
-      // Check if email verification is required
       if (data?.user?.identities?.length === 0) {
         toast({
           title: "Account already exists",
@@ -214,8 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Please check your email to verify your account."
       });
 
-      // Navigate to verification page
-      navigate('/verify');
+      navigate(addStagingPrefix('/verify'));
     } catch (error) {
       toast({
         title: "Sign up failed",

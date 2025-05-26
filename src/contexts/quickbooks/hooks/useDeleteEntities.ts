@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { DeleteProgress } from "../types";
 import { logOperation } from "@/utils/operationLogger";

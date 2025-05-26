@@ -12,8 +12,6 @@ const EnvironmentIndicator = () => {
   
   const getVariant = () => {
     switch (environment) {
-      case 'development':
-        return 'secondary';
       case 'staging':
         return 'outline';
       default:
@@ -23,8 +21,6 @@ const EnvironmentIndicator = () => {
   
   const getColor = () => {
     switch (environment) {
-      case 'development':
-        return 'bg-blue-500 text-white';
       case 'staging':
         return 'bg-yellow-500 text-black';
       default:

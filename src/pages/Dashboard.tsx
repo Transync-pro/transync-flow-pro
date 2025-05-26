@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
 import { motion } from "framer-motion";
+import { addStagingPrefix } from "@/config/environment";
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -25,10 +26,8 @@ const Dashboard = () => {
   // Show success message when coming from QuickBooks callback
   useEffect(() => {
     if (location.state?.fromQbCallback) {
-      // Clear the state to prevent duplicate toasts
       navigate(location.pathname, { replace: true, state: {} });
       
-      // Show success toast
       toast({
         title: "Connected to QuickBooks",
         description: "Your QuickBooks connection was successful!",
@@ -164,7 +163,7 @@ const Dashboard = () => {
         if (!isConnected && !isLoading && !hasRedirected.current) {
           console.log("Dashboard detected disconnected state, redirecting to /authenticate");
           hasRedirected.current = true;
-          navigate('/authenticate', { replace: true });
+          navigate(addStagingPrefix('/authenticate'), { replace: true });
         }
       }, 1000); // 1 second delay
     } else if (isConnected === true) {
