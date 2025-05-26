@@ -16,16 +16,6 @@ export const useQBConnectionStatus = (user: User | null) => {
   const lastCheckTime = useRef<number>(0);
   const maxConsecutiveChecks = useRef<number>(0);
   const connectionCheckAttempts = useRef<number>(0);
-  const cachedConnectedState = useRef<boolean | null>(null);
-  const connectionCache = useRef<{
-    userId: string | null;
-    data: QuickbooksConnection | null;
-    timestamp: number;
-  }>({
-    userId: null,
-    data: null,
-    timestamp: 0
-  });
 
   // Reset connection state
   const resetConnectionState = useCallback(() => {
@@ -33,11 +23,10 @@ export const useQBConnectionStatus = (user: User | null) => {
     setRealmId(null);
     setCompanyName(null);
     setConnection(null);
-    cachedConnectedState.current = false;
   }, []);
 
-  // Check connection status with enhanced caching and throttling
-  // Added silent parameter to prevent UI updates during background checks
+  // Check connection status directly - no caching
+  // Silent parameter prevents UI updates during background checks
   const checkConnectionStatus = useCallback(async (force = false, silent = false) => {
     if (!user) {
       resetConnectionState();
@@ -70,20 +59,15 @@ export const useQBConnectionStatus = (user: User | null) => {
     }
     lastCheckTime.current = now;
     
-    // If we're doing a forced check, clear the connection cache first
+    // If we're doing a forced check, clear session storage
     if (force) {
       clearConnectionCache(user.id);
-      connectionCache.current = {
-        userId: null,
-        data: null,
-        timestamp: 0
-      };
       connectionCheckAttempts.current += 1;
       console.log(`Forced connection check #${connectionCheckAttempts.current} for user ${user.id}`);
     }
     
     try {
-      // Use the optimized existence check first
+      // Always check connection existence directly
       const exists = await checkQBConnectionExists(user.id);
       
       // If existence check indicates no connection, update state right away
@@ -95,69 +79,45 @@ export const useQBConnectionStatus = (user: User | null) => {
         return;
       }
       
-      // If forced refresh or the cache is expired/empty, do a full DB query
-      if (force || 
-          connectionCache.current.userId !== user.id || 
-          now - connectionCache.current.timestamp > 300000) { // 5 minute cache
+      // Always do a full DB query for complete connection data
+      console.log(`Fetching complete QB connection data for user ${user.id}`);
+      const { data, error } = await supabase
+        .from('quickbooks_connections')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error("Error checking QuickBooks connection:", error);
+        resetConnectionState();
+        checkInProgress.current = false;
+        return;
+      }
+      
+      if (data) {
+        const qbConnection = data as QuickbooksConnection;
+        setConnection(qbConnection);
+        setIsConnected(true);
+        setRealmId(qbConnection.realm_id);
+        setCompanyName(qbConnection.company_name || null);
         
-        // Query the QuickBooks connections table
-        const { data, error } = await supabase
-          .from('quickbooks_connections')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        // Reset the circuit breaker since we've found a connection
+        maxConsecutiveChecks.current = 0;
         
-        if (error && error.code !== 'PGRST116') {
-          console.error("Error checking QuickBooks connection:", error);
-          resetConnectionState();
-          checkInProgress.current = false;
-          return;
+        // Log connection details on forced checks
+        if (force) {
+          console.log('QuickBooks connection found:', { 
+            realmId: qbConnection.realm_id,
+            companyName: qbConnection.company_name
+          });
         }
-        
-        // Update cache
-        connectionCache.current = {
-          userId: user.id,
-          data: data || null,
-          timestamp: now
-        };
-        
-        if (data) {
-          // Cache duration in milliseconds (30 minutes for normal operations)
-          // We're extending this significantly since we're only checking on user actions
-          const CACHE_DURATION = 30 * 60 * 1000;
-          const qbConnection = data as QuickbooksConnection;
-          setConnection(qbConnection);
-          setIsConnected(true);
-          cachedConnectedState.current = true;
-          setRealmId(qbConnection.realm_id);
-          setCompanyName(qbConnection.company_name || null);
-          
-          // Reset the circuit breaker since we've found a connection
-          maxConsecutiveChecks.current = 0;
-          
-          // Log connection details on forced checks
-          if (force) {
-            console.log('QuickBooks connection found:', { 
-              realmId: qbConnection.realm_id,
-              companyName: qbConnection.company_name
-            });
-          }
-        } else {
+      } else {
           // No connection found
           if (force) {
             console.log('No QuickBooks connection found for user:', user.id);
           }
           resetConnectionState();
         }
-      } else if (connectionCache.current.data) {
-        // Use cached data if available and not expired
-        const qbConnection = connectionCache.current.data;
-        setConnection(qbConnection);
-        setIsConnected(true);
-        cachedConnectedState.current = true;
-        setRealmId(qbConnection.realm_id);
-        setCompanyName(qbConnection.company_name || null);
-      }
     } catch (error: any) {
       console.error("Error checking QuickBooks connection:", error);
       logError("Error checking QuickBooks connection", {
@@ -165,12 +125,8 @@ export const useQBConnectionStatus = (user: User | null) => {
         context: { error }
       });
       
-      // Fallback to cached state if available
-      if (cachedConnectedState.current !== null) {
-        setIsConnected(cachedConnectedState.current);
-      } else {
-        resetConnectionState();
-      }
+      // Always reset connection state on error - no caching fallback
+      resetConnectionState();
     } finally {
       // Only update loading state if not in silent mode
       if (!silent) {
@@ -198,21 +154,14 @@ export const useQBConnectionStatus = (user: User | null) => {
     connectionCheckAttempts.current += 1;
     console.log(`Manual refresh connection requested #${connectionCheckAttempts.current}`, { force, silent });
     
-    // Clear any cached connection data
-    if (force) {
-      if (user?.id) {
-        clearConnectionCache(user.id);
-      }
-      connectionCache.current = {
-        userId: null,
-        data: null,
-        timestamp: 0
-      };
-      
-      // Reset state to ensure we show loading state
-      if (!silent) {
-        setIsLoading(true);
-      }
+    // Clear session storage
+    if (force && user?.id) {
+      clearConnectionCache(user.id);
+    }
+    
+    // Reset state to ensure we show loading state
+    if (!silent) {
+      setIsLoading(true);
     }
     
     // Perform the connection check
@@ -231,7 +180,7 @@ export const useQBConnectionStatus = (user: User | null) => {
     connection,
     realmId,
     companyName,
-    refreshConnection: (silent = false) => checkConnectionStatus(true, silent),
+    refreshConnection,
     checkConnection: checkConnectionStatus // Export for direct use in components
   };
 };
