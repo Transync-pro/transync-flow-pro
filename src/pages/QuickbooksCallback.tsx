@@ -277,6 +277,15 @@ const QuickbooksCallback = () => {
         setSuccess(true);
         
         try {
+          // Clear connection cache to ensure fresh data
+          clearConnectionCache(userId);
+          console.log('Connection cache cleared after successful QB authentication');
+          
+          // Set authentication success flags with timestamp
+          sessionStorage.setItem('qb_auth_timestamp', successTimestamp.toString());
+          sessionStorage.setItem('qb_connection_success', 'true');
+          sessionStorage.setItem('qb_connection_company', tokenExchangeData.companyName || 'Unknown Company');
+          
           // Force update the connection status
           await refreshConnection(true);
           console.log('QuickBooks connection refresh completed');
@@ -285,7 +294,7 @@ const QuickbooksCallback = () => {
           sessionStorage.removeItem('qb_connecting_user');
           sessionStorage.removeItem('qb_connection_in_progress');
           
-          // Use the redirect function
+          // Use the redirect function with connection established state
           await redirectToDashboard();
           
         } catch (err) {

@@ -26,6 +26,16 @@ export const clearConnectionCache = (userId?: string): void => {
     console.log('Clearing entire connection cache');
     connectionCache.clear();
   }
+  
+  // Also clear any session storage items related to connection
+  sessionStorage.removeItem('qb_connection_data');
+  sessionStorage.removeItem('qb_connection_success');
+  sessionStorage.removeItem('qb_connection_company');
+  sessionStorage.removeItem('qb_redirected_to_authenticate');
+  sessionStorage.removeItem('qb_connecting_user');
+  sessionStorage.removeItem('qb_connection_in_progress');
+  
+  console.log('Connection cache and session storage cleared', userId ? `for user ${userId}` : 'for all users');
 };
 
 // Get the current auth user's QuickBooks connection with enhanced caching

@@ -266,16 +266,28 @@ const RouteGuard = ({
         if (currentTime - connectionTime < maxAge) {
           console.log('RouteGuard: Detected recent QuickBooks connection from session');
           
-          sessionStorage.removeItem('qb_connection_success');
-          sessionStorage.removeItem('qb_connection_company');
+          // Assume connected for a better UX - skip the connection check
+          setHasQbConnection(true);
           
-          refreshConnection(true).then(() => {
-            console.log('RouteGuard: Connection refresh completed, redirecting to dashboard');
-            navigate(addStagingPrefix('/dashboard'), { replace: true });
+          // Don't remove success flag immediately - keep it for the duration of this session
+          // This ensures we don't redirect to authenticate during this session
+          
+          // Refresh connection in the background without waiting
+          refreshConnection(true, true).then(() => {
+            console.log('RouteGuard: Connection refresh completed in background');
+            // Only clear flags after successful refresh
+            sessionStorage.removeItem('qb_connection_success');
+            sessionStorage.removeItem('qb_connection_company');
           }).catch(err => {
-            console.error('RouteGuard: Error refreshing connection:', err);
-            navigate(addStagingPrefix('/dashboard'), { replace: true });
+            console.error('RouteGuard: Error refreshing connection in background:', err);
           });
+          
+          // If we're not already on the dashboard, redirect there
+          if (location.pathname !== addStagingPrefix('/dashboard')) {
+            navigate(addStagingPrefix('/dashboard'), { replace: true });
+          }
+          
+          redirectingRef.current = false;
           return;
         } else {
           console.log('RouteGuard: Stale connection success detected, cleaning up');
