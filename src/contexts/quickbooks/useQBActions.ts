@@ -9,6 +9,27 @@ export const useQBActions = (
   refreshConnection: () => Promise<void>,
   handleError: (error: string, displayToast?: boolean) => string
 ) => {
+  // Clear all QuickBooks-related session storage items
+  const clearQBSessionData = () => {
+    const qbItems = [
+      'qb_connection_data',
+      'qb_connection_success',
+      'qb_connection_company',
+      'qb_redirected_to_authenticate',
+      'qb_connecting_user',
+      'qb_connection_in_progress',
+      'qb_auth_timestamp',
+      'processed_qb_codes',
+      'qb_auth_success',
+      'qb_connect_user',
+      'qb_connection_verified',
+      'qb_connection_timestamp'
+    ];
+    
+    qbItems.forEach(key => sessionStorage.removeItem(key));
+    console.log('Cleared all QB session storage items before starting authentication');
+  };
+
   // Start OAuth flow to connect to QuickBooks
   const connect = async () => {
     if (!user) {
@@ -21,6 +42,9 @@ export const useQBActions = (
     }
 
     try {
+      // Clear all QuickBooks session data before starting a new authentication flow
+      clearQBSessionData();
+      
       // Store the user ID in session storage in case we lose auth state during the OAuth flow
       sessionStorage.setItem("qb_connecting_user", user.id);
       

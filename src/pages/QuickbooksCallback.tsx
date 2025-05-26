@@ -102,6 +102,10 @@ const QuickbooksCallback = () => {
     // Mark as processed immediately to prevent duplicate processing
     hasProcessedCallback.current = true;
     
+    // Clear any stale processed codes to ensure we don't skip token exchange
+    sessionStorage.removeItem('processed_qb_codes');
+    console.log('Cleared processed QB codes to ensure fresh token exchange');
+    
     // Set connection in progress flags immediately
     sessionStorage.setItem('qb_connection_in_progress', 'true');
     sessionStorage.setItem('qb_connecting_user', user?.id || '');
