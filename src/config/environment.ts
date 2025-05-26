@@ -3,19 +3,17 @@
 export type Environment = 'staging' | 'production';
 
 export const getEnvironment = (): Environment => {
-  // Check for staging path prefix or preview domain
+  // Check for staging path prefix
   if (typeof window !== 'undefined') {
     const pathname = window.location.pathname;
     
     // Check if URL starts with /staging
-    if (pathname === '/staging' || pathname.startsWith('/staging/')) {
+    if (pathname.startsWith('/staging')) {
       return 'staging';
     }
     
-    // Check for preview domain
-    if (window.location.hostname.includes('preview--transync-flow-pro')) {
-      return 'staging';
-    }
+    // Everything else is production
+    return 'production';
   }
   
   return 'production';
@@ -51,17 +49,30 @@ export const isProduction = () => getEnvironment() === 'production';
 export const isStaging = () => getEnvironment() === 'staging';
 export const isDevelopment = () => false; // No longer supported
 
-// Helper functions for staging prefix
-export const addStagingPrefix = (path: string): string => {
-  if (isStaging() && !path.startsWith('/staging')) {
-    return `/staging${path}`;
-  }
-  return path;
+// Helper function to get the base path for routing
+export const getBasePath = () => {
+  return isStaging() ? '/staging' : '';
 };
 
-export const removeStagingPrefix = (path: string): string => {
+// Helper function to add staging prefix to paths
+export const addStagingPrefix = (path: string) => {
+  const basePath = getBasePath();
+  if (!basePath) return path;
+  
+  // Remove leading/trailing slashes for consistency
+  const cleanPath = path.replace(/^\/+|\/+$/g, '');
+  
+  // If path is just '/', return basePath
+  if (!cleanPath) return basePath;
+  
+  // Otherwise, combine basePath and path with a single slash
+  return `${basePath}/${cleanPath}`;
+};
+
+// Helper function to remove staging prefix from paths
+export const removeStagingPrefix = (path: string) => {
   if (path.startsWith('/staging')) {
-    return path.replace('/staging', '') || '/';
+    return path.substring(8) || '/';
   }
   return path;
 };
