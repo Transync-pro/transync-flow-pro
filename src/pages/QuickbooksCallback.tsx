@@ -58,12 +58,17 @@ const QuickbooksCallback = () => {
       console.log('Waiting before navigation...');
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Clear the redirect flag to prevent the RouteGuard from redirecting to authenticate
+      // Clear all redirect flags to prevent any unwanted redirects
       sessionStorage.removeItem('qb_redirected_to_authenticate');
       
-      // Set a flag to indicate we have a verified connection to prevent redirect loops
+      // Set flags to indicate a successful authentication and prevent any redirects
       sessionStorage.setItem('qb_connection_verified', 'true');
       sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
+      sessionStorage.setItem('qb_connection_success', 'true');
+      sessionStorage.setItem('qb_auth_success', 'true');
+      
+      // Set a special flag to completely bypass the RouteGuard redirect logic
+      sessionStorage.setItem('qb_skip_auth_redirect', 'true');
       
       console.log('Navigating to dashboard...');
       // Navigate to dashboard with a flag to prevent immediate redirection

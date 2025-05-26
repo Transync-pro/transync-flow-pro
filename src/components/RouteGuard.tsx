@@ -214,8 +214,12 @@ const RouteGuard = ({
       // Check if we have a verified connection from a recent authentication
       const connectionVerified = sessionStorage.getItem('qb_connection_verified');
       const connectionTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect');
       const hasRecentVerifiedConnection = connectionVerified && connectionTimestamp && 
         (Date.now() - parseInt(connectionTimestamp, 10) < 60000); // 60 second window
+      
+      // Check if we should completely skip the redirect logic
+      const shouldSkipRedirect = skipAuthRedirect === 'true';
       
       // Check if we're in the middle of a QuickBooks connection process
       const isInConnectionProcess = 
@@ -325,8 +329,20 @@ const RouteGuard = ({
       const isRecentDisconnect = disconnected && disconnectTimestamp && 
         (Date.now() - parseInt(disconnectTimestamp, 10) < 10000); // 10 second window after disconnect
       
+      // Skip all redirect logic if the skip flag is set (post-authentication)
+      if (shouldSkipRedirect && isDashboardRoute) {
+        console.log('RouteGuard: Skipping redirect logic due to qb_skip_auth_redirect flag');
+        // Clear the flag after using it to prevent it from affecting future navigation
+        setTimeout(() => {
+          sessionStorage.removeItem('qb_skip_auth_redirect');
+          console.log('RouteGuard: Cleared qb_skip_auth_redirect flag');
+        }, 2000); // Clear after 2 seconds to ensure it's used for the initial navigation
+        redirectingRef.current = false;
+        return;
+      }
+      
       // Handle redirection when QuickBooks connection is required but not found
-      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading && !isRecentDisconnect) {
+      if (requiresQuickbooks && user && !hasQbConnection && !isConnected && !isQBLoading && !isRecentDisconnect && !shouldSkipRedirect) {
         const redirected = sessionStorage.getItem('qb_redirected_to_authenticate');
         const lastRedirectTime = sessionStorage.getItem('qb_redirect_timestamp');
         const currentTime = Date.now();
