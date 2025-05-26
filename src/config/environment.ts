@@ -13,7 +13,7 @@ export const getEnvironment = (): Environment => {
     }
     
     // Check for localhost/development
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('lovable.app')) {
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('stage')) {
       return 'development';
     }
     
@@ -27,8 +27,8 @@ export const getEnvironment = (): Environment => {
 export const config = {
   development: {
     supabase: {
-      url: "https://emxstmqwnozhwbpippon.supabase.co",
-      anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteHN0bXF3bm96aHdicGlwcG9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwODQzMDksImV4cCI6MjA2MjY2MDMwOX0.yrrNvJlTu5NtWCUc7NPOpVoqkCgNE5c3paaZ_wB79Q8"
+      url: "https://lawshaoxrsxucrxjfbeu.supabase.co",
+      anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxhd3NoYW94cnN4dWNyeGpmYmV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNDQwOTUsImV4cCI6MjA2MzgyMDA5NX0.FSFx0K-9jrqjbwi2MvIeqyeMALej1uxpy9Ms1plx1kk"
     },
     quickbooks: {
       environment: 'sandbox'
@@ -37,8 +37,8 @@ export const config = {
   staging: {
     supabase: {
       // These will need to be updated when staging Supabase project is created
-      url: "https://emxstmqwnozhwbpippon.supabase.co", // Temporary - replace with staging project
-      anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteHN0bXF3bm96aHdicGlwcG9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwODQzMDksImV4cCI6MjA2MjY2MDMwOX0.yrrNvJlTu5NtWCUc7NPOpVoqkCgNE5c3paaZ_wB79Q8" // Temporary
+      url: "https://lawshaoxrsxucrxjfbeu.supabase.co", // Temporary - replace with staging project
+      anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxhd3NoYW94cnN4dWNyeGpmYmV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNDQwOTUsImV4cCI6MjA2MzgyMDA5NX0.FSFx0K-9jrqjbwi2MvIeqyeMALej1uxpy9Ms1plx1kk" // Temporary
     },
     quickbooks: {
       environment: 'sandbox'
