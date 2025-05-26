@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -82,7 +83,15 @@ const App = () => (
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                     <Route path="/terms-of-use" element={<TermsOfUse />} />
                     <Route path="/integrations" element={<Integrations />} />
-                    <Route path="/coming-soon" element={<ComingSoon />} />
+                    <Route 
+                      path="/coming-soon" 
+                      element={
+                        <ComingSoon 
+                          title="Feature Coming Soon"
+                          description="This feature is currently under development and will be available soon."
+                        />
+                      } 
+                    />
                     <Route path="/blog" element={<Blog />} />
                     <Route path="/blog/:slug" element={<BlogDetail />} />
 
