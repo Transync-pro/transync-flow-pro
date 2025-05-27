@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/supabase/environmentClient";
+
+import { supabase } from "@/integrations/supabase/client";
 
 interface QuickbooksConnection {
   id: string;

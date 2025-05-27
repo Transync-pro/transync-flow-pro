@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -224,16 +223,6 @@ const RouteGuard = ({
     roleChecked
   ]);
 
-  // Check auth and redirect helper function
-  const checkAuthAndRedirect = useCallback(() => {
-    if (!user && requiresAuth) {
-      console.log('RouteGuard: No user found, redirecting to login');
-      navigate(addStagingPrefix('/login'), { replace: true });
-      return true; // Return true to indicate redirect occurred
-    }
-    return false; // Return false to indicate no redirect
-  }, [user, requiresAuth, navigate]);
-
   // Handle redirection based on connection status with staging support
   useEffect(() => {
     console.log("[RouteGuard] useEffect triggered. Pathname:", location.pathname);
@@ -446,9 +435,7 @@ const RouteGuard = ({
         }
         
         redirectingRef.current = false;
-      }
-      
-      // Call the checkAuthAndRedirect function
+      };
       checkAuthAndRedirect();
     }, 200);
     
@@ -464,8 +451,7 @@ const RouteGuard = ({
     isQBLoading,
     isLoading,
     navigate,
-    refreshConnection,
-    checkAuthAndRedirect
+    refreshConnection
   ]);
 
   // Special admin route check

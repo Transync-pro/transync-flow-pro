@@ -1,4 +1,5 @@
 
+import { User } from "@supabase/supabase-js";
 
 export interface QuickbooksConnection {
   id: string;
@@ -6,10 +7,11 @@ export interface QuickbooksConnection {
   realm_id: string;
   access_token: string;
   refresh_token: string;
-  company_name?: string;
+  token_type: string;
+  expires_at: string;
   created_at: string;
-  updated_at: string;
-  expires_at?: string;
+  updated_at?: string;
+  company_name?: string;
 }
 
 export interface QuickbooksContextType {
@@ -28,13 +30,38 @@ export interface QuickbooksContextType {
   checkConnection: (force?: boolean, silent?: boolean) => Promise<void>;
 }
 
-// Date range interface for filtering
-export interface DateRange {
-  from: Date | null;
-  to: Date | null;
+// New type for QB user identity
+export interface QuickbooksUserIdentity {
+  id?: string;
+  user_id: string;
+  realm_id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-// Delete progress tracking
+// Extended QuickBooks context type with user identity
+export interface QuickbooksUserContextType {
+  userIdentity: QuickbooksUserIdentity | null;
+  isLoading: boolean;
+  error: string | null;
+  refreshUserIdentity: () => Promise<void>;
+}
+
+// Entity types
+export interface EntityState {
+  isLoading: boolean;
+  error: string | null;
+  records: any[];
+  filteredRecords: any[];
+  totalCount: number;
+  lastUpdated: Date | null;
+}
+
+// Add DeleteProgress interface to track bulk deletion operations
 export interface DeleteProgress {
   total: number;
   current: number;
@@ -47,51 +74,43 @@ export interface DeleteProgress {
   }>;
 }
 
-// Entity state for managing fetched data
-export interface EntityState {
-  records: any[];
-  filteredRecords: any[];
-  isLoading: boolean;
-  error: string | null;
-  totalCount: number;
-  lastUpdated: Date | null;
+// Fix DateRange interface to match react-day-picker's DateRange
+export interface DateRange {
+  from: Date | null;
+  to: Date | null;
 }
 
-// Entity option for dropdowns
 export interface EntityOption {
   value: string;
   label: string;
+  description?: string;
+  icon?: React.ReactNode;
+  group?: string; // Add group property that was missing
 }
 
-// Entity column configuration for tables
+// Add EntityColumnConfig interface
 export interface EntityColumnConfig {
   field: string;
   header: string;
-  accessor?: (obj: any) => any;
+  accessor?: (record: any) => any;
 }
 
-// Generic entity record type
+// Add EntityRecord interface
 export interface EntityRecord {
-  Id: string;
+  Id?: string;
   [key: string]: any;
 }
 
-// QuickBooks user identity
-export interface QuickbooksUserIdentity {
-  id: string;
-  user_id: string;
-  realm_id: string;
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-  phone?: string;
-  created_at: string;
-  updated_at: string;
+export interface LogOperationParams {
+  operationType: 'import' | 'export' | 'delete';
+  entityType: string;
+  recordId: string | null;
+  status: 'success' | 'error' | 'pending' | 'partial';
+  details?: any;
 }
 
-// QuickBooks entities context type
 export interface QuickbooksEntitiesContextType {
-  selectedEntity: string | null;
+  selectedEntity: string;
   setSelectedEntity: (entity: string) => void;
   selectedDateRange: DateRange;
   setSelectedDateRange: (range: DateRange) => void;
@@ -104,9 +123,8 @@ export interface QuickbooksEntitiesContextType {
   setSelectedEntityIds: (ids: string[]) => void;
   toggleEntitySelection: (id: string) => void;
   selectAllEntities: (select: boolean, entities?: any[]) => void;
-  deleteProgress: DeleteProgress;
+  deleteProgress: DeleteProgress;  // Updated to use DeleteProgress interface instead of number
   isDeleting: boolean;
   entityOptions: EntityOption[];
   getNestedValue: (obj: any, path: string) => any;
 }
-

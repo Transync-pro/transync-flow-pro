@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/environmentClient";
+import { supabase } from "@/integrations/supabase/client";
 import { QuickbooksConnection } from "./types";
 import { User } from "@supabase/supabase-js";
 import { logError } from "@/utils/errorLogger";
