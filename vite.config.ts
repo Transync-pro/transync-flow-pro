@@ -19,14 +19,21 @@ export default defineConfig(({ mode }) => {
   
   return {
     base,
+    define: {
+      'import.meta.env.MODE': JSON.stringify(mode),
+      'import.meta.env.BASE_URL': JSON.stringify(base),
+    },
     server: {
       host: "::",
       port: 3000,
-      open: true
+      open: true,
+      fs: {
+        strict: true,
+      },
     },
     preview: {
       port: 3000,
-      open: true
+      open: true,
     },
     plugins: [
       react(),
@@ -39,6 +46,10 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       sourcemap: true,
+      target: 'esnext',
+      modulePreload: {
+        polyfill: true,
+      },
       rollupOptions: {
         input: {
           main: path.resolve(__dirname, 'index.html'),
@@ -56,6 +67,7 @@ export default defineConfig(({ mode }) => {
       assetsDir: 'assets',
       emptyOutDir: true,
       outDir: 'dist',
+      minify: mode === 'production' ? 'esbuild' : false,
     },
   };
 });
