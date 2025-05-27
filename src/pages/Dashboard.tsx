@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import DashboardHome from "@/components/Dashboard/DashboardHome";
@@ -7,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
 import { motion } from "framer-motion";
-import { addStagingPrefix } from "@/config/environment";
+import { navigateWithEnvironment } from "@/config/environment";
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -163,7 +164,9 @@ const Dashboard = () => {
         if (!isConnected && !isLoading && !hasRedirected.current) {
           console.log("Dashboard detected disconnected state, redirecting to /authenticate");
           hasRedirected.current = true;
-          navigate(addStagingPrefix('/authenticate'), { replace: true });
+          const authenticatePath = navigateWithEnvironment('/authenticate');
+          console.log('Dashboard - redirecting to authenticate with path:', authenticatePath);
+          navigate(authenticatePath, { replace: true });
         }
       }, 1000); // 1 second delay
     } else if (isConnected === true) {

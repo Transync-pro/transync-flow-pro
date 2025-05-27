@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/environmentClient";
@@ -5,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { processLoginAttempt } from "@/services/loginSecurity";
 import { clearConnectionCache } from "@/services/quickbooksApi/connections";
-import { addStagingPrefix } from "@/config/environment";
+import { navigateWithEnvironment } from "@/config/environment";
 
 interface AuthContextType {
   session: Session | null;
@@ -40,6 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (event, currentSession) => {
         const previousUserId = user?.id;
         const currentUserId = currentSession?.user?.id;
+        
+        console.log('Auth state change event:', event, 'currentUserId:', currentUserId);
         
         // Update session and user state
         setSession(currentSession);
@@ -81,8 +84,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: "Welcome back!"
           });
           
+          // Use environment-aware navigation
+          const dashboardPath = navigateWithEnvironment('/dashboard');
+          console.log('Navigating to dashboard with path:', dashboardPath);
+          
           setTimeout(() => {
-            navigate(addStagingPrefix('/dashboard'));
+            navigate(dashboardPath);
           }, 100);
         } else if (event === 'SIGNED_OUT') {
           // Thoroughly clear all connection cache and session storage on logout
@@ -94,7 +101,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           sessionStorage.removeItem('qb_connection_timestamp');
           sessionStorage.removeItem('qb_auth_timestamp');
           
-          navigate(addStagingPrefix('/login'));
+          const loginPath = navigateWithEnvironment('/login');
+          console.log('Navigating to login with path:', loginPath);
+          navigate(loginPath);
         } else if (event === 'USER_UPDATED') {
           const emailVerified = currentSession?.user?.email_confirmed_at;
           if (emailVerified) {
@@ -124,10 +133,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       clearConnectionCache();
       
+      const redirectPath = navigateWithEnvironment('/dashboard');
+      console.log('Google OAuth redirect path:', redirectPath);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}${addStagingPrefix('/dashboard')}`,
+          redirectTo: `${window.location.origin}${redirectPath}`,
         }
       });
       
@@ -188,7 +200,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Welcome back!"
       });
 
-      navigate(addStagingPrefix('/dashboard'));
+      // Use environment-aware navigation
+      const dashboardPath = navigateWithEnvironment('/dashboard');
+      console.log('Manual sign in - navigating to dashboard with path:', dashboardPath);
+      navigate(dashboardPath);
     } catch (error) {
       toast({
         title: "Sign in failed",
@@ -203,7 +218,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUp = async (email: string, password: string, metadata?: object) => {
     try {
-      const redirectTo = `${window.location.origin}${addStagingPrefix('/verify')}`;
+      const verifyPath = navigateWithEnvironment('/verify');
+      console.log('Sign up redirect path:', verifyPath);
+      
+      const redirectTo = `${window.location.origin}${verifyPath}`;
 
       const { error, data } = await supabase.auth.signUp({
         email,
@@ -232,7 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Please check your email to verify your account."
       });
 
-      navigate(addStagingPrefix('/verify'));
+      navigate(verifyPath);
     } catch (error) {
       toast({
         title: "Sign up failed",

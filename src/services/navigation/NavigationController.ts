@@ -1,4 +1,7 @@
+
 // NavigationController.ts - Singleton to manage critical navigation transitions
+
+import { navigateWithEnvironment } from "@/config/environment";
 
 class NavigationController {
   private static instance: NavigationController;
@@ -34,9 +37,10 @@ class NavigationController {
     sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
     sessionStorage.setItem('qb_skip_auth_redirect', 'true');
     
-    // Navigate directly to dashboard
-    console.log('NavigationController: Navigating to dashboard');
-    navigate('/dashboard', { replace: true });
+    // Navigate directly to dashboard using environment-aware navigation
+    const dashboardPath = navigateWithEnvironment('/dashboard');
+    console.log('NavigationController: Navigating to dashboard with path:', dashboardPath);
+    navigate(dashboardPath, { replace: true });
     
     // Lock navigation for 3 seconds to let things settle
     this.transitionTimeoutId = setTimeout(() => {
@@ -63,9 +67,10 @@ class NavigationController {
     sessionStorage.setItem('qb_disconnected', 'true');
     sessionStorage.setItem('qb_disconnect_timestamp', Date.now().toString());
     
-    // Navigate to authenticate page
-    console.log('NavigationController: Navigating to authenticate page after disconnect');
-    navigate('/authenticate', { 
+    // Navigate to authenticate page using environment-aware navigation
+    const authenticatePath = navigateWithEnvironment('/authenticate');
+    console.log('NavigationController: Navigating to authenticate page after disconnect with path:', authenticatePath);
+    navigate(authenticatePath, { 
       replace: true,
       state: { fromDisconnect: true }
     });

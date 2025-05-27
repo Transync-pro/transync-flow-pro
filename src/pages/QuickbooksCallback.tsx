@@ -11,6 +11,7 @@ import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { logError } from "@/utils/errorLogger";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
+import { navigateWithEnvironment } from "@/config/environment";
 import { motion } from "framer-motion";
 
 const QuickbooksCallback = () => {
@@ -80,9 +81,11 @@ const QuickbooksCallback = () => {
       
     } catch (error) {
       console.error('Error during navigation:', error);
-      // Still navigate to dashboard even if there's an error
+      // Still navigate to dashboard even if there's an error using environment-aware navigation
       try {
-        navigate('/dashboard', { 
+        const dashboardPath = navigateWithEnvironment('/dashboard');
+        console.log('Fallback navigation to dashboard with path:', dashboardPath);
+        navigate(dashboardPath, { 
           replace: true,
           state: { 
             error: 'connection_error',
@@ -91,14 +94,15 @@ const QuickbooksCallback = () => {
         });
       } catch (navError) {
         console.error('Critical navigation error:', navError);
-        // Last resort - redirect without state
-        window.location.href = '/dashboard';
+        // Last resort - redirect without state using environment-aware navigation
+        const dashboardPath = navigateWithEnvironment('/dashboard');
+        window.location.href = dashboardPath;
       }
     } finally {
       console.log('Navigation process completed');
       setIsNavigating(false);
     }
-  }, [navigate, refreshConnection, isNavigating]);
+  }, [navigate, refreshConnection, isNavigating, user?.id]);
 
   // Process the callback once auth is loaded
   useEffect(() => {
@@ -166,7 +170,8 @@ const QuickbooksCallback = () => {
         console.log("Proceeding with token exchange:", { realmId, userId });
         
         // Use current origin for redirect URI - must exactly match what was used in the authorize step
-        const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
+        const redirectUri = window.location.origin + navigateWithEnvironment("/dashboard/quickbooks-callback");
+        console.log("Using redirect URI:", redirectUri);
         
         // Log the exact parameters being sent to help with debugging
         console.log("Sending token exchange parameters:", {
@@ -227,20 +232,23 @@ const QuickbooksCallback = () => {
             if (userId) {
               sessionStorage.setItem('qb_auth_success', 'true');
               sessionStorage.setItem('qb_connect_user', userId);
-              navigate('/login', { state: { redirectAfter: '/dashboard' } });
+              const loginPath = navigateWithEnvironment('/login');
+              navigate(loginPath, { state: { redirectAfter: navigateWithEnvironment('/dashboard') } });
               return;
             }
           }
           
           // Get redirect path from session storage or default to dashboard
-          const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || '/dashboard';
+          const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || navigateWithEnvironment('/dashboard');
           sessionStorage.removeItem('qb_redirect_after_connect');
           
           setProcessingComplete(true);
           await refreshConnection(true);
           
           setTimeout(() => {
-            navigate('/dashboard', { replace: true });
+            const dashboardPath = navigateWithEnvironment('/dashboard');
+            console.log('Redirecting to dashboard with path:', dashboardPath);
+            navigate(dashboardPath, { replace: true });
           }, 500);
           
           return;
@@ -296,7 +304,8 @@ const QuickbooksCallback = () => {
           
           // Wait a moment to show the toast before redirecting
           await new Promise(resolve => setTimeout(resolve, 1500));
-          navigate('/dashboard', { replace: true });
+          const dashboardPath = navigateWithEnvironment('/dashboard');
+          navigate(dashboardPath, { replace: true });
           return;
         }
 
@@ -457,14 +466,14 @@ const QuickbooksCallback = () => {
             </Alert>
             <div className="flex flex-col space-y-2">
               <Button
-                onClick={() => navigate("/authenticate")}
+                onClick={() => navigate(navigateWithEnvironment("/authenticate"))}
                 className="w-full"
               >
                 Try Again
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate(navigateWithEnvironment("/dashboard"))}
                 className="w-full"
               >
                 Go to Dashboard
@@ -484,7 +493,7 @@ const QuickbooksCallback = () => {
               If you are not redirected automatically, please click the button below.
             </p>
             <Button 
-              onClick={() => navigate('/dashboard', { replace: true })}
+              onClick={() => navigate(navigateWithEnvironment('/dashboard'), { replace: true })}
               className="w-full"
             >
               Go to Dashboard

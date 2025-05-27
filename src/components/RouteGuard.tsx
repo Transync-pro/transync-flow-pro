@@ -1,10 +1,11 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { addStagingPrefix, removeStagingPrefix } from "@/config/environment";
+import { navigateWithEnvironment } from "@/config/environment";
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -27,9 +28,20 @@ const RouteGuard = ({
   const checkAuthAndRedirect = React.useCallback(() => {
     if (authLoading) return;
 
+    console.log('RouteGuard - checking auth and redirect:', {
+      requiresAuth,
+      user: !!user,
+      requiresQuickbooks,
+      isConnected,
+      qbLoading,
+      pathname: location.pathname
+    });
+
     if (requiresAuth && !user) {
       const currentPath = location.pathname;
-      navigate('/login', { 
+      const loginPath = navigateWithEnvironment('/login');
+      console.log('RouteGuard - redirecting to login:', loginPath);
+      navigate(loginPath, { 
         state: { 
           redirectAfter: currentPath 
         },
@@ -39,7 +51,9 @@ const RouteGuard = ({
     }
 
     if (requiresQuickbooks && user && !isConnected && !qbLoading) {
-      navigate('/authenticate', { replace: true });
+      const authenticatePath = navigateWithEnvironment('/authenticate');
+      console.log('RouteGuard - redirecting to authenticate:', authenticatePath);
+      navigate(authenticatePath, { replace: true });
       return;
     }
   }, [authLoading, requiresAuth, user, requiresQuickbooks, isConnected, qbLoading, location.pathname, navigate]);
@@ -52,12 +66,14 @@ const RouteGuard = ({
   useEffect(() => {
     if (requiresQuickbooks && user && !isConnected && !hasCheckedConnection.current) {
       hasCheckedConnection.current = true;
+      console.log('RouteGuard - checking QB connection for user:', user.id);
       checkConnection(true, true)
         .then(() => {
           hasCheckedConnection.current = false;
+          console.log('RouteGuard - QB connection check completed');
         })
         .catch(error => {
-          console.error("Error checking QuickBooks connection:", error);
+          console.error("RouteGuard - Error checking QuickBooks connection:", error);
           toast({
             title: "Error",
             description: "Failed to check QuickBooks connection. Please try again.",
@@ -80,12 +96,16 @@ const RouteGuard = ({
   // Check authentication requirements
   if (requiresAuth && !user) {
     const currentPath = location.pathname;
-    return <Navigate to="/login" state={{ redirectAfter: currentPath }} replace />;
+    const loginPath = navigateWithEnvironment('/login');
+    console.log('RouteGuard - Navigate component redirect to login:', loginPath);
+    return <Navigate to={loginPath} state={{ redirectAfter: currentPath }} replace />;
   }
 
   // Check QuickBooks connection requirements
   if (requiresQuickbooks && user && !isConnected) {
-    return <Navigate to="/authenticate" replace />;
+    const authenticatePath = navigateWithEnvironment('/authenticate');
+    console.log('RouteGuard - Navigate component redirect to authenticate:', authenticatePath);
+    return <Navigate to={authenticatePath} replace />;
   }
 
   return <>{children}</>;
