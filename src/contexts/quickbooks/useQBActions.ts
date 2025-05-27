@@ -38,7 +38,7 @@ export const useQBActions = (
       await disconnectQB(user.id);
       await refreshConnection(true);
       
-      // Navigate to authenticate page after disconnect using environment-aware navigation
+      // Navigate to authenticate page after disconnect using React Router navigation
       const authenticatePath = navigateWithEnvironment('/authenticate');
       console.log('Navigating to authenticate after disconnect with path:', authenticatePath);
       navigate(authenticatePath, { replace: true });

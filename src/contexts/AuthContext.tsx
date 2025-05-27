@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/environmentClient";
@@ -6,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { processLoginAttempt } from "@/services/loginSecurity";
 import { clearConnectionCache } from "@/services/quickbooksApi/connections";
-import { navigateWithEnvironment } from "@/config/environment";
+import { navigateWithEnvironment, getFullUrlPath } from "@/config/environment";
 
 interface AuthContextType {
   session: Session | null;
@@ -84,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: "Welcome back!"
           });
           
-          // Use environment-aware navigation
+          // Use React Router navigation (basename handles staging prefix)
           const dashboardPath = navigateWithEnvironment('/dashboard');
           console.log('Navigating to dashboard with path:', dashboardPath);
           
@@ -133,8 +132,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       clearConnectionCache();
       
-      const redirectPath = navigateWithEnvironment('/dashboard');
-      console.log('Google OAuth redirect path:', redirectPath);
+      // Use full URL path for OAuth redirect (external URL)
+      const redirectPath = getFullUrlPath('/dashboard');
+      console.log('Google OAuth redirect path (full URL):', redirectPath);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -200,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Welcome back!"
       });
 
-      // Use environment-aware navigation
+      // Use React Router navigation (basename handles staging prefix)
       const dashboardPath = navigateWithEnvironment('/dashboard');
       console.log('Manual sign in - navigating to dashboard with path:', dashboardPath);
       navigate(dashboardPath);
@@ -218,8 +218,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUp = async (email: string, password: string, metadata?: object) => {
     try {
-      const verifyPath = navigateWithEnvironment('/verify');
-      console.log('Sign up redirect path:', verifyPath);
+      // Use full URL path for email redirect (external URL)
+      const verifyPath = getFullUrlPath('/verify');
+      console.log('Sign up redirect path (full URL):', verifyPath);
       
       const redirectTo = `${window.location.origin}${verifyPath}`;
 
@@ -250,7 +251,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Please check your email to verify your account."
       });
 
-      navigate(verifyPath);
+      // Use React Router navigation (basename handles staging prefix)
+      const navVerifyPath = navigateWithEnvironment('/verify');
+      navigate(navVerifyPath);
     } catch (error) {
       toast({
         title: "Sign up failed",

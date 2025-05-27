@@ -1,3 +1,4 @@
+
 // Environment configuration for staging and production only
 export type Environment = 'staging' | 'production';
 
@@ -62,7 +63,7 @@ export const isProduction = () => getEnvironment() === 'production';
 export const isStaging = () => getEnvironment() === 'staging';
 export const isDevelopment = () => false; // No longer supported
 
-// Helper function to add staging prefix to paths - FIXED to prevent double prefixing
+// Helper function to add staging prefix to paths - ONLY for external URLs
 export const addStagingPrefix = (path: string) => {
   const env = getEnvironment();
   console.log('addStagingPrefix called with path:', path, 'environment:', env);
@@ -108,24 +109,41 @@ export const getBasePath = () => {
   return basePath;
 };
 
-// Smart navigation function that prevents double prefixing
+// Navigation function for React Router - DON'T add prefixes since basename handles it
 export const navigateWithEnvironment = (path: string) => {
   const env = getEnvironment();
   console.log('navigateWithEnvironment called with path:', path, 'environment:', env);
   
-  if (env === 'staging') {
-    // If we're already in staging context and path starts with /staging, use as-is
-    if (path.startsWith('/staging/') || path === '/staging') {
-      console.log('Already has staging prefix, using as-is:', path);
-      return path;
-    }
-    // Otherwise add the prefix
-    const result = addStagingPrefix(path);
-    console.log('Added staging prefix, result:', result);
-    return result;
+  // When using React Router with basename, we should NOT add prefixes manually
+  // React Router handles the basename automatically
+  
+  // Clean the path to remove any existing staging prefixes
+  let cleanPath = path;
+  if (path.startsWith('/staging/')) {
+    cleanPath = path.substring(8); // Remove '/staging'
+    console.log('Removed staging prefix from path, clean path:', cleanPath);
+  } else if (path === '/staging') {
+    cleanPath = '/';
+    console.log('Converted /staging to root path');
   }
   
-  // For production, return path as-is
-  console.log('Production environment, returning path as-is:', path);
+  // Ensure path starts with /
+  if (!cleanPath.startsWith('/')) {
+    cleanPath = '/' + cleanPath;
+  }
+  
+  console.log('Final navigation path (React Router will handle basename):', cleanPath);
+  return cleanPath;
+};
+
+// Helper function for external URLs that need full paths with staging prefix
+export const getFullUrlPath = (path: string) => {
+  const env = getEnvironment();
+  console.log('getFullUrlPath called with path:', path, 'environment:', env);
+  
+  if (env === 'staging') {
+    return addStagingPrefix(path);
+  }
+  
   return path;
 };
