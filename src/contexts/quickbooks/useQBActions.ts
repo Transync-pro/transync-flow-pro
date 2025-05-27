@@ -1,10 +1,9 @@
-
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
-import { addStagingPrefix } from "@/config/environment";
+import { getCurrentDomain, addStagingPrefix } from "@/config/environment";
 
 export const useQBActions = (
   user: User | null,
@@ -53,13 +52,11 @@ export const useQBActions = (
       // Store the user ID in session storage in case we lose auth state during the OAuth flow
       sessionStorage.setItem("qb_connecting_user", user.id);
       
-      // Get the current URL to use as a base for the redirect URI
-      // Use window.location.origin to ensure we get the correct protocol and domain
-      const baseUrl = window.location.origin;
+      // Get the current domain for the redirect URI
+      const currentDomain = getCurrentDomain();
       
-      // Construct the redirect URL using the addStagingPrefix helper
-      // This ensures the staging prefix is added when in staging environment
-      const redirectUrl = `${baseUrl}${addStagingPrefix('/dashboard/quickbooks-callback')}`;
+      // Construct the redirect URL using the custom domain
+      const redirectUrl = `${currentDomain}${addStagingPrefix('/dashboard/quickbooks-callback')}`;
       
       console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);
       console.log("User ID for connection:", user.id);

@@ -3,11 +3,17 @@
 export type Environment = 'staging' | 'production';
 
 export const getEnvironment = (): Environment => {
-  // Check for staging path prefix
+  // Check for staging domain or path prefix
   if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
     const pathname = window.location.pathname;
     
-    // Check if URL starts with /staging
+    // Check if hostname is staging domain
+    if (hostname === 'staging.proadvisors.art') {
+      return 'staging';
+    }
+    
+    // Check if URL starts with /staging (fallback for preview environments)
     if (pathname.startsWith('/staging')) {
       return 'staging';
     }
@@ -27,7 +33,8 @@ export const config = {
     },
     quickbooks: {
       environment: 'sandbox'
-    }
+    },
+    domain: 'staging.proadvisors.art'
   },
   production: {
     supabase: {
@@ -36,7 +43,8 @@ export const config = {
     },
     quickbooks: {
       environment: 'production'
-    }
+    },
+    domain: 'proadvisors.art'
   }
 };
 
@@ -49,12 +57,40 @@ export const isProduction = () => getEnvironment() === 'production';
 export const isStaging = () => getEnvironment() === 'staging';
 export const isDevelopment = () => false; // No longer supported
 
+// Helper function to get the current domain
+export const getCurrentDomain = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    
+    // Use custom domains if available
+    if (hostname === 'staging.proadvisors.art' || hostname === 'proadvisors.art') {
+      return hostname;
+    }
+    
+    // Fallback to preview domain for development
+    return window.location.origin;
+  }
+  
+  // Server-side fallback
+  const env = getEnvironment();
+  return `https://${config[env].domain}`;
+};
+
 // Helper function to get the base path for routing
 export const getBasePath = () => {
+  // For custom domains, no base path needed
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'staging.proadvisors.art' || hostname === 'proadvisors.art') {
+      return '';
+    }
+  }
+  
+  // Fallback for preview environments
   return isStaging() ? '/staging' : '';
 };
 
-// Helper function to add staging prefix to paths
+// Helper function to add staging prefix to paths (only for preview environments)
 export const addStagingPrefix = (path: string) => {
   const basePath = getBasePath();
   if (!basePath) return path;
