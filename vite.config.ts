@@ -8,8 +8,11 @@ export default defineConfig(({ mode }) => {
   // Load environment variables based on the current mode
   const env = loadEnv(mode, process.cwd(), '');
   
-  // Set base URL for staging
-  const base = env.VITE_BASE_URL || '/';
+  // Set base URL - only use VITE_BASE_URL if it's explicitly set
+  const base = mode === 'production' ? '/' : (env.VITE_BASE_URL || '/');
+  
+  // Log the base URL for debugging
+  console.log(`Running in ${mode} mode with base URL: ${base}`);
   
   return {
     base,
@@ -24,6 +27,18 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
+      },
+    },
+    // Ensure assets are properly referenced in production
+    build: {
+      sourcemap: mode === 'development',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ['react', 'react-dom', 'react-router-dom'],
+            vendor: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+          },
+        },
       },
     },
   };
