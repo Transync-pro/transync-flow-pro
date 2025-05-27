@@ -1,5 +1,4 @@
-
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 
 interface QuickbooksConnection {
   id: string;
@@ -9,8 +8,7 @@ interface QuickbooksConnection {
   refresh_token: string;
   created_at: string;
   expires_at: string;
-  company_name?: string | null;
-  updated_at: string;
+  company_name?: string;
 }
 
 // No connection cache - always query database directly
@@ -42,84 +40,23 @@ export const clearConnectionCache = (userId?: string): void => {
   console.log('Connection session storage cleared', userId ? `for user ${userId}` : 'for all users');
 };
 
-// Initialize QuickBooks authentication
-export const initQBAuth = async (userId: string): Promise<void> => {
-  try {
-    const { error } = await supabase.functions.invoke("quickbooks-auth", {
-      body: {
-        path: "authorize",
-        userId: userId
-      }
-    });
-
-    if (error) {
-      throw new Error(`Failed to initialize QB auth: ${error.message}`);
-    }
-  } catch (error) {
-    console.error("Error initializing QB auth:", error);
-    throw error;
-  }
-};
-
-// Disconnect from QuickBooks
-export const disconnectQB = async (userId: string): Promise<void> => {
-  try {
-    const { error } = await supabase
-      .from('quickbooks_connections')
-      .delete()
-      .eq('user_id', userId);
-
-    if (error) {
-      throw new Error(`Failed to disconnect QB: ${error.message}`);
-    }
-
-    // Clear connection cache
-    clearConnectionCache(userId);
-  } catch (error) {
-    console.error("Error disconnecting QB:", error);
-    throw error;
-  }
-};
-
-// Refresh QuickBooks token
-export const refreshQBToken = async (userId: string): Promise<void> => {
-  try {
-    const { error } = await supabase.functions.invoke("quickbooks-auth", {
-      body: {
-        path: "refresh",
-        userId: userId
-      }
-    });
-
-    if (error) {
-      throw new Error(`Failed to refresh QB token: ${error.message}`);
-    }
-  } catch (error) {
-    console.error("Error refreshing QB token:", error);
-    throw error;
-  }
-};
-
 // Get the current auth user's QuickBooks connection - always query database directly
-export const getQBConnection = async (userId?: string): Promise<QuickbooksConnection | null> => {
+export const getQBConnection = async (): Promise<QuickbooksConnection | null> => {
   try {
-    let targetUserId = userId;
-    
-    if (!targetUserId) {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) {
-        console.log('No authenticated user found');
-        return null;
-      }
-      targetUserId = userData.user.id;
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      console.log('No authenticated user found');
+      return null;
     }
     
-    console.log(`Fetching QB connection for user ${targetUserId} from database`);
+    const userId = userData.user.id;
+    
+    console.log(`Fetching QB connection for user ${userId} from database`);
     // Always fetch fresh data from DB
     const { data, error } = await supabase
       .from('quickbooks_connections')
       .select('*')
-      .eq('user_id', targetUserId)
+      .eq('user_id', userId)
       .maybeSingle();
     
     if (error) {

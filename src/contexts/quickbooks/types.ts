@@ -1,16 +1,15 @@
 
-import { User } from "@supabase/supabase-js";
 
 export interface QuickbooksConnection {
   id: string;
   user_id: string;
   realm_id: string;
-  company_name: string | null;
   access_token: string;
   refresh_token: string;
-  expires_at: string;
+  company_name?: string;
   created_at: string;
   updated_at: string;
+  expires_at?: string;
 }
 
 export interface QuickbooksContextType {
@@ -29,48 +28,26 @@ export interface QuickbooksContextType {
   checkConnection: (force?: boolean, silent?: boolean) => Promise<void>;
 }
 
-export interface EntityRecord {
-  Id: string;
-  [key: string]: any;
-}
-
-export interface EntityMappingConfig {
-  field: string;
-  header: string;
-  accessor?: (record: any) => any;
-}
-
-export interface EntityColumnConfig {
-  field: string;
-  header: string;
-  accessor?: (record: any) => any;
-}
-
-export interface EntityGroup {
-  id: string;
-  label: string;
-  entities: EntityOption[];
-}
-
-export interface EntityOption {
-  label: string;
-  value: string;
-  description?: string;
-}
-
+// Date range interface for filtering
 export interface DateRange {
   from: Date | null;
   to: Date | null;
 }
 
+// Delete progress tracking
 export interface DeleteProgress {
   total: number;
   current: number;
   success: number;
   failed: number;
-  details: Array<{id: string, status: string, error?: string}>;
+  details: Array<{
+    id: string;
+    status: string;
+    error?: string;
+  }>;
 }
 
+// Entity state for managing fetched data
 export interface EntityState {
   records: any[];
   filteredRecords: any[];
@@ -80,8 +57,41 @@ export interface EntityState {
   lastUpdated: Date | null;
 }
 
+// Entity option for dropdowns
+export interface EntityOption {
+  value: string;
+  label: string;
+}
+
+// Entity column configuration for tables
+export interface EntityColumnConfig {
+  field: string;
+  header: string;
+  accessor?: (obj: any) => any;
+}
+
+// Generic entity record type
+export interface EntityRecord {
+  Id: string;
+  [key: string]: any;
+}
+
+// QuickBooks user identity
+export interface QuickbooksUserIdentity {
+  id: string;
+  user_id: string;
+  realm_id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// QuickBooks entities context type
 export interface QuickbooksEntitiesContextType {
-  selectedEntity: string;
+  selectedEntity: string | null;
   setSelectedEntity: (entity: string) => void;
   selectedDateRange: DateRange;
   setSelectedDateRange: (range: DateRange) => void;
@@ -100,14 +110,3 @@ export interface QuickbooksEntitiesContextType {
   getNestedValue: (obj: any, path: string) => any;
 }
 
-export interface QuickbooksUserIdentity {
-  id: string;
-  user_id: string;
-  quickbooks_user_id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  phone_number: string | null;
-  created_at: string;
-  updated_at: string;
-}

@@ -76,9 +76,9 @@ const QuickbooksUserIdentity: React.FC<QuickbooksUserIdentityProps> = ({ classNa
           </div>
         )}
         
-        {userIdentity.phone_number && (
+        {userIdentity.phone && (
           <div>
-            <span className="font-semibold">Phone:</span> {userIdentity.phone_number}
+            <span className="font-semibold">Phone:</span> {userIdentity.phone}
           </div>
         )}
       </CardContent>

@@ -1,7 +1,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -77,6 +77,10 @@ const QuickbooksCallback = () => {
       // Use the NavigationController to handle navigation after successful auth
       // This provides centralized navigation control with locking
       navigationController.handleAuthSuccess(user?.id || '', navigate);
+      
+      // No need to call navigate directly - NavigationController handles it
+      // This prevents competing navigation attempts from other components
+      // timestamp: Date.now()
       
     } catch (error) {
       console.error('Error during navigation:', error);
@@ -408,7 +412,6 @@ const QuickbooksCallback = () => {
         setIsCheckingSession(false);
       }
     };
-    
     processCallback();
   }, [location, navigate, user, isAuthLoading, refreshConnection, redirectToDashboard]);
 
