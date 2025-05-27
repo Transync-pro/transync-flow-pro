@@ -36,12 +36,20 @@ export const useQBActions = (
     try {
       console.log('Disconnecting QuickBooks for user:', user.id);
       await disconnectQB(user.id);
-      await refreshConnection(true);
+      
+      // Force a refresh of the connection state before navigation
+      await refreshConnection(true, true); // force=true, silent=true
+      
+      // Add a small delay to ensure state updates propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Navigate to authenticate page after disconnect using React Router navigation
       const authenticatePath = navigateWithEnvironment('/authenticate');
       console.log('Navigating to authenticate after disconnect with path:', authenticatePath);
-      navigate(authenticatePath, { replace: true });
+      navigate(authenticatePath, { 
+        replace: true,
+        state: { fromDisconnect: true } // Add flag to prevent immediate redirect
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       console.error('QuickBooks disconnection failed:', errorMessage);

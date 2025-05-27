@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkQBConnectionExists, clearConnectionCache, forceConnectionState, clearForcedConnectionState } from "@/services/quickbooksApi/connections";
 import { toast } from "@/components/ui/use-toast";
 import PageLayout from "@/components/PageLayout";
+import { navigateWithEnvironment } from "@/config/environment";
 
 const Authenticate = () => {
   const [buttonHover, setButtonHover] = useState(false);
@@ -17,12 +18,20 @@ const Authenticate = () => {
   const { connect, isConnected, isLoading, refreshConnection } = useQuickbooks();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   // Track if we've already checked the connection
   const hasCheckedConnection = useRef(false);
   
   // Simplified connection check for the Authenticate page
   useEffect(() => {
+    // Skip the redirect if we just came from a disconnect
+    if (location.state?.fromDisconnect) {
+      console.log("Authenticate: Came from disconnect, skipping redirect check");
+      setIsCheckingConnection(false);
+      return;
+    }
+
     // If we already know there's no connection (which is likely since we're on this page)
     // or if we've already checked, exit loading state immediately
     if (!isConnected || hasCheckedConnection.current) {
@@ -44,8 +53,9 @@ const Authenticate = () => {
         hasCheckedConnection.current = true;
         
         // Guaranteed timeout to ensure we NEVER get stuck in loading state
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           if (isMounted) {
+            console.log("Authenticate: Safety timeout reached");
             setIsCheckingConnection(false);
           }
         }, 2000); // Short 2 second timeout as a safety net
@@ -53,6 +63,7 @@ const Authenticate = () => {
         // If isConnected is already false, we don't need a full check
         if (!isConnected) {
           console.log("Authenticate: Context already shows no connection");
+          clearTimeout(timeoutId);
           setIsCheckingConnection(false);
           return;
         }
@@ -61,14 +72,15 @@ const Authenticate = () => {
         const hasConnection = await checkQBConnectionExists(user.id);
           
         if (!isMounted) return;
+        clearTimeout(timeoutId);
         
         if (hasConnection) {
           console.log("Authenticate: Found connection, redirecting to dashboard");
-          toast({
-            title: "QuickBooks Connected",
-            description: "Your QuickBooks account is connected. Redirecting to dashboard...",
+          const dashboardPath = navigateWithEnvironment('/dashboard');
+          navigate(dashboardPath, { 
+            replace: true,
+            state: { fromAuth: true } // Add flag to prevent loops
           });
-          navigate('/dashboard', { replace: true });
         } else {
           console.log("Authenticate: Confirmed no connection");
           setIsCheckingConnection(false);
