@@ -61,8 +61,15 @@ export const useQBActions = (
       // Get the current URL to use as a base for the redirect URI
       const baseUrl = window.location.origin;
       
-      // Construct the redirect URL using the addStagingPrefix helper
-      const redirectUrl = `${baseUrl}${addStagingPrefix('/dashboard/quickbooks-callback')}`;
+      // Construct the redirect URL - fix double staging prefix issue
+      let redirectUrl;
+      if (isStaging()) {
+        // For staging, use the staging prefix but don't double it
+        redirectUrl = `${baseUrl}/staging/dashboard/quickbooks-callback`;
+      } else {
+        // For production, no prefix needed
+        redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
+      }
       
       console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);
       console.log("User ID for connection:", user.id);
