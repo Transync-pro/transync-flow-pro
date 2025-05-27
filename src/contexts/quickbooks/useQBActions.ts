@@ -56,7 +56,7 @@ export const useQBActions = (
       // Use window.location.origin to ensure we get the correct protocol and domain
       const baseUrl = window.location.origin;
       
-      // Construct the redirect URL using the base URL
+      // Construct the redirect URL - always use /dashboard/quickbooks-callback for both environments
       const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
       
       console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);

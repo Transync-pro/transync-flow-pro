@@ -9,8 +9,8 @@ export const getEnvironment = (): Environment => {
   
   const hostname = window.location.hostname;
   
-  // Check for staging subdomains
-  if (hostname.startsWith('staging.') || hostname.endsWith('.staging') || hostname.includes('.staging.')) {
+  // Check if hostname contains 'staging'
+  if (hostname.includes('staging')) {
     return 'staging';
   }
   

@@ -1,6 +1,6 @@
 
 import { QuickbooksConnection } from "./types";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 
 export const useQBTokenManagement = (
   connection: QuickbooksConnection | null,
