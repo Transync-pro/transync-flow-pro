@@ -29,7 +29,12 @@ export const useQBConnectionStatus = (user: User | null) => {
       if (hasConnection) {
         const connectionData = await getQBConnection(user.id);
         if (connectionData) {
-          setConnection(connectionData);
+          // Map the connection data to match our interface
+          const mappedConnection: QuickbooksConnection = {
+            ...connectionData,
+            company_name: connectionData.company_name || null
+          };
+          setConnection(mappedConnection);
           setRealmId(connectionData.realm_id || null);
           setCompanyName(connectionData.company_name || null);
           setIsConnected(true);

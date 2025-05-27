@@ -96,7 +96,7 @@ export interface QuickbooksEntitiesContextType {
   selectAllEntities: (select: boolean, entities?: any[]) => void;
   deleteProgress: DeleteProgress;
   isDeleting: boolean;
-  entityOptions: EntityGroup[];
+  entityOptions: EntityOption[];
   getNestedValue: (obj: any, path: string) => any;
 }
 

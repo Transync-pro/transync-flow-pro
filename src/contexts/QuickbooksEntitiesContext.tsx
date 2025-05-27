@@ -48,8 +48,19 @@ export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ 
     setEntityState
   );
   
-  // Generate entity options for dropdowns
-  const entityOptions = React.useMemo(() => getEntityOptions(), []);
+  // Generate entity options for dropdowns - flatten the groups into a single array
+  const entityOptions = React.useMemo(() => {
+    const groups = getEntityOptions();
+    const flatOptions: EntityOption[] = [];
+    
+    groups.forEach(group => {
+      group.entities.forEach(entity => {
+        flatOptions.push(entity);
+      });
+    });
+    
+    return flatOptions;
+  }, []);
 
   // Reset selected entity IDs when entity type changes
   useEffect(() => {
