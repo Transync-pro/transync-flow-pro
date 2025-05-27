@@ -84,15 +84,8 @@ export const removeStagingPrefix = (path: string) => {
 };
 
 // Helper function to get the base path for routing
-export const getBasePath = (): string => {
-  // If we're already on a path that includes '/staging', return empty string
-  // to prevent double prefixing
-  if (typeof window !== 'undefined' && window.location.pathname.includes('/staging')) {
-    return '';
-  }
-  
+export const getBasePath = () => {
   const env = getEnvironment();
-  const basePath = env === 'staging' ? '/staging' : '';
-  console.log(`Base path for environment ${env}: '${basePath}'`);
-  return basePath;
+  console.log(`Base path for environment ${env}: ${env === 'staging' ? '/staging' : ''}`);
+  return env === 'staging' ? '/staging' : '';
 };
