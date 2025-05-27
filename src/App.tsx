@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -55,28 +54,35 @@ const queryClient = new QueryClient();
 const AppRoutes = () => {
   const basePath = isStaging() ? '/staging' : '';
   
+  // Handle redirect from /staging to /staging/
+  React.useEffect(() => {
+    if (isStaging() && window.location.pathname === '/staging') {
+      window.history.replaceState(null, '', '/staging/');
+    }
+  }, []);
+  
   return (
     <Routes>
       {/* Public routes */}
-      <Route path={addStagingPrefix("/")} element={<Index />} />
-      <Route path={addStagingPrefix("/login")} element={<Login />} />
-      <Route path={addStagingPrefix("/signup")} element={<Signup />} />
-      <Route path={addStagingPrefix("/forgot-password")} element={<ForgotPassword />} />
-      <Route path={addStagingPrefix("/reset-password")} element={<ResetPassword />} />
-      <Route path={addStagingPrefix("/verify")} element={<Verify />} />
-      <Route path={addStagingPrefix("/demo")} element={<Demo />} />
-      <Route path={addStagingPrefix("/features")} element={<Features />} />
-      <Route path={addStagingPrefix("/documentation")} element={<Documentation />} />
-      <Route path={addStagingPrefix("/support")} element={<Support />} />
-      <Route path={addStagingPrefix("/tutorials")} element={<Tutorials />} />
-      <Route path={addStagingPrefix("/contact")} element={<Contact />} />
-      <Route path={addStagingPrefix("/about-us")} element={<AboutUs />} />
-      <Route path={addStagingPrefix("/careers")} element={<Careers />} />
-      <Route path={addStagingPrefix("/privacy-policy")} element={<PrivacyPolicy />} />
-      <Route path={addStagingPrefix("/terms-of-use")} element={<TermsOfUse />} />
-      <Route path={addStagingPrefix("/integrations")} element={<Integrations />} />
+      <Route path="/" element={<Index />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify" element={<Verify />} />
+      <Route path="/demo" element={<Demo />} />
+      <Route path="/features" element={<Features />} />
+      <Route path="/documentation" element={<Documentation />} />
+      <Route path="/support" element={<Support />} />
+      <Route path="/tutorials" element={<Tutorials />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/about-us" element={<AboutUs />} />
+      <Route path="/careers" element={<Careers />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/terms-of-use" element={<TermsOfUse />} />
+      <Route path="/integrations" element={<Integrations />} />
       <Route 
-        path={addStagingPrefix("/coming-soon")} 
+        path="/coming-soon" 
         element={
           <ComingSoon 
             title="Feature Coming Soon"
@@ -84,12 +90,12 @@ const AppRoutes = () => {
           />
         } 
       />
-      <Route path={addStagingPrefix("/blog")} element={<Blog />} />
-      <Route path={addStagingPrefix("/blog/:slug")} element={<BlogDetail />} />
+      <Route path="/blog" element={<Blog />} />
+      <Route path="/blog/:slug" element={<BlogDetail />} />
 
       {/* Protected routes */}
       <Route
-        path={addStagingPrefix("/dashboard")}
+        path="/dashboard"
         element={
           <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
             <Dashboard />
@@ -97,15 +103,15 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/dashboard/quickbooks-callback")}
+        path="/dashboard/quickbooks-callback"
         element={
-          <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
+          <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
             <QuickbooksCallback />
           </RouteGuard>
         }
       />
       <Route
-        path={addStagingPrefix("/profile")}
+        path="/profile"
         element={
           <RouteGuard>
             <Profile />
@@ -113,7 +119,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/authenticate")}
+        path="/authenticate"
         element={
           <RouteGuard>
             <Authenticate />
@@ -121,7 +127,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/disconnected")}
+        path="/disconnected"
         element={
           <RouteGuard>
             <Disconnected />
@@ -129,7 +135,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/dashboard/export")}
+        path="/dashboard/export"
         element={
           <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
             <Export />
@@ -137,7 +143,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/dashboard/import")}
+        path="/dashboard/import"
         element={
           <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
             <Import />
@@ -145,7 +151,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/dashboard/delete")}
+        path="/dashboard/delete"
         element={
           <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
             <Delete />
@@ -153,7 +159,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/dashboard/history")}
+        path="/dashboard/history"
         element={
           <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
             <History />
@@ -161,7 +167,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/subscription")}
+        path="/subscription"
         element={
           <RouteGuard>
             <Subscription />
@@ -169,7 +175,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/admin/blog")}
+        path="/admin/blog"
         element={
           <RouteGuard>
             <BlogAdmin />
@@ -177,7 +183,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/admin/blog/import")}
+        path="/admin/blog/import"
         element={
           <RouteGuard>
             <BlogImportPage />
@@ -185,7 +191,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path={addStagingPrefix("/admin/test")}
+        path="/admin/test"
         element={
           <RouteGuard>
             <TestAdmin />
@@ -200,28 +206,27 @@ const AppRoutes = () => {
 };
 
 const App = () => {
-  const basePath = isStaging() ? '/staging' : '';
-  
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter basename={basePath}>
-          <AuthProvider>
-            <QuickbooksProvider>
-              <QuickbooksEntitiesProvider>
-                <IdleTimeoutProvider>
-                  <TabVisibilityProvider>
-                    <EnvironmentIndicator />
+      <BrowserRouter basename={isStaging() ? '/staging' : ''}>
+        <AuthProvider>
+          <QuickbooksProvider>
+            <QuickbooksEntitiesProvider>
+              <IdleTimeoutProvider>
+                <TabVisibilityProvider>
+                  <TooltipProvider>
+                    <RouteRestorer />
                     <AppRoutes />
-                  </TabVisibilityProvider>
-                </IdleTimeoutProvider>
-              </QuickbooksEntitiesProvider>
-            </QuickbooksProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+                    <Toaster />
+                    <Sonner />
+                    {!isProduction() && <EnvironmentIndicator />}
+                  </TooltipProvider>
+                </TabVisibilityProvider>
+              </IdleTimeoutProvider>
+            </QuickbooksEntitiesProvider>
+          </QuickbooksProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 };
