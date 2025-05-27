@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
+import { addStagingPrefix } from "@/config/environment";
 
 export const useQBActions = (
   user: User | null,
@@ -56,8 +57,9 @@ export const useQBActions = (
       // Use window.location.origin to ensure we get the correct protocol and domain
       const baseUrl = window.location.origin;
       
-      // Construct the redirect URL using the base URL
-      const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
+      // Construct the redirect URL using the addStagingPrefix helper
+      // This ensures the staging prefix is added when in staging environment
+      const redirectUrl = `${baseUrl}${addStagingPrefix('/dashboard/quickbooks-callback')}`;
       
       console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);
       console.log("User ID for connection:", user.id);
