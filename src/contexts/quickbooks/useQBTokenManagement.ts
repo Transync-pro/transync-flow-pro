@@ -1,18 +1,26 @@
 
 import { QuickbooksConnection } from "./types";
 import { supabase } from "@/integrations/supabase/client";
+import { isStaging } from "@/config/environment";
 
 export const useQBTokenManagement = (
   connection: QuickbooksConnection | null,
   refreshConnection: () => Promise<void>,
   handleError: (error: string, displayToast?: boolean) => string
 ) => {
+  // Get the correct edge function name based on environment
+  const getEdgeFunctionName = () => {
+    return isStaging() ? 'quickbooks-auth-staging' : 'quickbooks-auth';
+  };
+
   // Refresh the access token
   const refreshToken = async (refreshTokenStr: string): Promise<string | null> => {
     if (!connection?.user_id) return null;
     
     try {
-      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+      console.log("Refreshing token using edge function:", getEdgeFunctionName());
+      
+      const { data, error } = await supabase.functions.invoke(getEdgeFunctionName(), {
         body: { 
           path: 'refresh',
           userId: connection.user_id,

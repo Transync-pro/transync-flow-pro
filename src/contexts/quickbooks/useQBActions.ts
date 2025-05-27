@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
-import { addStagingPrefix } from "@/config/environment";
+import { addStagingPrefix, isStaging } from "@/config/environment";
 
 export const useQBActions = (
   user: User | null,
@@ -35,6 +35,11 @@ export const useQBActions = (
     console.log('Cleared all QB session storage items before starting authentication');
   };
 
+  // Get the correct edge function name based on environment
+  const getEdgeFunctionName = () => {
+    return isStaging() ? 'quickbooks-auth-staging' : 'quickbooks-auth';
+  };
+
   // Start OAuth flow to connect to QuickBooks
   const connect = async () => {
     if (!user) {
@@ -54,18 +59,17 @@ export const useQBActions = (
       sessionStorage.setItem("qb_connecting_user", user.id);
       
       // Get the current URL to use as a base for the redirect URI
-      // Use window.location.origin to ensure we get the correct protocol and domain
       const baseUrl = window.location.origin;
       
       // Construct the redirect URL using the addStagingPrefix helper
-      // This ensures the staging prefix is added when in staging environment
       const redirectUrl = `${baseUrl}${addStagingPrefix('/dashboard/quickbooks-callback')}`;
       
       console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);
       console.log("User ID for connection:", user.id);
+      console.log("Using edge function:", getEdgeFunctionName());
       
-      // Call the edge function to get authorization URL
-      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+      // Call the appropriate edge function based on environment
+      const { data, error } = await supabase.functions.invoke(getEdgeFunctionName(), {
         body: { 
           path: 'authorize',
           redirectUri: redirectUrl,
@@ -102,12 +106,13 @@ export const useQBActions = (
 
     try {
       console.log("Attempting to disconnect QuickBooks for user:", user.id);
+      console.log("Using edge function:", getEdgeFunctionName());
       
       // Use our comprehensive clear function instead of individual removals
       clearQBSessionData();
       
-      // Call the edge function to revoke the token
-      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+      // Call the appropriate edge function based on environment
+      const { data, error } = await supabase.functions.invoke(getEdgeFunctionName(), {
         body: { 
           path: 'revoke',
           userId: user.id
@@ -128,8 +133,7 @@ export const useQBActions = (
       clearConnectionCache(user.id);
       
       // Force the connection state to be false for this user for 10 seconds
-      // This overrides any database checks during the critical navigation period
-      forceConnectionState(user.id, false, 10000); // 10 seconds of forced disconnected state
+      forceConnectionState(user.id, false, 10000);
       console.log(`Forced connection state to false for user ${user.id} after disconnection`);
       
       console.log("QuickBooks disconnection process completed, refreshing connection status...");
@@ -138,7 +142,6 @@ export const useQBActions = (
       refreshConnection && refreshConnection();
       
       // Use NavigationController to handle the disconnect navigation
-      // This provides centralized navigation control and prevents competing redirects
       if (navigate) {
         console.log('Using NavigationController to handle disconnection navigation');
         navigationController.handleDisconnect(user.id, navigate);
