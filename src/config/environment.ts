@@ -65,12 +65,12 @@ export const addStagingPrefix = (path: string) => {
   // Handle empty path or root
   if (!path || path === '/') return '/staging';
   
-  // If the path already contains staging prefix, return as is to prevent double prefixing
-  if (path.includes('/staging')) {
+  // If the path already starts with /staging, return as is
+  if (path.startsWith('/staging/') || path === '/staging') {
     return path;
   }
   
-  // Otherwise, add the /staging prefix only if we're in staging and path doesn't have it
+  // Otherwise, add the /staging prefix
   const cleanPath = path.startsWith('/') ? path.substring(1) : path;
   return `/staging/${cleanPath}`.replace(/\/+/g, '/');
 };
