@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -208,9 +207,18 @@ const AppRoutes = () => {
 };
 
 const App = () => {
+  // Get the base path based on the environment
+  const getBasePath = () => {
+    if (isStaging()) return '/staging';
+    if (process.env.NODE_ENV === 'development') return '';
+    return ''; // Empty string for production
+  };
+
+  const basePath = getBasePath();
+
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={isStaging() ? '/staging' : ''}>
+      <BrowserRouter basename={basePath}>
         <AuthProvider>
           <QuickbooksProvider>
             <QuickbooksEntitiesProvider>

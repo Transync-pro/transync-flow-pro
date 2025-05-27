@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       mode === 'development' && componentTagger(),
-    ].filter(Boolean),
+    ].filter(Boolean) as any[],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
@@ -40,6 +40,9 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
+      // Ensure assets are properly hashed for cache busting
+      assetsDir: 'assets',
+      emptyOutDir: true,
     },
   };
 });
