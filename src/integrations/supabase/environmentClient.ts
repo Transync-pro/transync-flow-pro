@@ -15,6 +15,7 @@ export const supabase = createClient<Database>(
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       persistSession: true,
       autoRefreshToken: true,
+      storageKey: 'transync-flow-pro-auth', // Add unique storage key to avoid conflicts
     }
   }
 );

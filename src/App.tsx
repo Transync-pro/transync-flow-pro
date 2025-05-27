@@ -13,7 +13,7 @@ import { TabVisibilityProvider } from "@/contexts/TabVisibilityContext";
 import RouteGuard from "@/components/RouteGuard";
 import RouteRestorer from "@/components/RouteRestorer";
 import EnvironmentIndicator from "@/components/EnvironmentIndicator";
-import { isProduction, isStaging, isDevelopment, addStagingPrefix } from "./config/environment";
+import { isProduction, isStaging, getBasePath } from "./config/environment";
 
 // Import statements for pages
 import Index from "./pages/Index";
@@ -54,8 +54,6 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const basePath = isStaging() ? '/staging' : '';
-  
   // Handle redirect from /staging to /staging/
   React.useEffect(() => {
     if (isStaging() && window.location.pathname === '/staging') {
@@ -208,9 +206,11 @@ const AppRoutes = () => {
 };
 
 const App = () => {
+  const basename = getBasePath();
+  
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={isStaging() ? '/staging' : ''}>
+      <BrowserRouter basename={basename}>
         <AuthProvider>
           <QuickbooksProvider>
             <QuickbooksEntitiesProvider>
