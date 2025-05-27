@@ -8,11 +8,11 @@ export default defineConfig(({ mode }) => {
   // Load environment variables based on the current mode
   const env = loadEnv(mode, process.cwd(), '');
   
-  // Set base URL - only use VITE_BASE_URL if it's explicitly set
-  const base = mode === 'production' ? '/' : (env.VITE_BASE_URL || '/');
+  // Set base URL - empty for production, use VITE_BASE_URL if set
+  const base = mode === 'production' ? '' : (env.VITE_BASE_URL || '/');
   
   // Log the base URL for debugging
-  console.log(`Running in ${mode} mode with base URL: ${base}`);
+  console.log(`Running in ${mode} mode with base URL: '${base}'`);
   
   return {
     base,
@@ -33,16 +33,23 @@ export default defineConfig(({ mode }) => {
     build: {
       sourcemap: mode === 'development',
       rollupOptions: {
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+        },
         output: {
           manualChunks: {
             react: ['react', 'react-dom', 'react-router-dom'],
             vendor: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
           },
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash][extname]',
         },
       },
       // Ensure assets are properly hashed for cache busting
       assetsDir: 'assets',
       emptyOutDir: true,
+      outDir: 'dist',
     },
   };
 });

@@ -49,6 +49,7 @@ import BlogAdmin from "./pages/Admin/BlogAdmin";
 import BlogImportPage from "./pages/Admin/BlogImportPage";
 import TestAdmin from "./pages/Admin/TestAdmin";
 import NotFound from "./pages/NotFound";
+import TestPage from "./pages/TestPage";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const AppRoutes = () => {
   
   return (
     <Routes>
+      <Route path="/test" element={<TestPage />} />
       {/* Public routes */}
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
