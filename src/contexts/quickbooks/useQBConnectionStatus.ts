@@ -28,10 +28,17 @@ export const useQBConnectionStatus = (user: User | null) => {
       
       if (hasConnection) {
         const connectionData = await getQBConnection(user.id);
-        setConnection(connectionData);
-        setRealmId(connectionData?.realm_id || null);
-        setCompanyName(connectionData?.company_name || null);
-        setIsConnected(true);
+        if (connectionData) {
+          setConnection(connectionData);
+          setRealmId(connectionData.realm_id || null);
+          setCompanyName(connectionData.company_name || null);
+          setIsConnected(true);
+        } else {
+          setConnection(null);
+          setRealmId(null);
+          setCompanyName(null);
+          setIsConnected(false);
+        }
       } else {
         setConnection(null);
         setRealmId(null);
