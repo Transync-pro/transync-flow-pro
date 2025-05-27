@@ -1,3 +1,5 @@
+import { addStagingPrefix } from '@/config/environment';
+
 // NavigationController.ts - Singleton to manage critical navigation transitions
 
 class NavigationController {
@@ -14,6 +16,12 @@ class NavigationController {
       NavigationController.instance = new NavigationController();
     }
     return NavigationController.instance;
+  }
+  
+  // Helper method to handle path normalization
+  private getPath(path: string): string {
+    // Add staging prefix if needed
+    return addStagingPrefix(path);
   }
   
   // Method to handle QuickBooks auth success
@@ -34,9 +42,12 @@ class NavigationController {
     sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
     sessionStorage.setItem('qb_skip_auth_redirect', 'true');
     
-    // Navigate directly to dashboard
-    console.log('NavigationController: Navigating to dashboard');
-    navigate('/dashboard', { replace: true });
+    // Get the correct path based on environment
+    const dashboardPath = this.getPath('/dashboard');
+    console.log('NavigationController: Navigating to', dashboardPath);
+    
+    // Navigate to the correct path
+    navigate(dashboardPath, { replace: true });
     
     // Lock navigation for 3 seconds to let things settle
     this.transitionTimeoutId = setTimeout(() => {
@@ -63,9 +74,12 @@ class NavigationController {
     sessionStorage.setItem('qb_disconnected', 'true');
     sessionStorage.setItem('qb_disconnect_timestamp', Date.now().toString());
     
+    // Get the correct path based on environment
+    const authenticatePath = this.getPath('/authenticate');
+    console.log('NavigationController: Navigating to', authenticatePath, 'after disconnect');
+    
     // Navigate to authenticate page
-    console.log('NavigationController: Navigating to authenticate page after disconnect');
-    navigate('/authenticate', { 
+    navigate(authenticatePath, { 
       replace: true,
       state: { fromDisconnect: true }
     });

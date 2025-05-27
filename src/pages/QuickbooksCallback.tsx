@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +11,7 @@ import { logError } from "@/utils/errorLogger";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
 import { motion } from "framer-motion";
+import { addStagingPrefix } from "@/config/environment";
 
 const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
@@ -49,40 +49,22 @@ const QuickbooksCallback = () => {
         // Force update the connection status
         console.log('Refreshing connection status...');
         await refreshConnection(true);
-        console.log('Connection status refreshed successfully');
       } catch (refreshError) {
-        console.warn('Could not refresh connection status, continuing with navigation', refreshError);
-        // Continue with navigation even if refresh fails
+        console.error('Error refreshing connection status:', refreshError);
+        // Continue even if refresh fails
       }
       
-      // Add a small delay to ensure the dashboard is ready
-      console.log('Waiting before navigation...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Clear any existing redirect flags
-      sessionStorage.removeItem('qb_redirected_to_authenticate');
-      
-      // Still set basic flags for other components to use if needed
-      sessionStorage.setItem('qb_connection_verified', 'true');
-      sessionStorage.setItem('qb_connection_success', 'true');
-      
-      // Force the connection state to be true for this user for 10 seconds
-      // This helps with database check overrides during the transition
-      if (user?.id) {
-        forceConnectionState(user.id, true, 10000); // 10 seconds of forced connected state
-        console.log(`Forced connection state to true for user ${user.id} after successful authentication`);
-      }
-      
-      console.log('Using NavigationController to handle auth success navigation');
       // Use the NavigationController to handle navigation after successful auth
       // This provides centralized navigation control with locking
+      console.log('Using NavigationController to handle auth success navigation');
       navigationController.handleAuthSuccess(user?.id || '', navigate);
       
     } catch (error) {
       console.error('Error during navigation:', error);
       // Still navigate to dashboard even if there's an error
       try {
-        navigate('/dashboard', { 
+        const dashboardPath = addStagingPrefix('/dashboard');
+        navigate(dashboardPath, { 
           replace: true,
           state: { 
             error: 'connection_error',
@@ -92,13 +74,14 @@ const QuickbooksCallback = () => {
       } catch (navError) {
         console.error('Critical navigation error:', navError);
         // Last resort - redirect without state
-        window.location.href = '/dashboard';
+        const dashboardPath = addStagingPrefix('/dashboard');
+        window.location.href = dashboardPath;
       }
     } finally {
       console.log('Navigation process completed');
       setIsNavigating(false);
     }
-  }, [navigate, refreshConnection, isNavigating]);
+  }, [navigate, refreshConnection, isNavigating, user?.id]);
 
   // Process the callback once auth is loaded
   useEffect(() => {
