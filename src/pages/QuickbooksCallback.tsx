@@ -170,7 +170,7 @@ const QuickbooksCallback = () => {
         console.log("Proceeding with token exchange:", { realmId, userId });
         
         // Use current origin for redirect URI - must exactly match what was used in the authorize step
-        const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
+        const redirectUri = `${window.location.origin}/dashboard/quickbooks-callback`;
         
         // Log the exact parameters being sent to help with debugging
         console.log("Sending token exchange parameters:", {
