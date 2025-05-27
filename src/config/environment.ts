@@ -1,4 +1,3 @@
-
 // Environment configuration for staging and production only
 export type Environment = 'staging' | 'production';
 
@@ -17,15 +16,13 @@ export const getEnvironment = (): Environment => {
       return 'staging';
     }
     
-    // Check for preview domain patterns
-    if (hostname.includes('preview--transync-flow-pro') || 
-        hostname.includes('staging.') ||
-        hostname.includes('-staging.')) {
+    // Check for explicit staging domains (but not the main preview domain)
+    if (hostname.includes('staging.') || hostname.includes('-staging.')) {
       return 'staging';
     }
   }
   
-  // Default to production for everything else
+  // Default to production for everything else (including preview domains)
   return 'production';
 };
 
