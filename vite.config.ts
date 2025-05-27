@@ -9,16 +9,24 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   
   // Set base URL - empty for production, use VITE_BASE_URL if set
-  const base = mode === 'production' ? '' : (env.VITE_BASE_URL || '/');
+  const base = mode === 'production' ? '/' : (env.VITE_BASE_URL || '/');
   
-  // Log the base URL for debugging
-  console.log(`Running in ${mode} mode with base URL: '${base}'`);
+  // Log the configuration for debugging
+  console.log('Vite Configuration:');
+  console.log('- Mode:', mode);
+  console.log('- Base URL:', base);
+  console.log('- NODE_ENV:', process.env.NODE_ENV);
   
   return {
     base,
     server: {
       host: "::",
-      port: 8080,
+      port: 3000,
+      open: true
+    },
+    preview: {
+      port: 3000,
+      open: true
     },
     plugins: [
       react(),
@@ -29,9 +37,8 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
-    // Ensure assets are properly referenced in production
     build: {
-      sourcemap: mode === 'development',
+      sourcemap: true,
       rollupOptions: {
         input: {
           main: path.resolve(__dirname, 'index.html'),
@@ -46,7 +53,6 @@ export default defineConfig(({ mode }) => {
           assetFileNames: 'assets/[name]-[hash][extname]',
         },
       },
-      // Ensure assets are properly hashed for cache busting
       assetsDir: 'assets',
       emptyOutDir: true,
       outDir: 'dist',
