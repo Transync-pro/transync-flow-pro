@@ -1,8 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { toast } from "@/components/ui/use-toast";
-import { EntityState, QuickbooksEntitiesContextType, DateRange, DeleteProgress } from "./quickbooks/types";
+import { EntityState, QuickbooksEntitiesContextType, DateRange, DeleteProgress, EntityOption } from "./quickbooks/types";
 import { getEntityOptions } from "./quickbooks/entityMapping";
 import { useEntityOperations } from "./quickbooks/useEntityOperations";
 import { useEntitySelection } from "./quickbooks/useEntitySelection";
