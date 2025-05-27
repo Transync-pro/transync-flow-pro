@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/environmentClient";
@@ -11,7 +12,6 @@ import { logError } from "@/utils/errorLogger";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
 import { motion } from "framer-motion";
-import { getCurrentDomain, addStagingPrefix } from "@/config/environment";
 
 const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
@@ -169,9 +169,8 @@ const QuickbooksCallback = () => {
         
         console.log("Proceeding with token exchange:", { realmId, userId });
         
-        // Use current domain for redirect URI - must exactly match what was used in the authorize step
-        const currentDomain = getCurrentDomain();
-        const redirectUri = `${currentDomain}${addStagingPrefix('/dashboard/quickbooks-callback')}`;
+        // Use current origin for redirect URI - must exactly match what was used in the authorize step
+        const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
         
         // Log the exact parameters being sent to help with debugging
         console.log("Sending token exchange parameters:", {
