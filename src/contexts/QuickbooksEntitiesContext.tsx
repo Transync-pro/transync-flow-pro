@@ -16,7 +16,19 @@ const QuickbooksEntitiesContext = createContext<QuickbooksEntitiesContextType | 
 // Create a provider component
 export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { getAccessToken, isConnected } = useQuickbooks();
+  
+  // Move the useQuickbooks hook call inside a useEffect to ensure the provider is mounted
+  const [quickbooksContext, setQuickbooksContext] = useState<any>(null);
+  
+  useEffect(() => {
+    // This will only run after the component is mounted and providers are available
+    try {
+      const context = useQuickbooks();
+      setQuickbooksContext(context);
+    } catch (error) {
+      console.error("Error accessing QuickBooks context:", error);
+    }
+  }, []);
   
   // Entity data state - using a record to store state for multiple entity types
   const [entityState, setEntityState] = useState<Record<string, EntityState>>({});
@@ -121,6 +133,11 @@ export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ 
     entityOptions,
     getNestedValue
   };
+  
+  // Don't render the provider until we have access to the QuickBooks context
+  if (!quickbooksContext) {
+    return <div>Loading...</div>;
+  }
   
   return (
     <QuickbooksEntitiesContext.Provider value={contextValue}>
