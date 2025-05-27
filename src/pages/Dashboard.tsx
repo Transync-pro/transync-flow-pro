@@ -43,13 +43,6 @@ const Dashboard = () => {
       return;
     }
     
-    // Skip the check if we just came from the auth page
-    if (location.state?.fromAuth) {
-      console.log("Dashboard: Came from auth page, skipping initial check");
-      hasCheckedOnMount.current = true;
-      return;
-    }
-    
     // Check if we have a recent successful connection from session storage
     const connectionData = sessionStorage.getItem('qb_connection_data');
     const parsedConnection = connectionData ? JSON.parse(connectionData) : null;
