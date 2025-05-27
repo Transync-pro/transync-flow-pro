@@ -1,8 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { toast } from "@/components/ui/use-toast";
-import { EntityState, QuickbooksEntitiesContextType, DateRange, DeleteProgress } from "./quickbooks/types";
+import { EntityState, QuickbooksEntitiesContextType, DateRange, DeleteProgress, EntityOption } from "./quickbooks/types";
 import { getEntityOptions } from "./quickbooks/entityMapping";
 import { useEntityOperations } from "./quickbooks/useEntityOperations";
 import { useEntitySelection } from "./quickbooks/useEntitySelection";
@@ -48,8 +49,19 @@ export const QuickbooksEntitiesProvider: React.FC<{ children: ReactNode }> = ({ 
     setEntityState
   );
   
-  // Generate entity options for dropdowns
-  const entityOptions = React.useMemo(() => getEntityOptions(), []);
+  // Generate entity options for dropdowns - flatten the groups into a single array
+  const entityOptions = React.useMemo(() => {
+    const groups = getEntityOptions();
+    const flatOptions: EntityOption[] = [];
+    
+    groups.forEach(group => {
+      group.entities.forEach(entity => {
+        flatOptions.push(entity);
+      });
+    });
+    
+    return flatOptions;
+  }, []);
 
   // Reset selected entity IDs when entity type changes
   useEffect(() => {

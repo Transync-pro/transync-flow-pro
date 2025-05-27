@@ -1,32 +1,79 @@
 import { getNestedValue } from "./entityUtils";
-import { EntityOption, EntityColumnConfig } from "./types";
+import { EntityGroup, EntityOption, EntityColumnConfig } from "./types";
 
 // Get entity options for dropdowns
-export const getEntityOptions = (): EntityOption[] => {
+export const getEntityOptions = (): EntityGroup[] => {
   return [
-    // Customers & Sales
-    { value: "Customer", label: "Customers" },
-    { value: "Invoice", label: "Invoices" },
-    { value: "Payment", label: "Payments" },
-    { value: "SalesReceipt", label: "Sales Receipts" },
-    { value: "CreditMemo", label: "Credit Memos" },
-    { value: "RefundReceipt", label: "Refund Receipts" },
-    { value: "Estimate", label: "Estimates" },
-    
-    // Vendors & Expenses
-    { value: "Vendor", label: "Vendors" },
-    { value: "Bill", label: "Bills" },
-    { value: "Purchase", label: "Purchases" },
-    { value: "Check", label: "Checks" },
-    { value: "VendorCredit", label: "Vendor Credits" },
-    
-    // Products & Services
-    { value: "Item", label: "Products & Services" },
-    
-    // Accounting
-    { value: "Account", label: "Chart of Accounts" },
-    { value: "JournalEntry", label: "Journal Entries" },
-    { value: "Transfer", label: "Transfers" },
+    {
+      id: "customers",
+      label: "Customers",
+      entities: [
+        { label: "Customers", value: "customers", description: "Customer records" }
+      ]
+    },
+    {
+      id: "vendors",
+      label: "Vendors", 
+      entities: [
+        { label: "Vendors", value: "vendors", description: "Vendor records" }
+      ]
+    },
+    {
+      id: "employees",
+      label: "Employees",
+      entities: [
+        { label: "Employees", value: "employees", description: "Employee records" }
+      ]
+    },
+    {
+      id: "items",
+      label: "Items",
+      entities: [
+        { label: "Items", value: "items", description: "Item records" }
+      ]
+    },
+    {
+      id: "accounts",
+      label: "Accounts",
+      entities: [
+        { label: "Accounts", value: "accounts", description: "Chart of accounts" }
+      ]
+    },
+    {
+      id: "invoices",
+      label: "Invoices", 
+      entities: [
+        { label: "Invoices", value: "invoices", description: "Invoice records" }
+      ]
+    },
+    {
+      id: "bills",
+      label: "Bills",
+      entities: [
+        { label: "Bills", value: "bills", description: "Bill records" }
+      ]
+    },
+    {
+      id: "payments",
+      label: "Payments",
+      entities: [
+        { label: "Payments", value: "payments", description: "Payment records" }
+      ]
+    },
+    {
+      id: "estimates",
+      label: "Estimates",
+      entities: [
+        { label: "Estimates", value: "estimates", description: "Estimate records" }
+      ]
+    },
+    {
+      id: "sales_receipts",
+      label: "Sales Receipts",
+      entities: [
+        { label: "Sales Receipts", value: "sales_receipts", description: "Sales receipt records" }
+      ]
+    }
   ];
 };
 
