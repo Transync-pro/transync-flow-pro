@@ -1,10 +1,12 @@
+
 // Environment configuration for staging and production only
 export type Environment = 'staging' | 'production';
 
 export const getEnvironment = (): Environment => {
-  // Check for staging path prefix
+  // Check for staging path prefix first
   if (typeof window !== 'undefined') {
     const pathname = window.location.pathname;
+    const hostname = window.location.hostname;
     
     // Check if URL is exactly /staging or starts with /staging/
     if (pathname === '/staging' || pathname.startsWith('/staging/')) {
@@ -15,12 +17,15 @@ export const getEnvironment = (): Environment => {
       return 'staging';
     }
     
-    // Check for preview domain
-    if (window.location.hostname.includes('preview--transync-flow-pro')) {
+    // Check for preview domain patterns
+    if (hostname.includes('preview--transync-flow-pro') || 
+        hostname.includes('staging.') ||
+        hostname.includes('-staging.')) {
       return 'staging';
     }
   }
   
+  // Default to production for everything else
   return 'production';
 };
 
@@ -47,6 +52,7 @@ export const config = {
 
 export const getCurrentConfig = () => {
   const env = getEnvironment();
+  console.log(`Environment detected: ${env}`);
   return config[env];
 };
 
@@ -82,5 +88,7 @@ export const removeStagingPrefix = (path: string) => {
 
 // Helper function to get the base path for routing
 export const getBasePath = () => {
-  return isStaging() ? '/staging' : '';
+  const env = getEnvironment();
+  console.log(`Base path for environment ${env}: ${env === 'staging' ? '/staging' : ''}`);
+  return env === 'staging' ? '/staging' : '';
 };

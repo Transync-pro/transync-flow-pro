@@ -6,6 +6,11 @@ import { getCurrentConfig } from '@/config/environment';
 // Get environment-specific configuration
 const envConfig = getCurrentConfig();
 
+console.log('Creating Supabase client with config:', {
+  url: envConfig.supabase.url,
+  anonKey: envConfig.supabase.anonKey.substring(0, 20) + '...',
+});
+
 // Create Supabase client with environment-specific settings
 export const supabase = createClient<Database>(
   envConfig.supabase.url,

@@ -208,6 +208,14 @@ const AppRoutes = () => {
 const App = () => {
   const basename = getBasePath();
   
+  // Add debug logging for production issues
+  React.useEffect(() => {
+    console.log('App initialized with basename:', basename);
+    console.log('Current pathname:', window.location.pathname);
+    console.log('Is production:', isProduction());
+    console.log('Is staging:', isStaging());
+  }, [basename]);
+  
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={basename}>
