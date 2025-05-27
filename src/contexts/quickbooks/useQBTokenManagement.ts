@@ -1,53 +1,59 @@
 
-import { useCallback } from "react";
 import { QuickbooksConnection } from "./types";
-import { refreshQBToken } from "@/services/quickbooksApi/connections";
+import { supabase } from "@/integrations/supabase/client";
 
 export const useQBTokenManagement = (
   connection: QuickbooksConnection | null,
-  refreshConnection: (force?: boolean, silent?: boolean) => Promise<void>,
-  handleError: (error: string) => void
+  refreshConnection: () => Promise<void>,
+  handleError: (error: string, displayToast?: boolean) => string
 ) => {
-  const refreshToken = useCallback(async (): Promise<void> => {
-    if (!connection) {
-      throw new Error("No connection available for token refresh");
-    }
-
+  // Refresh the access token
+  const refreshToken = async (refreshTokenStr: string): Promise<string | null> => {
+    if (!connection?.user_id) return null;
+    
     try {
-      await refreshQBToken(connection.user_id);
-      await refreshConnection(true, true);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      handleError(`Token refresh failed: ${errorMessage}`);
-      throw error;
-    }
-  }, [connection, refreshConnection, handleError]);
+      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+        body: { 
+          path: 'refresh',
+          userId: connection.user_id,
+          refreshToken: refreshTokenStr
+        }
+      });
 
-  const getAccessToken = useCallback(async (): Promise<string | null> => {
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      // Update our local state with the new tokens
+      await refreshConnection();
+      
+      return data.accessToken;
+    } catch (error: any) {
+      handleError(`Error refreshing QuickBooks token: ${error.message || "Unknown error"}`, true);
+      return null;
+    }
+  };
+
+  // Get access token for API calls
+  const getAccessToken = async (): Promise<string | null> => {
     if (!connection) return null;
 
     try {
-      // Check if token is expired (with 5 minute buffer)
+      // Check if token needs refreshing
       const expiresAt = new Date(connection.expires_at);
       const now = new Date();
-      const bufferTime = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-      if (expiresAt.getTime() - now.getTime() < bufferTime) {
-        console.log("Token is expired or expiring soon, refreshing...");
-        await refreshToken();
-        // After refresh, we need to get the updated connection
-        await refreshConnection(true, true);
+      
+      if ((expiresAt.getTime() - now.getTime()) < 5 * 60 * 1000) {
+        // Token is expired or about to expire, refresh it
+        return await refreshToken(connection.refresh_token);
       }
-
+      
+      // Token is still valid
       return connection.access_token;
-    } catch (error) {
-      console.error("Error getting access token:", error);
+    } catch (error: any) {
+      handleError(`Error getting access token: ${error.message || "Unknown error"}`, false);
       return null;
     }
-  }, [connection, refreshToken, refreshConnection]);
-
-  return {
-    refreshToken,
-    getAccessToken
   };
+
+  return { refreshToken, getAccessToken };
 };

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { processLoginAttempt } from "@/services/loginSecurity";
 import { clearConnectionCache } from "@/services/quickbooksApi/connections";
-import { navigateWithEnvironment, getFullUrlPath } from "@/config/environment";
+import { addStagingPrefix } from "@/config/environment";
 
 interface AuthContextType {
   session: Session | null;
@@ -40,8 +40,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (event, currentSession) => {
         const previousUserId = user?.id;
         const currentUserId = currentSession?.user?.id;
-        
-        console.log('Auth state change event:', event, 'currentUserId:', currentUserId);
         
         // Update session and user state
         setSession(currentSession);
@@ -83,12 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: "Welcome back!"
           });
           
-          // Use React Router navigation (basename handles staging prefix)
-          const dashboardPath = navigateWithEnvironment('/dashboard');
-          console.log('Navigating to dashboard with path:', dashboardPath);
-          
           setTimeout(() => {
-            navigate(dashboardPath);
+            navigate(addStagingPrefix('/dashboard'));
           }, 100);
         } else if (event === 'SIGNED_OUT') {
           // Thoroughly clear all connection cache and session storage on logout
@@ -100,9 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           sessionStorage.removeItem('qb_connection_timestamp');
           sessionStorage.removeItem('qb_auth_timestamp');
           
-          const loginPath = navigateWithEnvironment('/login');
-          console.log('Navigating to login with path:', loginPath);
-          navigate(loginPath);
+          navigate(addStagingPrefix('/login'));
         } else if (event === 'USER_UPDATED') {
           const emailVerified = currentSession?.user?.email_confirmed_at;
           if (emailVerified) {
@@ -132,14 +124,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       clearConnectionCache();
       
-      // Use full URL path for OAuth redirect (external URL)
-      const redirectPath = getFullUrlPath('/dashboard');
-      console.log('Google OAuth redirect path (full URL):', redirectPath);
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}${redirectPath}`,
+          redirectTo: `${window.location.origin}${addStagingPrefix('/dashboard')}`,
         }
       });
       
@@ -200,10 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Welcome back!"
       });
 
-      // Use React Router navigation (basename handles staging prefix)
-      const dashboardPath = navigateWithEnvironment('/dashboard');
-      console.log('Manual sign in - navigating to dashboard with path:', dashboardPath);
-      navigate(dashboardPath);
+      navigate(addStagingPrefix('/dashboard'));
     } catch (error) {
       toast({
         title: "Sign in failed",
@@ -218,11 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUp = async (email: string, password: string, metadata?: object) => {
     try {
-      // Use full URL path for email redirect (external URL)
-      const verifyPath = getFullUrlPath('/verify');
-      console.log('Sign up redirect path (full URL):', verifyPath);
-      
-      const redirectTo = `${window.location.origin}${verifyPath}`;
+      const redirectTo = `${window.location.origin}${addStagingPrefix('/verify')}`;
 
       const { error, data } = await supabase.auth.signUp({
         email,
@@ -251,9 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Please check your email to verify your account."
       });
 
-      // Use React Router navigation (basename handles staging prefix)
-      const navVerifyPath = navigateWithEnvironment('/verify');
-      navigate(navVerifyPath);
+      navigate(addStagingPrefix('/verify'));
     } catch (error) {
       toast({
         title: "Sign up failed",

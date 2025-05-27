@@ -1,7 +1,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +11,6 @@ import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { logError } from "@/utils/errorLogger";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
-import { navigateWithEnvironment } from "@/config/environment";
 import { motion } from "framer-motion";
 
 const QuickbooksCallback = () => {
@@ -79,13 +78,15 @@ const QuickbooksCallback = () => {
       // This provides centralized navigation control with locking
       navigationController.handleAuthSuccess(user?.id || '', navigate);
       
+      // No need to call navigate directly - NavigationController handles it
+      // This prevents competing navigation attempts from other components
+      // timestamp: Date.now()
+      
     } catch (error) {
       console.error('Error during navigation:', error);
-      // Still navigate to dashboard even if there's an error using environment-aware navigation
+      // Still navigate to dashboard even if there's an error
       try {
-        const dashboardPath = navigateWithEnvironment('/dashboard');
-        console.log('Fallback navigation to dashboard with path:', dashboardPath);
-        navigate(dashboardPath, { 
+        navigate('/dashboard', { 
           replace: true,
           state: { 
             error: 'connection_error',
@@ -94,15 +95,14 @@ const QuickbooksCallback = () => {
         });
       } catch (navError) {
         console.error('Critical navigation error:', navError);
-        // Last resort - redirect without state using environment-aware navigation
-        const dashboardPath = navigateWithEnvironment('/dashboard');
-        window.location.href = dashboardPath;
+        // Last resort - redirect without state
+        window.location.href = '/dashboard';
       }
     } finally {
       console.log('Navigation process completed');
       setIsNavigating(false);
     }
-  }, [navigate, refreshConnection, isNavigating, user?.id]);
+  }, [navigate, refreshConnection, isNavigating]);
 
   // Process the callback once auth is loaded
   useEffect(() => {
@@ -170,8 +170,7 @@ const QuickbooksCallback = () => {
         console.log("Proceeding with token exchange:", { realmId, userId });
         
         // Use current origin for redirect URI - must exactly match what was used in the authorize step
-        const redirectUri = window.location.origin + navigateWithEnvironment("/dashboard/quickbooks-callback");
-        console.log("Using redirect URI:", redirectUri);
+        const redirectUri = window.location.origin + "/dashboard/quickbooks-callback";
         
         // Log the exact parameters being sent to help with debugging
         console.log("Sending token exchange parameters:", {
@@ -232,23 +231,20 @@ const QuickbooksCallback = () => {
             if (userId) {
               sessionStorage.setItem('qb_auth_success', 'true');
               sessionStorage.setItem('qb_connect_user', userId);
-              const loginPath = navigateWithEnvironment('/login');
-              navigate(loginPath, { state: { redirectAfter: navigateWithEnvironment('/dashboard') } });
+              navigate('/login', { state: { redirectAfter: '/dashboard' } });
               return;
             }
           }
           
           // Get redirect path from session storage or default to dashboard
-          const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || navigateWithEnvironment('/dashboard');
+          const redirectPath = sessionStorage.getItem('qb_redirect_after_connect') || '/dashboard';
           sessionStorage.removeItem('qb_redirect_after_connect');
           
           setProcessingComplete(true);
           await refreshConnection(true);
           
           setTimeout(() => {
-            const dashboardPath = navigateWithEnvironment('/dashboard');
-            console.log('Redirecting to dashboard with path:', dashboardPath);
-            navigate(dashboardPath, { replace: true });
+            navigate('/dashboard', { replace: true });
           }, 500);
           
           return;
@@ -304,8 +300,7 @@ const QuickbooksCallback = () => {
           
           // Wait a moment to show the toast before redirecting
           await new Promise(resolve => setTimeout(resolve, 1500));
-          const dashboardPath = navigateWithEnvironment('/dashboard');
-          navigate(dashboardPath, { replace: true });
+          navigate('/dashboard', { replace: true });
           return;
         }
 
@@ -417,7 +412,6 @@ const QuickbooksCallback = () => {
         setIsCheckingSession(false);
       }
     };
-    
     processCallback();
   }, [location, navigate, user, isAuthLoading, refreshConnection, redirectToDashboard]);
 
@@ -466,14 +460,14 @@ const QuickbooksCallback = () => {
             </Alert>
             <div className="flex flex-col space-y-2">
               <Button
-                onClick={() => navigate(navigateWithEnvironment("/authenticate"))}
+                onClick={() => navigate("/authenticate")}
                 className="w-full"
               >
                 Try Again
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate(navigateWithEnvironment("/dashboard"))}
+                onClick={() => navigate("/dashboard")}
                 className="w-full"
               >
                 Go to Dashboard
@@ -493,7 +487,7 @@ const QuickbooksCallback = () => {
               If you are not redirected automatically, please click the button below.
             </p>
             <Button 
-              onClick={() => navigate(navigateWithEnvironment('/dashboard'), { replace: true })}
+              onClick={() => navigate('/dashboard', { replace: true })}
               className="w-full"
             >
               Go to Dashboard
