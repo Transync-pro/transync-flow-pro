@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -49,7 +50,6 @@ import BlogAdmin from "./pages/Admin/BlogAdmin";
 import BlogImportPage from "./pages/Admin/BlogImportPage";
 import TestAdmin from "./pages/Admin/TestAdmin";
 import NotFound from "./pages/NotFound";
-import TestPage from "./pages/TestPage";
 
 const queryClient = new QueryClient();
 
@@ -65,7 +65,6 @@ const AppRoutes = () => {
   
   return (
     <Routes>
-      <Route path="/test" element={<TestPage />} />
       {/* Public routes */}
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
@@ -209,18 +208,9 @@ const AppRoutes = () => {
 };
 
 const App = () => {
-  // Get the base path based on the environment
-  const getBasePath = () => {
-    if (isStaging()) return '/staging';
-    if (process.env.NODE_ENV === 'development') return '';
-    return ''; // Empty string for production
-  };
-
-  const basePath = getBasePath();
-
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={basePath}>
+      <BrowserRouter basename={isStaging() ? '/staging' : ''}>
         <AuthProvider>
           <QuickbooksProvider>
             <QuickbooksEntitiesProvider>

@@ -8,66 +8,38 @@ export default defineConfig(({ mode }) => {
   // Load environment variables based on the current mode
   const env = loadEnv(mode, process.cwd(), '');
   
-  // Set base URL - empty for production, use VITE_BASE_URL if set
+  // Set base URL - only use VITE_BASE_URL if it's explicitly set
   const base = mode === 'production' ? '/' : (env.VITE_BASE_URL || '/');
   
-  // Log the configuration for debugging
-  console.log('Vite Configuration:');
-  console.log('- Mode:', mode);
-  console.log('- Base URL:', base);
-  console.log('- NODE_ENV:', process.env.NODE_ENV);
+  // Log the base URL for debugging
+  console.log(`Running in ${mode} mode with base URL: ${base}`);
   
   return {
     base,
-    define: {
-      'import.meta.env.MODE': JSON.stringify(mode),
-      'import.meta.env.BASE_URL': JSON.stringify(base),
-    },
     server: {
       host: "::",
-      port: 3000,
-      open: true,
-      fs: {
-        strict: true,
-      },
-    },
-    preview: {
-      port: 3000,
-      open: true,
+      port: 8080,
     },
     plugins: [
       react(),
       mode === 'development' && componentTagger(),
-    ].filter(Boolean) as any[],
+    ].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    // Ensure assets are properly referenced in production
     build: {
-      sourcemap: true,
-      target: 'esnext',
-      modulePreload: {
-        polyfill: true,
-      },
+      sourcemap: mode === 'development',
       rollupOptions: {
-        input: {
-          main: path.resolve(__dirname, 'index.html'),
-        },
         output: {
           manualChunks: {
             react: ['react', 'react-dom', 'react-router-dom'],
             vendor: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
           },
-          entryFileNames: 'assets/[name]-[hash].js',
-          chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: 'assets/[name]-[hash][extname]',
         },
       },
-      assetsDir: 'assets',
-      emptyOutDir: true,
-      outDir: 'dist',
-      minify: mode === 'production' ? 'esbuild' : false,
     },
   };
 });
