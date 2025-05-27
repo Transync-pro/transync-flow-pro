@@ -9,7 +9,7 @@ interface QuickbooksConnection {
   refresh_token: string;
   created_at: string;
   expires_at: string;
-  company_name?: string;
+  company_name?: string | null;
   updated_at: string;
 }
 

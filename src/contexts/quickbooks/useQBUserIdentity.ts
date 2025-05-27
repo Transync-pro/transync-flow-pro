@@ -34,7 +34,24 @@ export const useQBUserIdentity = (user: User | null, isConnected: boolean) => {
         throw error;
       }
 
-      setUserIdentity(data);
+      // Map database fields to the TypeScript interface
+      if (data) {
+        const mappedUserIdentity: QuickbooksUserIdentity = {
+          id: data.id,
+          user_id: data.user_id,
+          quickbooks_user_id: data.realm_id, // Using realm_id as quickbooks_user_id
+          first_name: data.first_name,
+          last_name: data.last_name,
+          email: data.email,
+          phone_number: data.phone, // Map phone to phone_number
+          created_at: data.created_at,
+          updated_at: data.updated_at
+        };
+        setUserIdentity(mappedUserIdentity);
+      } else {
+        setUserIdentity(null);
+      }
+      
       console.log('QuickBooks user identity fetched:', data ? 'found' : 'not found');
     } catch (err: any) {
       const errorMessage = `Failed to fetch QuickBooks user identity: ${err.message}`;
