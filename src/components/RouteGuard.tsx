@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,6 +54,27 @@ const RouteGuard = ({
   // Track connection check attempts to prevent circuit breaker issues
   const connectionCheckAttempts = useRef(0);
   const lastConnectionCheck = useRef(0);
+
+  // PRIORITY 1: Handle auth success immediately - this runs first
+  useEffect(() => {
+    if (!user || isAuthLoading) return;
+    
+    // Check for recent QB auth success flags
+    const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
+    const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+    const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+    const isRecentAuth = authTimestamp && 
+      (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
+    
+    // If we have recent auth success and we're on authenticate page, navigate immediately
+    if ((skipAuthRedirect || authSuccess) && isRecentAuth && isAuthenticateRoute && !redirectingRef.current) {
+      console.log('RouteGuard: PRIORITY - Recent QB auth success detected on authenticate page, navigating to dashboard');
+      redirectingRef.current = true;
+      setHasQbConnection(true);
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+  }, [user, isAuthLoading, isAuthenticateRoute, navigate]);
   
   // Direct database check for QuickBooks connection with improved error handling
   const checkQbConnectionDirectly = useCallback(async () => {
@@ -70,18 +90,10 @@ const RouteGuard = ({
     const isRecentAuth = authTimestamp && 
       (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
     
-    // If we have recent auth success flags, assume connection exists and navigate immediately
+    // If we have recent auth success flags, assume connection exists (but don't navigate here)
     if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
-      console.log('RouteGuard: Recent QB auth success detected, setting connection and navigating to dashboard');
+      console.log('RouteGuard: Recent QB auth success detected, setting connection to true');
       setHasQbConnection(true);
-      
-      // If we're on authenticate page, navigate to dashboard immediately
-      if (isAuthenticateRoute && !redirectingRef.current) {
-        console.log('RouteGuard: Navigating to dashboard due to recent auth success');
-        redirectingRef.current = true;
-        navigate('/dashboard', { replace: true });
-      }
-      
       return true;
     }
     
@@ -133,7 +145,7 @@ const RouteGuard = ({
       });
       return false;
     }
-  }, [user, isConnected, isQBLoading, refreshConnection, hasQbConnection, isAuthenticateRoute, navigate]);
+  }, [user, isConnected, isQBLoading, refreshConnection, hasQbConnection]);
 
   // Check if user is admin
   useEffect(() => {
@@ -201,29 +213,7 @@ const RouteGuard = ({
     console.log("[RouteGuard] User data:", user);
     
     const checkAccess = async () => {
-      // CRITICAL: Check for skip flags BEFORE any other operations
-      const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
-      const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
-      const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
-      const isRecentAuth = authTimestamp && 
-        (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second cooldown
-      
-      // If we have recent successful auth, skip ALL checks and handle navigation
-      if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
-        console.log('RouteGuard: Skip flags detected, bypassing ALL connection checks');
-        setHasQbConnection(true);
-        setIsChecking(false);
-        connectionCheckedRef.current = true;
-        
-        // If we're on the authenticate page, navigate to dashboard immediately
-        if (isAuthenticateRoute && user && !redirectingRef.current) {
-          console.log('RouteGuard: On authenticate page with auth success, navigating to dashboard');
-          redirectingRef.current = true;
-          navigate('/dashboard', { replace: true });
-        }
-        
-        return;
-      }
+      // Skip auth success is handled by the priority useEffect above
       
       if (isAuthLoading) return;
       
@@ -260,11 +250,10 @@ const RouteGuard = ({
     isAuthenticateRoute, 
     checkQbConnectionDirectly, 
     roleChecked, 
-    location.pathname,
-    navigate
+    location.pathname
   ]);
 
-  // Handle navigation when connection status changes
+  // Handle navigation when connection status changes (but not for auth success - that's handled above)
   useEffect(() => {
     if (isChecking || isAuthLoading || !roleChecked) return;
     
@@ -277,39 +266,17 @@ const RouteGuard = ({
     // Skip if we're still checking the connection
     if (requiresQuickbooks && connectionCheckedRef.current === false) return;
     
-    // Check for recent QB auth success flags to prevent premature redirects
+    // Skip auth success handling - this is handled by the priority useEffect
     const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
     const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
     const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
     const isRecentAuth = authTimestamp && 
       (Date.now() - parseInt(authTimestamp, 10) < 30000);
     
-    // If we have recent auth success, ensure we show as connected and navigate if needed
-    if ((skipAuthRedirect || authSuccess) && isRecentAuth && !hasQbConnection) {
-      console.log('RouteGuard: Setting connection to true based on auth success flags');
-      setHasQbConnection(true);
-      
-      // If we're on authenticate page, navigate to dashboard
-      if (isAuthenticateRoute && user) {
-        console.log('RouteGuard: Navigating to dashboard from authenticate due to auth success');
-        redirectingRef.current = true;
-        navigate('/dashboard', { replace: true });
-      }
-      
+    if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
+      // Auth success is handled by priority useEffect, don't interfere
       return;
     }
-    
-    // Skip if we're on the authenticate page and don't have a connection yet
-    if (isAuthenticateRoute && !hasQbConnection) return;
-    
-    // Skip if we're on the dashboard and have a connection
-    if (isDashboardRoute && hasQbConnection) return;
-    
-    // Skip if we're on a public page and not logged in
-    if ((isLoginPage || isSignupPage) && !user) return;
-    
-    // Skip if we're on an admin page and have the correct role
-    if (isAdminRoute && isAdmin) return;
     
     // Set redirecting flag to prevent multiple redirects
     redirectingRef.current = true;
