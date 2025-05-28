@@ -45,9 +45,6 @@ const RouteGuard = ({
   // Flag to prevent multiple redirects
   const redirectingRef = useRef(false);
   
-  // Track if this is the first check after mount
-  const isInitialCheck = useRef(true);
-  
   // For tracking previous user ID to detect changes
   const prevUserIdRef = useRef<string | null>(null);
   
@@ -55,7 +52,10 @@ const RouteGuard = ({
   const connectionCheckAttempts = useRef(0);
   const lastConnectionCheck = useRef(0);
 
-  // PRIORITY 1: Handle auth success immediately - this runs first
+  // Track if we've already attempted navigation for this auth session
+  const navigationAttemptedRef = useRef(false);
+
+  // PRIORITY 1: Handle successful QB auth immediately with robust navigation
   useEffect(() => {
     if (!user || isAuthLoading) return;
     
@@ -66,15 +66,56 @@ const RouteGuard = ({
     const isRecentAuth = authTimestamp && 
       (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
     
-    // If we have recent auth success and we're on authenticate page, navigate immediately
-    if ((skipAuthRedirect || authSuccess) && isRecentAuth && isAuthenticateRoute && !redirectingRef.current) {
-      console.log('RouteGuard: PRIORITY - Recent QB auth success detected on authenticate page, navigating to dashboard');
+    // If we have recent auth success and we're on authenticate page
+    if ((skipAuthRedirect || authSuccess) && isRecentAuth && isAuthenticateRoute) {
+      // Prevent multiple navigation attempts
+      if (navigationAttemptedRef.current) {
+        console.log('RouteGuard: Navigation already attempted, skipping duplicate attempt');
+        return;
+      }
+
+      console.log('RouteGuard: PRIORITY - Recent QB auth success detected, forcing navigation to dashboard');
+      navigationAttemptedRef.current = true;
       redirectingRef.current = true;
       setHasQbConnection(true);
-      navigate('/dashboard', { replace: true });
+      
+      // Use multiple navigation approaches for maximum reliability
+      const attemptNavigation = async () => {
+        try {
+          // Method 1: React Router navigate with replace
+          console.log('RouteGuard: Attempting React Router navigation');
+          navigate('/dashboard', { replace: true });
+          
+          // Method 2: Fallback with timeout in case React Router fails
+          setTimeout(() => {
+            if (location.pathname === '/authenticate') {
+              console.log('RouteGuard: React Router navigation may have failed, trying window.location');
+              window.location.replace('/dashboard');
+            }
+          }, 1000);
+          
+          // Clear the auth flags after successful navigation attempt
+          setTimeout(() => {
+            console.log('RouteGuard: Clearing auth success flags after navigation');
+            sessionStorage.removeItem('qb_skip_auth_redirect');
+            sessionStorage.removeItem('qb_auth_success');
+            // Keep timestamp for a bit longer to prevent race conditions
+            setTimeout(() => {
+              sessionStorage.removeItem('qb_connection_timestamp');
+            }, 5000);
+          }, 2000);
+          
+        } catch (error) {
+          console.error('RouteGuard: Navigation error:', error);
+          // Ultimate fallback
+          window.location.href = '/dashboard';
+        }
+      };
+      
+      attemptNavigation();
       return;
     }
-  }, [user, isAuthLoading, isAuthenticateRoute, navigate]);
+  }, [user, isAuthLoading, isAuthenticateRoute, navigate, location.pathname]);
   
   // Direct database check for QuickBooks connection with improved error handling
   const checkQbConnectionDirectly = useCallback(async () => {
@@ -90,14 +131,14 @@ const RouteGuard = ({
     const isRecentAuth = authTimestamp && 
       (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
     
-    // If we have recent auth success flags, assume connection exists (but don't navigate here)
+    // If we have recent auth success flags, assume connection exists
     if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
       console.log('RouteGuard: Recent QB auth success detected, setting connection to true');
       setHasQbConnection(true);
       return true;
     }
     
-    // Prevent excessive connection checks
+    // Prevent excessive connection checks - circuit breaker
     const now = Date.now();
     if (now - lastConnectionCheck.current < 2000) { // 2 second throttle
       console.log('RouteGuard: Connection check throttled');
@@ -106,8 +147,10 @@ const RouteGuard = ({
     
     // Reset circuit breaker if too many attempts
     if (connectionCheckAttempts.current > 10) {
-      console.log('RouteGuard: Resetting connection check attempts');
+      console.log('RouteGuard: Circuit breaker triggered - resetting connection check attempts');
       connectionCheckAttempts.current = 0;
+      // Don't continue with checks when circuit breaker is triggered
+      return hasQbConnection;
     }
     
     // If user ID changed, clear the connection cache and reset attempts
@@ -212,9 +255,13 @@ const RouteGuard = ({
     console.log("[RouteGuard] Auth state: isAuthLoading:", isAuthLoading);
     console.log("[RouteGuard] User data:", user);
     
+    // Skip if we're already attempting navigation
+    if (navigationAttemptedRef.current) {
+      console.log("[RouteGuard] Navigation already attempted, skipping access check");
+      return;
+    }
+    
     const checkAccess = async () => {
-      // Skip auth success is handled by the priority useEffect above
-      
       if (isAuthLoading) return;
       
       if (isQbCallbackRoute) {
@@ -236,8 +283,6 @@ const RouteGuard = ({
       } else if (!requiresAdmin || roleChecked) {
         setIsChecking(false);
       }
-      
-      isInitialCheck.current = false;
     };
     
     checkAccess();
@@ -253,12 +298,12 @@ const RouteGuard = ({
     location.pathname
   ]);
 
-  // Handle navigation when connection status changes (but not for auth success - that's handled above)
+  // Handle navigation when connection status changes
   useEffect(() => {
     if (isChecking || isAuthLoading || !roleChecked) return;
     
-    // Skip if we're already redirecting
-    if (redirectingRef.current) return;
+    // Skip if we're already redirecting or attempting navigation
+    if (redirectingRef.current || navigationAttemptedRef.current) return;
     
     // Skip if we're on the callback route
     if (isQbCallbackRoute) return;
@@ -266,7 +311,7 @@ const RouteGuard = ({
     // Skip if we're still checking the connection
     if (requiresQuickbooks && connectionCheckedRef.current === false) return;
     
-    // Skip auth success handling - this is handled by the priority useEffect
+    // Check for recent auth success - this should be handled by the priority useEffect
     const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
     const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
     const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
@@ -274,7 +319,8 @@ const RouteGuard = ({
       (Date.now() - parseInt(authTimestamp, 10) < 30000);
     
     if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
-      // Auth success is handled by priority useEffect, don't interfere
+      // Recent auth success is handled by priority useEffect, don't interfere
+      console.log('RouteGuard: Recent auth detected, letting priority useEffect handle navigation');
       return;
     }
     
