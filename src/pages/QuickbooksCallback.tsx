@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/environmentClient";
@@ -40,8 +39,14 @@ const QuickbooksCallback = () => {
     setIsNavigating(true);
     
     try {
-      // Clear the in-progress flags
-      console.log('Clearing connection flags from session storage');
+      // Set critical auth success flags IMMEDIATELY
+      const currentTimestamp = Date.now();
+      console.log(`Setting critical auth flags with timestamp ${currentTimestamp}`);
+      sessionStorage.setItem('qb_skip_auth_redirect', 'true');
+      sessionStorage.setItem('qb_auth_success', 'true');
+      sessionStorage.setItem('qb_connection_timestamp', currentTimestamp.toString());
+      
+      // Clear any stale flags that might interfere
       sessionStorage.removeItem('qb_connecting_user');
       sessionStorage.removeItem('qb_connection_in_progress');
       
@@ -62,25 +67,18 @@ const QuickbooksCallback = () => {
       // Clear any existing redirect flags
       sessionStorage.removeItem('qb_redirected_to_authenticate');
       
-      // Still set basic flags for other components to use if needed
+      // Set additional success flags
       sessionStorage.setItem('qb_connection_verified', 'true');
       sessionStorage.setItem('qb_connection_success', 'true');
       
-      // Force the connection state to be true for this user for 10 seconds
-      // This helps with database check overrides during the transition
+      // Force the connection state to be true for this user for 30 seconds
       if (user?.id) {
-        forceConnectionState(user.id, true, 10000); // 10 seconds of forced connected state
+        forceConnectionState(user.id, true, 30000); // 30 seconds of forced connected state
         console.log(`Forced connection state to true for user ${user.id} after successful authentication`);
       }
       
       console.log('Using NavigationController to handle auth success navigation');
-      // Use the NavigationController to handle navigation after successful auth
-      // This provides centralized navigation control with locking
       navigationController.handleAuthSuccess(user?.id || '', navigate);
-      
-      // No need to call navigate directly - NavigationController handles it
-      // This prevents competing navigation attempts from other components
-      // timestamp: Date.now()
       
     } catch (error) {
       console.error('Error during navigation:', error);
@@ -102,7 +100,7 @@ const QuickbooksCallback = () => {
       console.log('Navigation process completed');
       setIsNavigating(false);
     }
-  }, [navigate, refreshConnection, isNavigating]);
+  }, [navigate, refreshConnection, isNavigating, user?.id]);
 
   // Process the callback once auth is loaded
   useEffect(() => {
