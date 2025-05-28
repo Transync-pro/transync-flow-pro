@@ -70,10 +70,18 @@ const RouteGuard = ({
     const isRecentAuth = authTimestamp && 
       (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
     
-    // If we have recent auth success flags, assume connection exists
+    // If we have recent auth success flags, assume connection exists and navigate immediately
     if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
-      console.log('RouteGuard: Recent QB auth success detected, assuming connection exists');
+      console.log('RouteGuard: Recent QB auth success detected, setting connection and navigating to dashboard');
       setHasQbConnection(true);
+      
+      // If we're on authenticate page, navigate to dashboard immediately
+      if (isAuthenticateRoute && !redirectingRef.current) {
+        console.log('RouteGuard: Navigating to dashboard due to recent auth success');
+        redirectingRef.current = true;
+        navigate('/dashboard', { replace: true });
+      }
+      
       return true;
     }
     
@@ -125,7 +133,7 @@ const RouteGuard = ({
       });
       return false;
     }
-  }, [user, isConnected, isQBLoading, refreshConnection, hasQbConnection]);
+  }, [user, isConnected, isQBLoading, refreshConnection, hasQbConnection, isAuthenticateRoute, navigate]);
 
   // Check if user is admin
   useEffect(() => {
@@ -200,12 +208,20 @@ const RouteGuard = ({
       const isRecentAuth = authTimestamp && 
         (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second cooldown
       
-      // If we have recent successful auth, skip ALL checks and render children
+      // If we have recent successful auth, skip ALL checks and handle navigation
       if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
         console.log('RouteGuard: Skip flags detected, bypassing ALL connection checks');
         setHasQbConnection(true);
         setIsChecking(false);
         connectionCheckedRef.current = true;
+        
+        // If we're on the authenticate page, navigate to dashboard immediately
+        if (isAuthenticateRoute && user && !redirectingRef.current) {
+          console.log('RouteGuard: On authenticate page with auth success, navigating to dashboard');
+          redirectingRef.current = true;
+          navigate('/dashboard', { replace: true });
+        }
+        
         return;
       }
       
@@ -244,7 +260,8 @@ const RouteGuard = ({
     isAuthenticateRoute, 
     checkQbConnectionDirectly, 
     roleChecked, 
-    location.pathname
+    location.pathname,
+    navigate
   ]);
 
   // Handle navigation when connection status changes
@@ -267,10 +284,18 @@ const RouteGuard = ({
     const isRecentAuth = authTimestamp && 
       (Date.now() - parseInt(authTimestamp, 10) < 30000);
     
-    // If we have recent auth success, ensure we show as connected
+    // If we have recent auth success, ensure we show as connected and navigate if needed
     if ((skipAuthRedirect || authSuccess) && isRecentAuth && !hasQbConnection) {
       console.log('RouteGuard: Setting connection to true based on auth success flags');
       setHasQbConnection(true);
+      
+      // If we're on authenticate page, navigate to dashboard
+      if (isAuthenticateRoute && user) {
+        console.log('RouteGuard: Navigating to dashboard from authenticate due to auth success');
+        redirectingRef.current = true;
+        navigate('/dashboard', { replace: true });
+      }
+      
       return;
     }
     
