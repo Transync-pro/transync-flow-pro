@@ -82,7 +82,7 @@ const RouteGuard = ({
           setIsChecking(true);
         }
         
-        const isConnected = await checkConnectionWithRetry(0); // Provide the attempt parameter
+        const isConnected = await checkConnectionWithRetry(0); // Fixed: added missing attempt parameter
         setHasCheckedConnection(true);
         
         // Only redirect if we're not already on the target route
