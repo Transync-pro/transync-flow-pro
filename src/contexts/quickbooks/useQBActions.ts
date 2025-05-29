@@ -1,9 +1,9 @@
+
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
-import { generateCodeVerifier, generateCodeChallenge } from '@/utils/pkce';
 
 export const useQBActions = (
   user: User | null,
@@ -27,8 +27,7 @@ export const useQBActions = (
       'qb_connection_verified',
       'qb_connection_timestamp',
       'qb_disconnected',
-      'qb_disconnect_timestamp',
-      'qb_code_verifier'
+      'qb_disconnect_timestamp'
     ];
     
     qbItems.forEach(key => sessionStorage.removeItem(key));
@@ -50,83 +49,44 @@ export const useQBActions = (
       // Clear all QuickBooks session data before starting a new authentication flow
       clearQBSessionData();
       
-      // Generate PKCE verifier and challenge
-      const codeVerifier = generateCodeVerifier();
-      const codeChallenge = await generateCodeChallenge(codeVerifier);
-      
-      // Store auth state and PKCE verifier
+      // Store the user ID in session storage in case we lose auth state during the OAuth flow
       sessionStorage.setItem("qb_connecting_user", user.id);
-      sessionStorage.setItem("qb_auth_initiated", "true");
-      sessionStorage.setItem("qb_auth_timestamp", Date.now().toString());
-      sessionStorage.setItem("qb_code_verifier", codeVerifier);
       
       // Get the current URL to use as a base for the redirect URI
+      // Use window.location.origin to ensure we get the correct protocol and domain
       const baseUrl = window.location.origin;
+      
+      // Construct the redirect URL - always use /dashboard/quickbooks-callback for both environments
       const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
       
-      try {
-        // Get auth URL from edge function with PKCE challenge
-        const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
-          body: { 
-            path: 'authorize',
-            redirectUri: redirectUrl,
-            userId: user.id,
-            codeChallenge,
-            codeChallengeMethod: 'S256'
-          }
-        });
-
-        if (error || !data?.authUrl) {
-          throw new Error('Failed to get QuickBooks authorization URL');
+      console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);
+      console.log("User ID for connection:", user.id);
+      
+      // Call the edge function to get authorization URL
+      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+        body: { 
+          path: 'authorize',
+          redirectUri: redirectUrl,
+          userId: user.id 
         }
+      });
 
-        // Open QuickBooks auth directly in new window
-        const authWindow = window.open(
-          data.authUrl,
-          'quickbooks-auth',
-          'width=600,height=700,menubar=no,toolbar=no,location=no,resizable=yes,scrollbars=yes'
-        );
-
-        if (!authWindow) {
-          throw new Error('Popup was blocked. Please allow popups for this site.');
-        }
-
-        // Show connecting toast
-        toast({
-          title: "Connecting to QuickBooks",
-          description: "Please complete the authentication in the new window...",
-          duration: Infinity,
-        });
-
-        // Set up message listener for auth completion
-        const messageHandler = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return;
-          
-          if (event.data.type === 'QB_AUTH_SUCCESS') {
-            // Remove the message listener
-            window.removeEventListener('message', messageHandler);
-            
-            // Clear the connecting toast
-            toast({
-              title: "Connected to QuickBooks",
-              description: `Successfully connected to ${event.data.companyName}`,
-            });
-
-            // Refresh connection status
-            refreshConnection && refreshConnection();
-          } else if (event.data.type === 'QB_AUTH_ERROR') {
-            // Remove the message listener
-            window.removeEventListener('message', messageHandler);
-            
-            handleError(event.data.error || 'Connection failed', true);
-          }
-        };
-
-        window.addEventListener('message', messageHandler);
-        
-      } catch (error: any) {
-        console.error("Error in connect flow:", error);
-        handleError(`Failed to initiate QuickBooks connection: ${error.message || "Unknown error"}`, true);
+      if (error) {
+        console.error("Edge function invocation error:", error);
+        throw error;
+      }
+      
+      if (data.error) {
+        console.error("Error from edge function:", data.error);
+        throw new Error(data.error);
+      }
+      
+      if (data && data.authUrl) {
+        console.log("Received authorization URL, redirecting user...");
+        // Redirect user to QuickBooks authorization page
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error('Failed to get authorization URL');
       }
     } catch (error: any) {
       console.error("Error in connect flow:", error);
@@ -175,18 +135,17 @@ export const useQBActions = (
       // Refresh the connection status
       refreshConnection && refreshConnection();
       
-      // Show the correct disconnect success message
-      toast({
-        title: "Disconnected",
-        description: "QuickBooks account has been disconnected successfully",
-      });
-      
       // Use NavigationController to handle the disconnect navigation
       // This provides centralized navigation control and prevents competing redirects
       if (navigate) {
         console.log('Using NavigationController to handle disconnection navigation');
         navigationController.handleDisconnect(user.id, navigate);
       }
+      
+      toast({
+        title: "Disconnected",
+        description: "QuickBooks account has been disconnected successfully",
+      });
       
     } catch (error: any) {
       console.error("Error in disconnect flow:", error);
