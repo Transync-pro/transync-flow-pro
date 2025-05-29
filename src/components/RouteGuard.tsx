@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,8 +30,7 @@ const RouteGuard = ({
     isConnected, 
     isLoading: isQBLoading, 
     refreshConnection,
-    connectionState,
-    checkConnectionWithRetry 
+    connectionState
   } = useQuickbooks();
   const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
@@ -83,7 +81,8 @@ const RouteGuard = ({
           setIsChecking(true);
         }
         
-        const isConnected = await checkConnectionWithRetry(0, 5); // Fixed: pass both arguments
+        // Use the direct API call instead of the context method with inconsistent signature
+        const isConnected = await checkQBConnectionExists(user.id);
         setHasCheckedConnection(true);
         
         // Only redirect if we're not already on the target route
@@ -122,7 +121,6 @@ const RouteGuard = ({
     requiresQuickbooks, 
     location.pathname, 
     navigate, 
-    checkConnectionWithRetry, 
     hasCheckedConnection, 
     isAuthenticateRoute, 
     isQbCallbackRoute
