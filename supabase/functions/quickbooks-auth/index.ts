@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0';
 const QUICKBOOKS_CLIENT_ID = Deno.env.get('SANDBOX_ID') || '';
@@ -225,7 +224,7 @@ const saveUserIdentity = async (userId, realmId, userInfo) => {
  */
 const handleTokenExchange = async (params) => {
   try {
-    const { code, redirectUri, userId, realmId } = params;
+    const { code, redirectUri, userId, realmId, codeVerifier } = params;
     
     console.log('Token request with params:', {
       code: !!code,
@@ -234,14 +233,15 @@ const handleTokenExchange = async (params) => {
       realmId
     });
     
-    if (!code || !redirectUri || !userId || !realmId) {
+    if (!code || !redirectUri || !userId || !realmId || !codeVerifier) {
       console.error('Missing required parameters:', {
         code: !!code,
         redirectUri: !!redirectUri,
         userId: !!userId,
-        realmId: !!realmId
+        realmId: !!realmId,
+        codeVerifier: !!codeVerifier
       });
-      throw new Error('Missing required parameters: code, redirectUri, userId, or realmId');
+      throw new Error('Missing required parameters: code, redirectUri, userId, realmId, or codeVerifier');
     }
     
     if (!QUICKBOOKS_CLIENT_ID || !QUICKBOOKS_CLIENT_SECRET) {
@@ -260,7 +260,10 @@ const handleTokenExchange = async (params) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: redirectUri
+        redirect_uri: redirectUri,
+        client_id: QUICKBOOKS_CLIENT_ID,
+        client_secret: QUICKBOOKS_CLIENT_SECRET,
+        code_verifier: codeVerifier
       }).toString()
     });
     
@@ -385,49 +388,102 @@ serve(async (req)=>{
     console.log(`Request path: ${path}, params:`, params);
     
     if (path === 'authorize') {
-      const { redirectUri, userId } = params;
-      if (!redirectUri || !userId) {
-        throw new Error('Missing required parameters: redirectUri or userId');
+      const { redirectUri, userId, codeChallenge, codeChallengeMethod } = params;
+      
+      if (!redirectUri || !userId || !codeChallenge || !codeChallengeMethod) {
+        throw new Error('Missing required parameters');
       }
+
       if (!QUICKBOOKS_CLIENT_ID) {
-        throw new Error('Missing QuickBooks client ID. Check environment configuration.');
+        throw new Error('Missing QuickBooks client ID');
       }
-      // Scope: define what your app can access (OpenID, Accounting)
+
+      // Define scopes
       const scopes = 'com.intuit.quickbooks.accounting openid profile email phone address';
-      // State: used to prevent CSRF and maintain state between requests
-      // We'll use it to store the userId
-      const state = userId;
-      // Build authorization URL
-      const authUrl = `${getOAuthBaseUrl()}?client_id=${QUICKBOOKS_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}&state=${state}`;
-      console.log('Generated auth URL:', authUrl);
-      return new Response(JSON.stringify({
-        authUrl
-      }), {
+
+      // Build authorization URL with PKCE
+      const authUrl = new URL('https://appcenter.intuit.com/connect/oauth2');
+      authUrl.searchParams.append('client_id', QUICKBOOKS_CLIENT_ID);
+      authUrl.searchParams.append('response_type', 'code');
+      authUrl.searchParams.append('scope', scopes);
+      authUrl.searchParams.append('redirect_uri', redirectUri);
+      authUrl.searchParams.append('state', userId);
+      authUrl.searchParams.append('code_challenge', codeChallenge);
+      authUrl.searchParams.append('code_challenge_method', codeChallengeMethod);
+
+      return new Response(JSON.stringify({ authUrl: authUrl.toString() }), {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
         }
       });
     } else if (path === 'token') {
-      // FIX: Get parameters from the already parsed request body
+      const { code, redirectUri, userId, realmId, codeVerifier } = params;
+      
+      if (!code || !redirectUri || !userId || !realmId || !codeVerifier) {
+        throw new Error('Missing required parameters');
+      }
+
+      if (!QUICKBOOKS_CLIENT_ID || !QUICKBOOKS_CLIENT_SECRET) {
+        throw new Error('Missing QuickBooks credentials');
+      }
+
       try {
-        const result = await handleTokenExchange(params);
-        return new Response(JSON.stringify(result), {
+        // Exchange code for tokens with PKCE
+        const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: redirectUri,
+            client_id: QUICKBOOKS_CLIENT_ID,
+            client_secret: QUICKBOOKS_CLIENT_SECRET,
+            code_verifier: codeVerifier
+          }).toString()
+        });
+
+        if (!tokenResponse.ok) {
+          const error = await tokenResponse.json();
+          throw new Error(error.error_description || 'Token exchange failed');
+        }
+
+        const tokens = await tokenResponse.json();
+
+        // Get company info using the access token
+        const companyResponse = await fetch('https://sandbox-quickbooks.api.intuit.com/v3/company/info/companyinfo', {
+          headers: {
+            'Authorization': `Bearer ${tokens.access_token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!companyResponse.ok) {
+          throw new Error('Failed to fetch company info');
+        }
+
+        const companyData = await companyResponse.json();
+        const companyName = companyData.CompanyInfo?.CompanyName || 'Unknown Company';
+
+        // Store tokens securely (implement your secure storage here)
+        // ...
+
+        return new Response(JSON.stringify({ 
+          success: true,
+          companyName 
+        }), {
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json'
           }
         });
-      } catch (error) {
-        return new Response(JSON.stringify({
-          error: error.message || 'Internal server error'
-        }), {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          },
-          status: 400
-        });
+
+      } catch (error: any) {
+        console.error('Token exchange error:', error);
+        throw new Error(error.message || 'Failed to exchange code for tokens');
       }
     } else if (path === 'refresh') {
       const { refreshToken, userId } = params;

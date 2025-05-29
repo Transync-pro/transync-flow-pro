@@ -19,65 +19,64 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
       hasProcessedCallback.current = true;
       
       try {
-        // Get URL parameters
-        const params = new URLSearchParams(location.search);
+        const params = new URLSearchParams(window.location.search);
         const code = params.get('code');
-        const realmId = params.get('realmId');
         const state = params.get('state');
         const errorParam = params.get('error');
+        const errorDescription = params.get('error_description');
 
+        // Handle error from QuickBooks
         if (errorParam) {
-          throw new Error(`QuickBooks authorization error: ${errorParam}`);
+          throw new Error(errorDescription || errorParam);
         }
 
-        if (!code || !realmId) {
+        // Validate required parameters
+        if (!code || !state) {
           throw new Error('Missing required parameters');
         }
 
-        // Verify state matches user ID for security
-        if (state !== user.id) {
+        // Get stored state and PKCE verifier
+        const storedState = sessionStorage.getItem('qb_connecting_user');
+        const codeVerifier = sessionStorage.getItem('qb_code_verifier');
+
+        // Validate state to prevent CSRF
+        if (!storedState || state !== storedState) {
           throw new Error('Invalid state parameter');
         }
 
-        // Clear any stale connection cache
-        connectionStatusService.clearCache(user.id);
-        
-        // Exchange code for tokens
+        if (!codeVerifier) {
+          throw new Error('Missing code verifier');
+        }
+
+        // Exchange code for tokens using PKCE verifier
         const { data, error: exchangeError } = await supabase.functions.invoke('quickbooks-auth', {
-          body: { 
+          body: {
             path: 'token',
             code,
-            realmId,
-            state,
-            userId: user.id,
-            redirectUri: window.location.origin + '/dashboard/quickbooks-callback'
+            redirectUri: window.location.origin + '/dashboard/quickbooks-callback',
+            codeVerifier
           }
         });
 
-        if (exchangeError || data?.error) {
-          throw new Error(exchangeError?.message || data?.error || 'Token exchange failed');
+        if (exchangeError || !data?.success) {
+          throw new Error(exchangeError?.message || 'Failed to exchange code for tokens');
         }
 
-        // Get company name from response
-        const companyName = data.companyName || 'Unknown Company';
-        
-        // Mark as connected immediately
-        connectionStatusService.markAsConnected(user.id, companyName);
-        
-        // Send success message to opener window and close
+        // Clear session storage
+        sessionStorage.removeItem('qb_connecting_user');
+        sessionStorage.removeItem('qb_code_verifier');
+
+        // Notify parent window of success
         if (window.opener) {
           window.opener.postMessage({
             type: 'QB_AUTH_SUCCESS',
-            companyName
+            companyName: data.companyName
           }, window.location.origin);
           window.close();
-        } else {
-          // Fallback if somehow not in popup
-          window.location.href = '/dashboard';
         }
-        
-      } catch (err: any) {
-        const errorMessage = err.message || 'Connection failed';
+
+      } catch (error: any) {
+        const errorMessage = error.message || 'Connection failed';
         
         logError('QuickBooks callback error', {
           source: 'QuickbooksCallback',
@@ -85,15 +84,13 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           userId: user.id
         });
         
-        // Send error to opener and close
+        // Notify parent window of error
         if (window.opener) {
           window.opener.postMessage({
             type: 'QB_AUTH_ERROR',
             error: errorMessage
           }, window.location.origin);
-          
-          // Brief delay to show error
-          setTimeout(() => window.close(), 1500);
+          window.close();
         }
         
         setError(errorMessage);
