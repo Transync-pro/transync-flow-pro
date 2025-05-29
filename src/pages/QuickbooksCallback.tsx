@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/environmentClient';
@@ -28,7 +27,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
       hasProcessedCallback.current = true;
       
       try {
-        console.log('QuickbooksCallback: Processing OAuth callback in popup mode');
+        console.log('QuickbooksCallback: Processing OAuth callback');
         
         // Get URL parameters
         const params = new URLSearchParams(location.search);
@@ -36,13 +35,6 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         const realmId = params.get('realmId');
         const state = params.get('state');
         const errorParam = params.get('error');
-
-        console.log('QuickbooksCallback: Parameters:', { 
-          code: code ? 'present' : 'missing',
-          realmId,
-          state,
-          error: errorParam
-        });
 
         if (errorParam) {
           throw new Error(`QuickBooks authorization error: ${errorParam}`);
@@ -54,8 +46,6 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
 
         // Clear any stale connection cache
         connectionStatusService.clearCache(user.id);
-        
-        console.log('QuickbooksCallback: Exchanging code for tokens');
         
         // Get the current URL to use as a base for the redirect URI
         const baseUrl = window.location.origin;
@@ -73,42 +63,27 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           }
         });
 
-        if (exchangeError) {
-          throw new Error(`Token exchange failed: ${exchangeError.message}`);
+        if (exchangeError || data?.error) {
+          throw new Error(exchangeError?.message || data?.error || 'Token exchange failed');
         }
 
-        if (data.error) {
-          throw new Error(`Token exchange failed: ${data.error}`);
-        }
-
-        console.log('QuickbooksCallback: Token exchange successful');
-        
         // Get company name from response
         const retrievedCompanyName = data.companyName || 'Unknown Company';
-        setCompanyName(retrievedCompanyName);
         
         // Mark as connected in the connection service
         connectionStatusService.markAsConnected(user.id, retrievedCompanyName);
         
-        // Show success state
-        setSuccess(true);
-        setIsProcessing(false);
-        
-        // Send success message to parent window
+        // Send success message to opener window if it exists
         if (window.opener) {
-          console.log('QuickbooksCallback: Sending success message to parent window');
           window.opener.postMessage({
             type: 'QB_AUTH_SUCCESS',
             companyName: retrievedCompanyName
           }, window.location.origin);
           
-          // Close popup after a short delay
-          setTimeout(() => {
-            window.close();
-          }, 1500);
+          // Close this window immediately
+          window.close();
         } else {
-          // Fallback if not in popup - redirect to dashboard
-          console.log('QuickbooksCallback: Not in popup, redirecting to dashboard');
+          // If somehow opened in main window, redirect to dashboard
           window.location.href = '/dashboard';
         }
         
@@ -117,78 +92,38 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         
         logError('QuickBooks callback processing error', {
           source: 'QuickbooksCallback',
-          stack: err instanceof Error ? err.stack : undefined,
-          context: { 
-            error: err.message,
-            userId: user?.id,
-            searchParams: location.search
-          }
+          error: err.message,
+          userId: user?.id
         });
         
-        setError(err.message || 'An error occurred during QuickBooks connection');
-        setIsProcessing(false);
-        
-        // Send error message to parent window
+        // Send error to opener window if it exists
         if (window.opener) {
-          console.log('QuickbooksCallback: Sending error message to parent window');
           window.opener.postMessage({
             type: 'QB_AUTH_ERROR',
             error: err.message || 'Connection failed'
           }, window.location.origin);
           
-          // Close popup after a short delay
-          setTimeout(() => {
-            window.close();
-          }, 3000);
+          // Close after a short delay to show error
+          setTimeout(() => window.close(), 2000);
         }
+        
+        setError(err.message || 'An error occurred during QuickBooks connection');
+        setIsProcessing(false);
       }
     };
 
     handleCallback();
   }, [isAuthLoading, location.search, user]);
 
-  // Show success message briefly
-  if (success) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <div className="max-w-md w-full space-y-4 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle className="h-6 w-6 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900">Successfully Connected!</h2>
-          <p className="text-gray-600">
-            Connected to {companyName}. This window will close automatically...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error message
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <div className="max-w-md w-full space-y-4">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Connection Failed</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-          <Button
-            className="w-full"
-            onClick={() => window.close()}
-          >
-            Close Window
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading state while processing (default)
+  // Only show loading state - success/error states will be very brief
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <ConnectionLoading message="Connecting to QuickBooks..." />
+      <ConnectionLoading message="Completing QuickBooks connection..." />
+      {error && (
+        <div className="mt-4 text-red-600">
+          {error}
+        </div>
+      )}
     </div>
   );
 };

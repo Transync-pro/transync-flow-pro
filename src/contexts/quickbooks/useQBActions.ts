@@ -1,4 +1,3 @@
-
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
@@ -51,46 +50,45 @@ export const useQBActions = (
       
       // Store the user ID in session storage in case we lose auth state during the OAuth flow
       sessionStorage.setItem("qb_connecting_user", user.id);
+      sessionStorage.setItem("qb_auth_initiated", "true");
       
       // Get the current URL to use as a base for the redirect URI
-      // Use window.location.origin to ensure we get the correct protocol and domain
       const baseUrl = window.location.origin;
-      
-      // Construct the redirect URL - always use /dashboard/quickbooks-callback for both environments
       const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
       
-      console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);
-      console.log("User ID for connection:", user.id);
+      console.log("Starting QuickBooks OAuth flow");
       
       // Call the edge function to get authorization URL
       const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
         body: { 
           path: 'authorize',
           redirectUri: redirectUrl,
-          userId: user.id 
+          userId: user.id,
+          mode: 'popup' // Indicate we want popup mode
         }
       });
 
-      if (error) {
-        console.error("Edge function invocation error:", error);
-        throw error;
-      }
-      
-      if (data.error) {
-        console.error("Error from edge function:", data.error);
-        throw new Error(data.error);
+      if (error || data?.error) {
+        throw error || new Error(data.error);
       }
       
       if (data && data.authUrl) {
-        console.log("Received authorization URL, opening in new tab...");
+        console.log("Opening QuickBooks authorization in new tab");
         
-        // Open in new tab instead of redirecting
-        window.open(data.authUrl, '_blank');
+        // Store timestamp for checking stale connections
+        sessionStorage.setItem("qb_auth_timestamp", Date.now().toString());
         
-        // Show loading toast while waiting for callback
+        // Open QuickBooks auth directly in new tab
+        const authWindow = window.open(data.authUrl, 'quickbooks-auth');
+        
+        if (!authWindow) {
+          throw new Error('Popup was blocked. Please allow popups for this site.');
+        }
+
+        // Show connecting toast
         toast({
           title: "Connecting to QuickBooks",
-          description: "Please wait while we connect to QuickBooks. This window will refresh automatically.",
+          description: "Waiting for QuickBooks authentication to complete...",
           duration: Infinity,
         });
       } else {
