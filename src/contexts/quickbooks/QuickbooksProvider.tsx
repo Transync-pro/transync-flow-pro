@@ -23,6 +23,23 @@ interface QuickbooksProviderProps {
   user: User | null;
 }
 
+// Map AuthFlowState to our expected connection state type
+const mapAuthFlowStateToConnectionState = (authFlowState: string) => {
+  switch (authFlowState) {
+    case 'connected':
+      return 'connected';
+    case 'disconnected':
+      return 'disconnected';
+    case 'connecting':
+    case 'authenticating':
+      return 'connecting';
+    case 'error':
+      return 'error';
+    default:
+      return 'idle';
+  }
+};
+
 export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children, user }) => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -125,7 +142,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     clearError,
     refreshConnection,
     checkConnection,
-    connectionState: connectionStatus,
+    connectionState: mapAuthFlowStateToConnectionState(connectionStatus),
     lastChecked,
     checkConnectionWithRetry: async () => {
       if (user) {
