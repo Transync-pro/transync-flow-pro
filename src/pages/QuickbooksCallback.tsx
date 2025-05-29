@@ -1,14 +1,12 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/environmentClient';
-import { toast } from '@/components/ui/use-toast';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { logError } from '@/utils/errorLogger';
-import { useAuthFlow } from '@/services/auth/AuthFlowManager';
 import { ConnectionLoading } from '@/components/ConnectionLoading';
 import { connectionStatusService } from '@/services/auth/ConnectionStatusService';
 
@@ -19,9 +17,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
   const [companyName, setCompanyName] = useState<string>('');
   
   const location = useLocation();
-  const navigate = useNavigate();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { handleAuthError } = useAuthFlow();
   
   const hasProcessedCallback = useRef<boolean>(false);
 
@@ -32,7 +28,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
       hasProcessedCallback.current = true;
       
       try {
-        console.log('QuickbooksCallback: Processing OAuth callback');
+        console.log('QuickbooksCallback: Processing OAuth callback in popup mode');
         
         // Get URL parameters
         const params = new URLSearchParams(location.search);
@@ -56,8 +52,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           throw new Error('Missing required parameters (code or realmId)');
         }
 
-        // Clear any stale session data and connection cache
-        sessionStorage.removeItem('processed_qb_codes');
+        // Clear any stale connection cache
         connectionStatusService.clearCache(user.id);
         
         console.log('QuickbooksCallback: Exchanging code for tokens');
@@ -66,7 +61,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         const baseUrl = window.location.origin;
         const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
         
-        // Call the edge function to exchange code for tokens using the "token" path
+        // Call the edge function to exchange code for tokens
         const { data, error: exchangeError } = await supabase.functions.invoke('quickbooks-auth', {
           body: { 
             path: 'token',
@@ -88,32 +83,34 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
 
         console.log('QuickbooksCallback: Token exchange successful');
         
-        // Get company name from response if available
+        // Get company name from response
         const retrievedCompanyName = data.companyName || 'Unknown Company';
         setCompanyName(retrievedCompanyName);
         
-        // Clear any stale cache and mark as connected IMMEDIATELY
-        connectionStatusService.clearCache(user.id);
+        // Mark as connected in the connection service
         connectionStatusService.markAsConnected(user.id, retrievedCompanyName);
         
-        // Set success flags in session storage with a shorter window
-        sessionStorage.setItem('qb_auth_success', 'true');
-        sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
-        sessionStorage.setItem('qb_connection_company', retrievedCompanyName);
-        
-        // Show success state briefly
+        // Show success state
         setSuccess(true);
         setIsProcessing(false);
         
-        // Show success toast immediately and navigate directly to dashboard
-        toast({
-          title: "Connected to QuickBooks",
-          description: `Successfully connected to ${retrievedCompanyName}`,
-        });
-        
-        // Navigate directly to dashboard immediately - no delay needed
-        console.log('QuickbooksCallback: Navigating directly to dashboard');
-        navigate('/dashboard', { replace: true });
+        // Send success message to parent window
+        if (window.opener) {
+          console.log('QuickbooksCallback: Sending success message to parent window');
+          window.opener.postMessage({
+            type: 'QB_AUTH_SUCCESS',
+            companyName: retrievedCompanyName
+          }, window.location.origin);
+          
+          // Close popup after a short delay
+          setTimeout(() => {
+            window.close();
+          }, 1500);
+        } else {
+          // Fallback if not in popup - redirect to dashboard
+          console.log('QuickbooksCallback: Not in popup, redirecting to dashboard');
+          window.location.href = '/dashboard';
+        }
         
       } catch (err: any) {
         console.error('QuickbooksCallback: Error processing callback:', err);
@@ -130,18 +127,25 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         
         setError(err.message || 'An error occurred during QuickBooks connection');
         setIsProcessing(false);
-        handleAuthError(err.message || 'Callback processing failed');
         
-        toast({
-          title: "Connection Failed",
-          description: err.message || "Failed to connect to QuickBooks. Please try again.",
-          variant: "destructive",
-        });
+        // Send error message to parent window
+        if (window.opener) {
+          console.log('QuickbooksCallback: Sending error message to parent window');
+          window.opener.postMessage({
+            type: 'QB_AUTH_ERROR',
+            error: err.message || 'Connection failed'
+          }, window.location.origin);
+          
+          // Close popup after a short delay
+          setTimeout(() => {
+            window.close();
+          }, 3000);
+        }
       }
     };
 
     handleCallback();
-  }, [isAuthLoading, location.search, user, handleAuthError, navigate]);
+  }, [isAuthLoading, location.search, user]);
 
   // Show success message briefly
   if (success) {
@@ -153,7 +157,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Successfully Connected!</h2>
           <p className="text-gray-600">
-            Connected to {companyName}. Redirecting to your dashboard...
+            Connected to {companyName}. This window will close automatically...
           </p>
         </div>
       </div>
@@ -172,9 +176,9 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           </Alert>
           <Button
             className="w-full"
-            onClick={() => window.location.href = '/authenticate'}
+            onClick={() => window.close()}
           >
-            Try Again
+            Close Window
           </Button>
         </div>
       </div>

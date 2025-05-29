@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,6 +24,7 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Authenticate from "./pages/Authenticate";
 import QuickbooksCallback from "./pages/QuickbooksCallback";
+import QuickbooksAuthProxy from "./pages/QuickbooksAuthProxy";
 import Disconnected from "./pages/Disconnected";
 import Export from "./pages/Export";
 import Import from "./pages/Import";
@@ -87,6 +87,9 @@ const AppRoutes = () => {
       <Route path="/blog" element={<Blog />} />
       <Route path="/blog/:slug" element={<BlogDetail />} />
 
+      {/* QuickBooks Auth Routes */}
+      <Route path="/api/quickbooks-auth" element={<QuickbooksAuthProxy />} />
+      
       {/* Protected routes */}
       <Route
         path="/dashboard"

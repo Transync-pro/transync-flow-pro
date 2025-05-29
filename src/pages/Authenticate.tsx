@@ -1,12 +1,11 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAuthFlow } from "@/services/auth/AuthFlowManager";
 import { toast } from "@/components/ui/use-toast";
 import PageLayout from "@/components/PageLayout";
 import { connectionStatusService } from "@/services/auth/ConnectionStatusService";
@@ -14,34 +13,90 @@ import { connectionStatusService } from "@/services/auth/ConnectionStatusService
 const Authenticate = () => {
   const [buttonHover, setButtonHover] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const { connect, isLoading } = useQuickbooks();
+  const { isConnected, isLoading, checkConnection } = useQuickbooks();
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-  const { connectionStatus, isCheckingConnection, checkConnection } = useAuthFlow();
+  const popupRef = useRef<Window | null>(null);
+  const checkIntervalRef = useRef<NodeJS.Timeout>();
 
   // Check connection status when component mounts
   useEffect(() => {
-    if (user) {
-      console.log('Authenticate: Checking connection status for user:', user.id);
-      // Clear any stale cache and check connection
-      connectionStatusService.clearCache(user.id);
-      checkConnection(user.id);
+    if (user && !isConnected) {
+      console.log('Authenticate: Checking initial connection status');
+      checkConnection(true);
     }
-  }, [user, checkConnection]);
+  }, [user, checkConnection, isConnected]);
 
-  // Handle navigation based on connection status
+  // Redirect to dashboard if already connected
   useEffect(() => {
-    // Only redirect if we're definitely connected and not in a loading state
-    if (connectionStatus === 'connected' && !isCheckingConnection && !isLoading) {
-      console.log('Authenticate: User is confirmed connected, redirecting to dashboard');
-      toast({
-        title: "Already Connected",
-        description: "Your QuickBooks account is already connected. Redirecting to dashboard...",
-      });
+    if (isConnected && !isLoading) {
+      console.log('Authenticate: User is connected, redirecting to dashboard');
       navigate('/dashboard', { replace: true });
     }
-  }, [connectionStatus, isCheckingConnection, isLoading, navigate]);
+  }, [isConnected, isLoading, navigate]);
+
+  // Listen for successful authentication from popup
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Only accept messages from our domain
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === 'QB_AUTH_SUCCESS') {
+        console.log('Authenticate: Received auth success from popup');
+        
+        // Close popup
+        if (popupRef.current) {
+          popupRef.current.close();
+          popupRef.current = null;
+        }
+        
+        // Clear any checking intervals
+        if (checkIntervalRef.current) {
+          clearInterval(checkIntervalRef.current);
+        }
+        
+        setIsConnecting(false);
+        
+        // Show success message
+        toast({
+          title: "Successfully Connected!",
+          description: `Connected to ${event.data.companyName || 'QuickBooks'}`,
+        });
+        
+        // Force refresh connection status and navigate
+        connectionStatusService.markAsConnected(user!.id, event.data.companyName);
+        
+        // Small delay to let state update, then navigate
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 500);
+      } else if (event.data.type === 'QB_AUTH_ERROR') {
+        console.error('Authenticate: Received auth error from popup:', event.data.error);
+        
+        // Close popup
+        if (popupRef.current) {
+          popupRef.current.close();
+          popupRef.current = null;
+        }
+        
+        // Clear any checking intervals
+        if (checkIntervalRef.current) {
+          clearInterval(checkIntervalRef.current);
+        }
+        
+        setIsConnecting(false);
+        
+        toast({
+          title: "Connection Failed",
+          description: event.data.error || "Failed to connect to QuickBooks",
+          variant: "destructive",
+        });
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [user, navigate]);
 
   const handleConnect = async () => {
     if (!user) {
@@ -51,20 +106,45 @@ const Authenticate = () => {
     
     try {
       setIsConnecting(true);
-      console.log('Authenticate: Starting connection process');
+      console.log('Authenticate: Opening QuickBooks OAuth in popup');
       
-      // Clear any existing auth flags and connection cache
-      sessionStorage.removeItem('qb_auth_success');
-      sessionStorage.removeItem('qb_connection_timestamp');
-      connectionStatusService.clearCache(user.id);
+      // Get the current URL to use as a base for the redirect URI
+      const baseUrl = window.location.origin;
+      const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
       
-      await connect();
-    } catch (error) {
-      console.error("Authenticate: Error connecting to QuickBooks:", error);
+      // Build the OAuth URL manually to open in popup
+      const authUrl = `/api/quickbooks-auth?path=authorize&redirectUri=${encodeURIComponent(redirectUrl)}&userId=${user.id}`;
+      
+      // Open popup
+      const popup = window.open(
+        authUrl,
+        'quickbooks-auth',
+        'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,location=yes,toolbar=no,menubar=no'
+      );
+      
+      if (!popup) {
+        throw new Error('Failed to open popup. Please allow popups for this site.');
+      }
+      
+      popupRef.current = popup;
+      
+      // Check if popup was closed manually
+      checkIntervalRef.current = setInterval(() => {
+        if (popup.closed) {
+          console.log('Authenticate: Popup was closed manually');
+          setIsConnecting(false);
+          if (checkIntervalRef.current) {
+            clearInterval(checkIntervalRef.current);
+          }
+        }
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error("Authenticate: Error starting connection:", error);
       setIsConnecting(false);
       toast({
         title: "Connection Failed",
-        description: "Failed to start QuickBooks connection. Please try again.",
+        description: error.message || "Failed to start QuickBooks connection",
         variant: "destructive",
       });
     }
@@ -75,7 +155,7 @@ const Authenticate = () => {
   };
 
   // Show loading state while checking connection
-  if (isCheckingConnection) {
+  if (isLoading) {
     return (
       <PageLayout>
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
@@ -125,10 +205,10 @@ const Authenticate = () => {
                 aria-label="Connect to QuickBooks"
                 style={{ background: 'none', border: 'none', padding: 0 }}
               >
-                {isLoading || isConnecting ? (
+                {isConnecting ? (
                   <div className="flex items-center justify-center">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    <span>{isLoading ? "Checking connection..." : "Connecting..."}</span>
+                    <span>Opening QuickBooks...</span>
                   </div>
                 ) : (
                   <img
