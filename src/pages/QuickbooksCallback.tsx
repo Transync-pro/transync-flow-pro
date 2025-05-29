@@ -59,14 +59,19 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         
         console.log('QuickbooksCallback: Exchanging code for tokens');
         
-        // Call the edge function to exchange code for tokens
+        // Get the current URL to use as a base for the redirect URI
+        const baseUrl = window.location.origin;
+        const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
+        
+        // Call the edge function to exchange code for tokens using the "token" path
         const { data, error: exchangeError } = await supabase.functions.invoke('quickbooks-auth', {
           body: { 
-            path: 'callback',
+            path: 'token',
             code,
             realmId,
             state,
-            userId: user.id
+            userId: user.id,
+            redirectUri: redirectUrl
           }
         });
 
@@ -99,6 +104,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         
         logError('QuickBooks callback processing error', {
           source: 'QuickbooksCallback',
+          stack: err instanceof Error ? err.stack : undefined,
           context: { 
             error: err.message,
             userId: user?.id,
