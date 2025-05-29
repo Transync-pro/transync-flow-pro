@@ -135,17 +135,18 @@ export const useQBActions = (
       // Refresh the connection status
       refreshConnection && refreshConnection();
       
+      // Show the correct disconnect success message
+      toast({
+        title: "Disconnected",
+        description: "QuickBooks account has been disconnected successfully",
+      });
+      
       // Use NavigationController to handle the disconnect navigation
       // This provides centralized navigation control and prevents competing redirects
       if (navigate) {
         console.log('Using NavigationController to handle disconnection navigation');
         navigationController.handleDisconnect(user.id, navigate);
       }
-      
-      toast({
-        title: "Disconnected",
-        description: "QuickBooks account has been disconnected successfully",
-      });
       
     } catch (error: any) {
       console.error("Error in disconnect flow:", error);

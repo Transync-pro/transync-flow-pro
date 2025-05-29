@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/environmentClient';
 import { toast } from '@/components/ui/use-toast';
 import { AlertCircle, CheckCircle } from 'lucide-react';
@@ -19,8 +19,9 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
   const [companyName, setCompanyName] = useState<string>('');
   
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { handleAuthSuccess, handleAuthError } = useAuthFlow();
+  const { handleAuthError } = useAuthFlow();
   
   const hasProcessedCallback = useRef<boolean>(false);
 
@@ -104,10 +105,18 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         setSuccess(true);
         setIsProcessing(false);
         
-        // Wait a moment to show success, then handle the auth success
+        // Wait a moment to show success, then redirect directly to dashboard
         setTimeout(() => {
-          console.log('QuickbooksCallback: Handling auth success');
-          handleAuthSuccess(user.id, retrievedCompanyName);
+          console.log('QuickbooksCallback: Redirecting to dashboard with success message');
+          
+          // Show success toast
+          toast({
+            title: "Connected to QuickBooks",
+            description: `Successfully connected to ${retrievedCompanyName}`,
+          });
+          
+          // Navigate directly to dashboard
+          navigate('/dashboard', { replace: true });
         }, 1500);
         
       } catch (err: any) {
@@ -136,7 +145,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
     };
 
     handleCallback();
-  }, [isAuthLoading, location.search, user, handleAuthSuccess, handleAuthError]);
+  }, [isAuthLoading, location.search, user, handleAuthError, navigate]);
 
   // Show loading state while processing
   if (isProcessing) {
