@@ -24,6 +24,7 @@ export default function Dashboard() {
     const params = new URLSearchParams(location.search);
     const connected = params.get('connected');
     const company = params.get('company');
+    const direct = params.get('direct');
     const error = params.get('error');
 
     if (connected === '1' && company) {
@@ -31,6 +32,12 @@ export default function Dashboard() {
         title: 'Connected to QuickBooks',
         description: `Successfully connected to ${decodeURIComponent(company)}`,
       });
+      
+      // If this was a direct auth, refresh connection immediately
+      if (direct === '1') {
+        refreshConnection();
+      }
+      
       // Clean up URL parameters
       navigate('/dashboard', { replace: true });
     } else if (error) {
@@ -44,7 +51,7 @@ export default function Dashboard() {
     }
     
     hasProcessedParams.current = true;
-  }, [location.search, navigate]);
+  }, [location.search, navigate, refreshConnection]);
 
   // Handle QuickBooks auth success message
   useEffect(() => {
@@ -52,7 +59,11 @@ export default function Dashboard() {
       if (event.origin !== window.location.origin) return;
 
       if (event.data.type === 'QB_AUTH_SUCCESS') {
-        refreshConnection();
+        // If this was a direct auth, refresh connection immediately
+        if (event.data.directAuth) {
+          refreshConnection();
+        }
+        
         toast({
           title: 'Connected to QuickBooks',
           description: `Successfully connected to ${event.data.companyName}`,

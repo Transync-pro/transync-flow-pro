@@ -77,23 +77,25 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         setCompanyName(retrievedCompanyName);
         setSuccess(true);
         
-        // Store connection info
+        // Store connection info with additional flag
         sessionStorage.setItem('qb_auth_success', 'true');
         sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
         sessionStorage.setItem('qb_connection_company', retrievedCompanyName);
+        sessionStorage.setItem('qb_direct_auth', 'true'); // Add this flag
         
         // Notify parent window of success and close popup
         if (window.opener) {
           window.opener.postMessage({
             type: 'QB_AUTH_SUCCESS',
-            companyName: retrievedCompanyName
+            companyName: retrievedCompanyName,
+            directAuth: true
           }, window.location.origin);
           
           // Brief delay to ensure message is sent
           setTimeout(() => window.close(), 500);
         } else {
           // If not in popup, redirect to dashboard with success flag
-          window.location.href = `/dashboard?connected=1&company=${encodeURIComponent(retrievedCompanyName)}`;
+          window.location.href = `/dashboard?connected=1&company=${encodeURIComponent(retrievedCompanyName)}&direct=1`;
         }
 
       } catch (error: any) {

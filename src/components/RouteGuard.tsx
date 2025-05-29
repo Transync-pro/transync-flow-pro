@@ -109,6 +109,22 @@ const RouteGuard = ({
       try {
         setIsChecking(true);
 
+        // Check for direct auth flag
+        const directAuth = sessionStorage.getItem('qb_direct_auth') === 'true';
+        const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+        const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+        const isRecentAuth = authTimestamp && 
+          (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
+
+        // If we have a recent direct auth, skip the check and allow access
+        if (directAuth && authSuccess && isRecentAuth) {
+          setHasQbConnection(true);
+          if (isMounted) setIsChecking(false);
+          // Clear the direct auth flag
+          sessionStorage.removeItem('qb_direct_auth');
+          return;
+        }
+
         // If we're already connected according to context, we're good
         if (isConnected) {
           setHasQbConnection(true);
