@@ -99,40 +99,54 @@ const RouteGuard = ({
 
   // Handle QuickBooks connection check
   useEffect(() => {
-    if (!requiresQuickbooks || !user || isQBLoading) return;
-
-    const checkConnection = async () => {
-      // If we're already connected according to context, we're good
-      if (isConnected) {
-        setHasQbConnection(true);
-        setIsChecking(false);
-        return;
-      }
-
-      // Check connection directly
-      const hasConnection = await checkQbConnectionDirectly();
-      
-      if (hasConnection) {
-        // If we found a connection but context doesn't know about it,
-        // refresh the connection state
-        if (!isConnected) {
-          refreshConnection();
-        }
-      } else if (isDashboardRoute) {
-        // If no connection and we're on dashboard, redirect to authenticate
-        navigate('/authenticate');
-      }
-
+    if (!requiresQuickbooks || !user || isQBLoading) {
       setIsChecking(false);
+      return;
+    }
+
+    let isMounted = true;
+    const checkConnection = async () => {
+      try {
+        setIsChecking(true);
+
+        // If we're already connected according to context, we're good
+        if (isConnected) {
+          setHasQbConnection(true);
+          if (isMounted) setIsChecking(false);
+          return;
+        }
+
+        // Check connection directly
+        const hasConnection = await checkQbConnectionDirectly();
+        
+        if (!isMounted) return;
+
+        if (hasConnection) {
+          // If we found a connection but context doesn't know about it,
+          // refresh the connection state
+          if (!isConnected) {
+            refreshConnection();
+          }
+        } else if (isDashboardRoute && !isQbCallbackRoute) {
+          // Only redirect if we're not in the callback route
+          navigate('/authenticate', { replace: true });
+        }
+      } catch (error) {
+        console.error('Error in RouteGuard connection check:', error);
+      } finally {
+        if (isMounted) setIsChecking(false);
+      }
     };
 
     checkConnection();
+    return () => { isMounted = false; };
   }, [
     user,
     isQBLoading,
     isConnected,
     requiresQuickbooks,
     isDashboardRoute,
+    isQbCallbackRoute,
     checkQbConnectionDirectly,
     refreshConnection,
     navigate

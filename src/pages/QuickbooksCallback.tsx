@@ -45,9 +45,13 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           throw new Error('Missing required parameters');
         }
 
-        // Clear any stale session data and connection cache
+        // Verify state matches user ID for security
+        if (state !== user.id) {
+          throw new Error('Invalid state parameter');
+        }
+
+        // Clear any stale session data
         sessionStorage.removeItem('processed_qb_codes');
-        connectionStatusService.clearCache(user.id);
         
         // Get the current URL to use as a base for the redirect URI
         const baseUrl = window.location.origin;
@@ -71,16 +75,12 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
 
         const retrievedCompanyName = data.companyName || 'Unknown Company';
         setCompanyName(retrievedCompanyName);
-        
-        // Set success state and store connection info
         setSuccess(true);
+        
+        // Store connection info
         sessionStorage.setItem('qb_auth_success', 'true');
         sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
         sessionStorage.setItem('qb_connection_company', retrievedCompanyName);
-        sessionStorage.setItem('qb_skip_auth_redirect', 'true');
-        
-        // Mark as connected immediately
-        connectionStatusService.markAsConnected(user.id, retrievedCompanyName);
         
         // Notify parent window of success and close popup
         if (window.opener) {
@@ -125,7 +125,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
     };
 
     handleCallback();
-  }, [user, isAuthLoading, location]);
+  }, [user, isAuthLoading, location.search]);
 
   // Show loading state while processing
   if (isProcessing) {

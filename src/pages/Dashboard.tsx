@@ -1,29 +1,30 @@
-import React, { useEffect, useState } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
-import { useQuickbooks } from "@/contexts/QuickbooksContext";
-import { toast } from "@/components/ui/use-toast";
-import { DashboardShell } from "@/components/DashboardShell";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { ConnectionLoading } from "@/components/ConnectionLoading";
-import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import DashboardHome from "@/components/Dashboard/DashboardHome";
-import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import React, { useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useQuickbooks } from '@/contexts/QuickbooksContext';
+import { toast } from '@/components/ui/use-toast';
+import DashboardLayout from '@/components/Dashboard/DashboardLayout';
+import DashboardHome from '@/components/Dashboard/DashboardHome';
+import { motion } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
+import { ConnectionLoading } from '@/components/ConnectionLoading';
 
-const Dashboard = () => {
+export default function Dashboard() {
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { isConnected, isLoading, refreshConnection, companyName } = useQuickbooks();
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Track if we've already processed URL parameters
+  const hasProcessedParams = useRef(false);
 
-  // Handle connection status messages
+  // Handle connection status from URL parameters
   useEffect(() => {
-    const connected = searchParams.get('connected');
-    const company = searchParams.get('company');
-    const error = searchParams.get('error');
+    if (hasProcessedParams.current) return;
+    
+    const params = new URLSearchParams(location.search);
+    const connected = params.get('connected');
+    const company = params.get('company');
+    const error = params.get('error');
 
     if (connected === '1' && company) {
       toast({
@@ -31,7 +32,7 @@ const Dashboard = () => {
         description: `Successfully connected to ${decodeURIComponent(company)}`,
       });
       // Clean up URL parameters
-      window.history.replaceState({}, '', '/dashboard');
+      navigate('/dashboard', { replace: true });
     } else if (error) {
       toast({
         title: 'Connection Error',
@@ -39,9 +40,11 @@ const Dashboard = () => {
         variant: 'destructive',
       });
       // Clean up URL parameters
-      window.history.replaceState({}, '', '/dashboard');
+      navigate('/dashboard', { replace: true });
     }
-  }, [searchParams]);
+    
+    hasProcessedParams.current = true;
+  }, [location.search, navigate]);
 
   // Handle QuickBooks auth success message
   useEffect(() => {
@@ -49,7 +52,6 @@ const Dashboard = () => {
       if (event.origin !== window.location.origin) return;
 
       if (event.data.type === 'QB_AUTH_SUCCESS') {
-        // Refresh connection status
         refreshConnection();
         toast({
           title: 'Connected to QuickBooks',
@@ -68,58 +70,12 @@ const Dashboard = () => {
     return () => window.removeEventListener('message', handleMessage);
   }, [refreshConnection]);
 
-  // Initial load handling
+  // Handle disconnection case
   useEffect(() => {
-    if (isInitialLoad && !isLoading) {
-      refreshConnection();
-      setIsInitialLoad(false);
+    if (isConnected === false && !isLoading) {
+      navigate('/authenticate', { replace: true });
     }
-  }, [isInitialLoad, isLoading, refreshConnection]);
-
-  // Handle disconnection case - redirect to authenticate page if not connected
-  // Using a ref to track if we've already redirected to avoid excessive checks
-  const hasRedirected = React.useRef(false);
-  const redirectTimeout = React.useRef<NodeJS.Timeout>();
-
-  useEffect(() => {
-    // Clear any pending redirect timeout
-    if (redirectTimeout.current) {
-      clearTimeout(redirectTimeout.current);
-    }
-
-    // Only redirect if we're definitely not connected (not during loading)
-    // And we haven't already redirected
-    if (isConnected === false && !hasRedirected.current) {
-      // Add a small delay to allow any pending state updates to complete
-      redirectTimeout.current = setTimeout(() => {
-        // Double-check that we're still not connected
-        if (!isConnected && !isLoading && !hasRedirected.current) {
-          console.log("Dashboard detected disconnected state, redirecting to /authenticate");
-          hasRedirected.current = true;
-          navigate('/authenticate', { replace: true });
-        }
-      }, 1000); // 1 second delay
-    } else if (isConnected === true) {
-      // Reset the flag if we're connected again
-      hasRedirected.current = false;
-    }
-
-    // Clean up timeout on unmount or dependency change
-    return () => {
-      if (redirectTimeout.current) {
-        clearTimeout(redirectTimeout.current);
-      }
-    };
-  }, [isConnected, navigate, isLoading]);
-
-  if (isLoading || isInitialLoad) {
-    return (
-      <DashboardShell>
-        <DashboardHeader heading="Dashboard" text="Loading your dashboard..." />
-        <ConnectionLoading />
-      </DashboardShell>
-    );
-  }
+  }, [isConnected, isLoading, navigate]);
 
   // Add smooth fade-in animation
   const containerVariants = {
@@ -130,6 +86,10 @@ const Dashboard = () => {
     }
   };
 
+  if (isLoading) {
+    return <ConnectionLoading />;
+  }
+
   return (
     <motion.div 
       className="min-h-screen bg-gray-50"
@@ -137,17 +97,9 @@ const Dashboard = () => {
       initial="hidden"
       animate="visible"
     >
-      <DashboardShell>
-        <DashboardHeader 
-          heading="Dashboard" 
-          text={isConnected ? `Your QuickBooks connection to ${companyName} is active` : "Connect to QuickBooks to get started"} 
-        />
-        <DashboardLayout>
-          <DashboardHome />
-        </DashboardLayout>
-      </DashboardShell>
+      <DashboardLayout>
+        <DashboardHome />
+      </DashboardLayout>
     </motion.div>
   );
-};
-
-export default Dashboard;
+}
