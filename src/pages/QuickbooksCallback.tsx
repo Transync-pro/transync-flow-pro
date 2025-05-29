@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { logError } from '@/utils/errorLogger';
 import { useAuthFlow } from '@/services/auth/AuthFlowManager';
 import { ConnectionLoading } from '@/components/ConnectionLoading';
+import { connectionStatusService } from '@/services/auth/ConnectionStatusService';
 
 const QuickbooksCallback: React.FC = (): JSX.Element => {
   const [isProcessing, setIsProcessing] = useState<boolean>(true);
@@ -54,8 +55,9 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           throw new Error('Missing required parameters (code or realmId)');
         }
 
-        // Clear any stale session data
+        // Clear any stale session data and connection cache
         sessionStorage.removeItem('processed_qb_codes');
+        connectionStatusService.clearCache(user.id);
         
         console.log('QuickbooksCallback: Exchanging code for tokens');
         
@@ -88,6 +90,15 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         // Get company name from response if available
         const retrievedCompanyName = data.companyName || 'Unknown Company';
         setCompanyName(retrievedCompanyName);
+        
+        // Clear any stale cache and mark as connected IMMEDIATELY
+        connectionStatusService.clearCache(user.id);
+        connectionStatusService.markAsConnected(user.id, retrievedCompanyName);
+        
+        // Set success flags in session storage
+        sessionStorage.setItem('qb_auth_success', 'true');
+        sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
+        sessionStorage.setItem('qb_connection_company', retrievedCompanyName);
         
         // Show success state
         setSuccess(true);

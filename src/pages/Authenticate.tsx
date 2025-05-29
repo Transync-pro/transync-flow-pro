@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthFlow } from "@/services/auth/AuthFlowManager";
 import { toast } from "@/components/ui/use-toast";
 import PageLayout from "@/components/PageLayout";
+import { connectionStatusService } from "@/services/auth/ConnectionStatusService";
 
 const Authenticate = () => {
   const [buttonHover, setButtonHover] = useState(false);
@@ -19,25 +20,28 @@ const Authenticate = () => {
   
   const { connectionStatus, isCheckingConnection, checkConnection } = useAuthFlow();
 
-  // Check connection status when component mounts
+  // Check connection status when component mounts - but force a fresh check
   useEffect(() => {
-    if (user && connectionStatus === 'idle') {
-      console.log('Authenticate: Checking connection status for user:', user.id);
+    if (user) {
+      console.log('Authenticate: Forcing fresh connection check for user:', user.id);
+      // Clear any stale cache and force a fresh check
+      connectionStatusService.clearCache(user.id);
       checkConnection(user.id);
     }
-  }, [user, connectionStatus, checkConnection]);
+  }, [user, checkConnection]);
 
-  // Handle navigation based on connection status
+  // Handle navigation based on connection status - but be more careful about when to redirect
   useEffect(() => {
-    if (connectionStatus === 'connected' && !isCheckingConnection) {
-      console.log('Authenticate: User is connected, redirecting to dashboard');
+    // Only redirect if we're definitely connected and not in a loading state
+    if (connectionStatus === 'connected' && !isCheckingConnection && !isLoading) {
+      console.log('Authenticate: User is confirmed connected, redirecting to dashboard');
       toast({
         title: "Already Connected",
         description: "Your QuickBooks account is already connected. Redirecting to dashboard...",
       });
       navigate('/dashboard', { replace: true });
     }
-  }, [connectionStatus, isCheckingConnection, navigate]);
+  }, [connectionStatus, isCheckingConnection, isLoading, navigate]);
 
   const handleConnect = async () => {
     if (!user) {
@@ -49,9 +53,10 @@ const Authenticate = () => {
       setIsConnecting(true);
       console.log('Authenticate: Starting connection process');
       
-      // Clear any existing auth flags
+      // Clear any existing auth flags and connection cache
       sessionStorage.removeItem('qb_auth_success');
       sessionStorage.removeItem('qb_connection_timestamp');
+      connectionStatusService.clearCache(user.id);
       
       await connect();
     } catch (error) {
