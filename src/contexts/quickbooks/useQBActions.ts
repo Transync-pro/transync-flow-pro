@@ -48,52 +48,79 @@ export const useQBActions = (
       // Clear all QuickBooks session data before starting a new authentication flow
       clearQBSessionData();
       
-      // Store the user ID in session storage in case we lose auth state during the OAuth flow
+      // Store the user ID and auth state in session storage
       sessionStorage.setItem("qb_connecting_user", user.id);
       sessionStorage.setItem("qb_auth_initiated", "true");
+      sessionStorage.setItem("qb_auth_timestamp", Date.now().toString());
       
       // Get the current URL to use as a base for the redirect URI
       const baseUrl = window.location.origin;
       const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
       
-      console.log("Starting QuickBooks OAuth flow");
-      
-      // Call the edge function to get authorization URL
-      const { data, error } = await supabase.functions.invoke('quickbooks-auth', {
+      // Get auth configuration from edge function
+      const { data: config, error: configError } = await supabase.functions.invoke('quickbooks-auth', {
         body: { 
-          path: 'authorize',
-          redirectUri: redirectUrl,
-          userId: user.id,
-          mode: 'popup' // Indicate we want popup mode
+          path: 'config',
+          userId: user.id
         }
       });
 
-      if (error || data?.error) {
-        throw error || new Error(data.error);
+      if (configError || !config?.clientId || !config?.scopes) {
+        throw new Error('Failed to get QuickBooks configuration');
       }
-      
-      if (data && data.authUrl) {
-        console.log("Opening QuickBooks authorization in new tab");
-        
-        // Store timestamp for checking stale connections
-        sessionStorage.setItem("qb_auth_timestamp", Date.now().toString());
-        
-        // Open QuickBooks auth directly in new tab
-        const authWindow = window.open(data.authUrl, 'quickbooks-auth');
-        
-        if (!authWindow) {
-          throw new Error('Popup was blocked. Please allow popups for this site.');
-        }
 
-        // Show connecting toast
-        toast({
-          title: "Connecting to QuickBooks",
-          description: "Waiting for QuickBooks authentication to complete...",
-          duration: Infinity,
-        });
-      } else {
-        throw new Error('Failed to get authorization URL');
+      // Build QuickBooks auth URL directly
+      const authUrl = new URL('https://appcenter.intuit.com/connect/oauth2');
+      authUrl.searchParams.append('client_id', config.clientId);
+      authUrl.searchParams.append('response_type', 'code');
+      authUrl.searchParams.append('scope', config.scopes);
+      authUrl.searchParams.append('redirect_uri', redirectUrl);
+      authUrl.searchParams.append('state', user.id);
+
+      // Open QuickBooks auth directly in new window
+      const authWindow = window.open(
+        authUrl.toString(),
+        'quickbooks-auth',
+        'width=600,height=700,menubar=no,toolbar=no,location=no,resizable=yes,scrollbars=yes'
+      );
+
+      if (!authWindow) {
+        throw new Error('Popup was blocked. Please allow popups for this site.');
       }
+
+      // Show connecting toast
+      toast({
+        title: "Connecting to QuickBooks",
+        description: "Please complete the authentication in the new window...",
+        duration: Infinity,
+      });
+
+      // Set up message listener for auth completion
+      const messageHandler = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.type === 'QB_AUTH_SUCCESS') {
+          // Remove the message listener
+          window.removeEventListener('message', messageHandler);
+          
+          // Clear the connecting toast
+          toast({
+            title: "Connected to QuickBooks",
+            description: `Successfully connected to ${event.data.companyName}`,
+          });
+
+          // Refresh connection status
+          refreshConnection && refreshConnection();
+        } else if (event.data.type === 'QB_AUTH_ERROR') {
+          // Remove the message listener
+          window.removeEventListener('message', messageHandler);
+          
+          handleError(event.data.error || 'Connection failed', true);
+        }
+      };
+
+      window.addEventListener('message', messageHandler);
+      
     } catch (error: any) {
       console.error("Error in connect flow:", error);
       handleError(`Failed to initiate QuickBooks connection: ${error.message || "Unknown error"}`, true);
