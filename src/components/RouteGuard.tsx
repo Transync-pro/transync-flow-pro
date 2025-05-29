@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -82,7 +83,7 @@ const RouteGuard = ({
           setIsChecking(true);
         }
         
-        const isConnected = await checkConnectionWithRetry(0); // Fixed: use correct signature
+        const isConnected = await checkConnectionWithRetry(0, 5); // Fixed: pass both arguments
         setHasCheckedConnection(true);
         
         // Only redirect if we're not already on the target route
