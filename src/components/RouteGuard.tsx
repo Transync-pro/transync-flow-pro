@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -167,7 +166,7 @@ const RouteGuard = ({
         }
       } catch (error) {
         console.error('Error checking QuickBooks connection:', error);
-        logError({
+        logError('RouteGuard:verifyConnection error', {
           source: 'RouteGuard:verifyConnection',
           error: error as Error,
           context: { userId: user?.id }

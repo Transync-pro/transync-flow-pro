@@ -79,7 +79,9 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     // Initial check
     connectionStatusService.checkConnectionStatus(user.id);
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, [user, handleError]);
 
   const { refreshToken, getAccessToken } = useQBTokenManagement(
