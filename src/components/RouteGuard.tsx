@@ -97,9 +97,23 @@ const RouteGuard = ({
     }
   }, [user]);
 
+  // Check if we're in a direct auth flow
+  const isDirectAuthFlow = useCallback(() => {
+    const params = new URLSearchParams(location.search);
+    const direct = params.get('direct');
+    const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+    const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+    const isRecentAuth = authTimestamp && 
+      (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
+
+    return (direct === '1' || sessionStorage.getItem('qb_direct_auth') === 'true') 
+      && authSuccess 
+      && isRecentAuth;
+  }, [location.search]);
+
   // Handle QuickBooks connection check
   useEffect(() => {
-    if (!requiresQuickbooks || !user || isQBLoading) {
+    if (!requiresQuickbooks || !user || isQBLoading || isQbCallbackRoute) {
       setIsChecking(false);
       return;
     }
@@ -109,19 +123,14 @@ const RouteGuard = ({
       try {
         setIsChecking(true);
 
-        // Check for direct auth flag
-        const directAuth = sessionStorage.getItem('qb_direct_auth') === 'true';
-        const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
-        const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
-        const isRecentAuth = authTimestamp && 
-          (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
-
-        // If we have a recent direct auth, skip the check and allow access
-        if (directAuth && authSuccess && isRecentAuth) {
+        // If we're in a direct auth flow, allow access
+        if (isDirectAuthFlow()) {
           setHasQbConnection(true);
-          if (isMounted) setIsChecking(false);
-          // Clear the direct auth flag
-          sessionStorage.removeItem('qb_direct_auth');
+          if (isMounted) {
+            setIsChecking(false);
+            // Clear direct auth flags after successful check
+            sessionStorage.removeItem('qb_direct_auth');
+          }
           return;
         }
 
@@ -143,8 +152,8 @@ const RouteGuard = ({
           if (!isConnected) {
             refreshConnection();
           }
-        } else if (isDashboardRoute && !isQbCallbackRoute) {
-          // Only redirect if we're not in the callback route
+        } else if (isDashboardRoute && !isDirectAuthFlow()) {
+          // Only redirect if not in direct auth flow
           navigate('/authenticate', { replace: true });
         }
       } catch (error) {
@@ -165,7 +174,8 @@ const RouteGuard = ({
     isQbCallbackRoute,
     checkQbConnectionDirectly,
     refreshConnection,
-    navigate
+    navigate,
+    isDirectAuthFlow
   ]);
 
   // Check if user is admin
