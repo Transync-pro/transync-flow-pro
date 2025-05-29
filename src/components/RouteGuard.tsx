@@ -26,11 +26,18 @@ const RouteGuard = ({
 }: RouteGuardProps) => {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const { isConnected, isLoading: isQBLoading, refreshConnection } = useQuickbooks();
+  const { 
+    isConnected, 
+    isLoading: isQBLoading, 
+    refreshConnection,
+    connectionState,
+    checkConnectionWithRetry 
+  } = useQuickbooks();
   const [isChecking, setIsChecking] = useState(true);
   const [hasQbConnection, setHasQbConnection] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [roleChecked, setRoleChecked] = useState(false);
+  const [hasCheckedConnection, setHasCheckedConnection] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -54,6 +61,36 @@ const RouteGuard = ({
   // Track connection check attempts to prevent circuit breaker issues
   const connectionCheckAttempts = useRef(0);
   const lastConnectionCheck = useRef(0);
+  
+  // Check QuickBooks connection status when user is authenticated
+  useEffect(() => {
+    const verifyConnection = async () => {
+      if (requiresQuickbooks && user && !hasCheckedConnection) {
+        try {
+          setIsChecking(true);
+          const isConnected = await checkConnectionWithRetry();
+          setHasCheckedConnection(true);
+          
+          if (isConnected && isAuthenticateRoute) {
+            navigate('/dashboard', { replace: true });
+          } else if (!isConnected && !isAuthenticateRoute && !isQbCallbackRoute) {
+            navigate('/authenticate', { replace: true });
+          }
+        } catch (error) {
+          console.error('Error checking QuickBooks connection:', error);
+          logError({
+            source: 'RouteGuard:verifyConnection',
+            error: error as Error,
+            context: { userId: user?.id }
+          });
+        } finally {
+          setIsChecking(false);
+        }
+      }
+    };
+
+    verifyConnection();
+  }, [user, requiresQuickbooks, location.pathname, navigate, checkConnectionWithRetry, hasCheckedConnection, isAuthenticateRoute, isQbCallbackRoute]);
 
   // PRIORITY 1: Handle auth success immediately - this runs first
   useEffect(() => {
@@ -255,96 +292,82 @@ const RouteGuard = ({
 
   // Handle navigation when connection status changes (but not for auth success - that's handled above)
   useEffect(() => {
-    if (isChecking || isAuthLoading || !roleChecked) return;
-    
-    // Skip if we're already redirecting
-    if (redirectingRef.current) return;
-    
-    // Skip if we're on the callback route
-    if (isQbCallbackRoute) return;
-    
-    // Skip if we're still checking the connection
-    if (requiresQuickbooks && connectionCheckedRef.current === false) return;
-    
-    // Skip auth success handling - this is handled by the priority useEffect
-    const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
-    const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
-    const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
-    const isRecentAuth = authTimestamp && 
-      (Date.now() - parseInt(authTimestamp, 10) < 30000);
-    
-    if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
-      // Auth success is handled by priority useEffect, don't interfere
-      return;
-    }
-    
-    // Set redirecting flag to prevent multiple redirects
-    redirectingRef.current = true;
-    
-    // Handle unauthenticated users
-    if (!user && requiresAuth && !isPublicOnly) {
-      console.log('RouteGuard: Redirecting to login (unauthenticated)');
-      navigate('/login', { 
-        replace: true,
-        state: { from: location.pathname }
-      });
-      return;
-    }
-    
-    // Handle authenticated users on public-only pages
-    if (user && isPublicOnly) {
-      console.log('RouteGuard: Redirecting to dashboard (public page)');
-      navigate('/dashboard', { replace: true });
-      return;
-    }
-    
-    // Handle QuickBooks connection requirements
-    if (user && requiresQuickbooks) {
-      // If we don't have a connection and we're not on the authenticate page
-      if (!hasQbConnection && !isAuthenticateRoute) {
-        console.log('RouteGuard: Redirecting to authenticate (no QB connection)');
-        navigate('/authenticate', { replace: true });
-        return;
+    const handleNavigation = async () => {
+      try {
+        if (isChecking || isAuthLoading || !roleChecked) return;
+        
+        // Skip if we're already redirecting
+        if (redirectingRef.current) return;
+        
+        // Skip if we're on the callback route
+        if (isQbCallbackRoute) return;
+        
+        // Skip if we're still checking the connection
+        if (requiresQuickbooks && connectionCheckedRef.current === false) return;
+        
+        // Skip auth success handling - this is handled by the priority useEffect
+        const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
+        const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+        const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+        const isRecentAuth = authTimestamp && 
+          (Date.now() - parseInt(authTimestamp, 10) < 30000);
+        
+        if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
+          // Auth success is handled by priority useEffect, don't interfere
+          return;
+        }
+        
+        // Set redirecting flag to prevent multiple redirects
+        redirectingRef.current = true;
+        
+        // Handle unauthenticated users
+        if (!user && requiresAuth && !isPublicOnly) {
+          console.log('RouteGuard: Redirecting to login (unauthenticated)');
+          navigate('/login', { 
+            replace: true,
+            state: { from: location.pathname }
+          });
+          return;
+        }
+        
+        // Handle authenticated users on public-only pages
+        if (user && isPublicOnly) {
+          toast({
+            title: "Access Denied",
+            description: "You don't have permission to access the admin area.",
+            variant: "destructive"
+          });
+          navigate('/', { replace: true });
+        }
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error("RouteGuard: Error handling navigation:", error);
+        setIsLoading(false);
+        
+        if (isAdminRoute) {
+          toast({
+            title: "Error",
+            description: "An error occurred while checking permissions",
+            variant: "destructive"
+          });
+          navigate('/', { replace: true });
+        }
+      } finally {
+        redirectingRef.current = false;
       }
-      
-      // If we have a connection and we're on the authenticate page
-      if (hasQbConnection && isAuthenticateRoute) {
-        console.log('RouteGuard: Redirecting to dashboard (already connected)');
-        navigate('/dashboard', { replace: true });
-        return;
-      }
-    }
-    
-    // Handle admin role requirements
-    if (user && requiresAdmin && !isAdmin) {
-      console.log('RouteGuard: Redirecting to home (not admin)');
-      toast({
-        title: "Access Denied",
-        description: "You don't have permission to access the admin area.",
-        variant: "destructive"
-      });
-      navigate('/', { replace: true });
-    }
-    
-    // Reset redirecting flag
-    redirectingRef.current = false;
+    };
+
+    handleNavigation();
   }, [
-    user, 
-    isConnected, 
-    hasQbConnection, 
-    isChecking, 
-    isAuthLoading, 
-    requiresQuickbooks, 
-    requiresAuth, 
-    isPublicOnly, 
-    requiresAdmin, 
-    isAdmin, 
+    user,
+    isChecking,
+    isAuthLoading,
     roleChecked,
+    requiresQuickbooks,
     isQbCallbackRoute,
-    isAuthenticateRoute,
-    isDashboardRoute,
-    isLoginPage,
-    isSignupPage,
+    isPublicOnly,
+    requiresAuth,
     isAdminRoute,
     navigate,
     location.pathname

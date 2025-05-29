@@ -3,15 +3,15 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { logError } from "@/utils/errorLogger";
-import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
+import { forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
-import { motion } from "framer-motion";
+import { ConnectionLoading } from "@/components/ConnectionLoading";
 
 const QuickbooksCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
@@ -104,32 +104,31 @@ const QuickbooksCallback = () => {
     }
   }, [navigate, refreshConnection, isNavigating]);
 
-  // Process the callback once auth is loaded
-  useEffect(() => {
-    // Skip if still loading auth or if we've already processed this callback
-    if (isAuthLoading || hasProcessedCallback.current) return;
+  const processCallback = useCallback(async () => {
+    // Only process if we haven't already processed this callback
+    if (hasProcessedCallback.current) {
+      console.log('Skipping duplicate callback processing');
+      return;
+    }
     
     // Mark as processed immediately to prevent duplicate processing
     hasProcessedCallback.current = true;
     
-    // Clear any stale processed codes to ensure we don't skip token exchange
-    sessionStorage.removeItem('processed_qb_codes');
-    console.log('Cleared processed QB codes to ensure fresh token exchange');
-    
-    // Set connection in progress flags immediately
-    sessionStorage.setItem('qb_connection_in_progress', 'true');
-    sessionStorage.setItem('qb_connecting_user', user?.id || '');
-    
-    const processCallback = async () => {
-      try {
-        setIsProcessing(true);
-        
-        // Get URL parameters
-        const params = new URLSearchParams(location.search);
-        const code = params.get("code");
-        const realmId = params.get("realmId");
-        const state = params.get("state"); // This contains the userId from our auth process
-        const errorParam = params.get("error");
+    try {
+      // Clear any stale processed codes to ensure we don't skip token exchange
+      sessionStorage.removeItem('processed_qb_codes');
+      console.log('Cleared processed QB codes to ensure fresh token exchange');
+      
+      // Set connection in progress flags immediately
+      sessionStorage.setItem('qb_connection_in_progress', 'true');
+      sessionStorage.setItem('qb_connecting_user', user?.id || '');
+      setIsProcessing(true);
+      // Get URL parameters
+      const params = new URLSearchParams(location.search);
+      const code = params.get("code");
+      const realmId = params.get("realmId");
+      const state = params.get("state"); // This contains the userId from our auth process
+      const errorParam = params.get("error");
 
         // Log callback parameters for debugging
         console.log("Processing callback parameters:", { 
@@ -411,31 +410,99 @@ const QuickbooksCallback = () => {
       } finally {
         setIsCheckingSession(false);
       }
-    };
-    processCallback();
-  }, [location, navigate, user, isAuthLoading, refreshConnection, redirectToDashboard]);
+    }
 
-  // Show loading state while checking session
-  if (isCheckingSession || isAuthLoading || isProcessing || isNavigating) {
+  // Process the callback when component mounts
+  useEffect(() => {
+    const handleCallback = async () => {
+      if (isAuthLoading || hasProcessedCallback.current) return;
+      
+      // Mark as processed immediately to prevent duplicate processing
+      hasProcessedCallback.current = true;
+      
+      try {
+        // Clear any stale processed codes to ensure we don't skip token exchange
+        sessionStorage.removeItem('processed_qb_codes');
+        console.log('Cleared processed QB codes to ensure fresh token exchange');
+        
+        // Set connection in progress flags immediately
+        sessionStorage.setItem('qb_connection_in_progress', 'true');
+        sessionStorage.setItem('qb_connecting_user', user?.id || '');
+        setIsProcessing(true);
+        
+        // Get URL parameters
+        const params = new URLSearchParams(location.search);
+        const code = params.get("code");
+        const realmId = params.get("realmId");
+        const state = params.get("state"); // This contains the userId from our auth process
+        const errorParam = params.get("error");
+
+        // Log callback parameters for debugging
+        console.log("Processing callback parameters:", { 
+          code: code ? "present" : "missing",
+          realmId,
+          state
+        });
+
+        if (errorParam) {
+          throw new Error(`QuickBooks authorization error: ${errorParam}`);
+        }
+
+        if (!code || !realmId) {
+          console.warn('Missing required parameters for QuickBooks callback');
+          setError('Missing required parameters');
+          return;
+        }
+
+        
+        // Exchange code for tokens
+        const response = await fetch('/api/quickbooks/callback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ code, realmId, state }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to connect to QuickBooks');
+        }
+        
+        const data = await response.json();
+        
+        // Update connection status
+        await refreshConnection(true);
+        
+        // Show success message
+        setSuccess(true);
+        setProcessingComplete(true);
+        
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          redirectToDashboard();
+        }, 1500);
+        
+      } catch (error: any) {
+        console.error('Error in QuickBooks callback processing:', error);
+        setError(error.message || 'An error occurred during QuickBooks connection');
+        setIsProcessing(false);
+      }
+    };
+
+    handleCallback();
+  }, [isAuthLoading, location.search, user?.id, refreshConnection, redirectToDashboard]);
+
+  // Show loading state while checking session or processing
+  if (isCheckingSession || isAuthLoading || isNavigating || isProcessing) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <motion.div 
-          className="text-center p-8 bg-white rounded-lg shadow-md"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Loader2 className="h-12 w-12 text-blue-500 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800">
-            {isProcessing ? "Completing QuickBooks connection..." : "Redirecting to dashboard..."}
-          </h2>
-          <p className="text-gray-600 mt-2">
-            {isProcessing 
-              ? "Please wait while we finalize your connection." 
-              : "You'll be redirected in just a moment..."}
-          </p>
-        </motion.div>
-      </div>
+      <ConnectionLoading 
+        message={
+          isProcessing 
+            ? "Completing QuickBooks connection..." 
+            : "You'll be redirected in just a moment..."
+        }
+      />
     );
   }
 
@@ -446,7 +513,7 @@ const QuickbooksCallback = () => {
         
         {isProcessing && !processingComplete ? (
           <div className="flex flex-col items-center justify-center space-y-4">
-            <Loader2 className="w-12 h-12 animate-spin text-blue-500" />
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
             <p className="text-gray-600 text-center">
               Completing your QuickBooks connection...
             </p>

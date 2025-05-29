@@ -1,4 +1,9 @@
-
+export type ConnectionState = 
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'error';
 
 export interface QuickbooksConnection {
   id: string;
@@ -6,26 +11,34 @@ export interface QuickbooksConnection {
   realm_id: string;
   access_token: string;
   refresh_token: string;
-  company_name?: string;
+  expires_at: string;
+  token_type: string;
+  x_refresh_token_expires_in: number;
   created_at: string;
   updated_at: string;
-  expires_at?: string;
+  company_name?: string;
+  last_sync?: string;
 }
 
 export interface QuickbooksContextType {
   isConnected: boolean;
   isLoading: boolean;
+  connection: QuickbooksConnection | null;
   realmId: string | null;
   companyName: string | null;
-  connection: QuickbooksConnection | null;
   error: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
+  refreshToken: () => Promise<void>;
   getRealmId: () => Promise<string | null>;
   clearError: () => void;
   refreshConnection: (force?: boolean, silent?: boolean) => Promise<void>;
   checkConnection: (force?: boolean, silent?: boolean) => Promise<void>;
+  // New state properties
+  connectionState: ConnectionState;
+  lastChecked: number | null;
+  checkConnectionWithRetry: (attempt?: number) => Promise<boolean>;
 }
 
 // Date range interface for filtering

@@ -1,11 +1,12 @@
 
-import React, { createContext, useContext, ReactNode } from "react";
+import React, { createContext, useContext, ReactNode, useCallback } from "react";
 import { User } from "@supabase/supabase-js";
 import { QuickbooksConnection, QuickbooksContextType } from "./types";
 import { useQBConnectionStatus } from "./useQBConnectionStatus";
 import { useQBTokenManagement } from "./useQBTokenManagement";
 import { useQBActions } from "./useQBActions";
 import { useQBErrors } from "./useQBErrors";
+import { useQBConnectionManager } from './useQBConnectionManager';
 
 const QuickbooksContext = createContext<QuickbooksContextType | null>(null);
 
@@ -34,6 +35,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   } = useQBConnectionStatus(user);
   
   const { error, handleError, clearError } = useQBErrors();
+  const { connectionState, lastChecked, checkConnectionWithRetry } = useQBConnectionManager(user);
   
   const { refreshToken, getAccessToken } = useQBTokenManagement(
     connection,
@@ -52,42 +54,37 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   );
 
   // Get realm ID for API calls
-  const getRealmId = async (): Promise<string | null> => {
+  const getRealmId = useCallback(async (): Promise<string | null> => {
     return realmId;
-  };
+  }, [realmId]);
 
   // Expose the checkConnectionStatus function from useQBConnectionStatus
-  const checkConnection = async (force?: boolean, silent?: boolean): Promise<void> => {
+  const checkConnection = useCallback(async (force?: boolean, silent?: boolean): Promise<void> => {
     await refreshConnection(force, silent);
-  };
+  }, [refreshConnection]);
 
   const value: QuickbooksContextType = {
     isConnected,
     isLoading,
+    connection,
     realmId,
     companyName,
-    connection,
     error,
     connect,
     disconnect,
     getAccessToken,
+    refreshToken: refreshToken as unknown as () => Promise<void>,
     getRealmId,
     clearError,
     refreshConnection: async (force?: boolean, silent?: boolean) => {
       await refreshConnection(force, silent);
     },
-    checkConnection
+    checkConnection,
+    // New properties
+    connectionState,
+    lastChecked,
+    checkConnectionWithRetry
   };
-
-  // Reduce logging frequency to avoid console spam
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('QuickBooks context state:', { 
-      isConnected, 
-      isLoading,
-      realmId: realmId ? 'present' : 'null',
-      companyName 
-    });
-  }
 
   return (
     <QuickbooksContext.Provider value={value}>
