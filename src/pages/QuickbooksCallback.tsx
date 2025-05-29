@@ -96,28 +96,24 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         connectionStatusService.clearCache(user.id);
         connectionStatusService.markAsConnected(user.id, retrievedCompanyName);
         
-        // Set success flags in session storage
+        // Set success flags in session storage with a shorter window
         sessionStorage.setItem('qb_auth_success', 'true');
         sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
         sessionStorage.setItem('qb_connection_company', retrievedCompanyName);
         
-        // Show success state
+        // Show success state briefly
         setSuccess(true);
         setIsProcessing(false);
         
-        // Wait a moment to show success, then redirect directly to dashboard
-        setTimeout(() => {
-          console.log('QuickbooksCallback: Redirecting to dashboard with success message');
-          
-          // Show success toast
-          toast({
-            title: "Connected to QuickBooks",
-            description: `Successfully connected to ${retrievedCompanyName}`,
-          });
-          
-          // Navigate directly to dashboard
-          navigate('/dashboard', { replace: true });
-        }, 1500);
+        // Show success toast immediately and navigate directly to dashboard
+        toast({
+          title: "Connected to QuickBooks",
+          description: `Successfully connected to ${retrievedCompanyName}`,
+        });
+        
+        // Navigate directly to dashboard immediately - no delay needed
+        console.log('QuickbooksCallback: Navigating directly to dashboard');
+        navigate('/dashboard', { replace: true });
         
       } catch (err: any) {
         console.error('QuickbooksCallback: Error processing callback:', err);
@@ -147,16 +143,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
     handleCallback();
   }, [isAuthLoading, location.search, user, handleAuthError, navigate]);
 
-  // Show loading state while processing
-  if (isProcessing) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <ConnectionLoading message="Connecting to QuickBooks..." />
-      </div>
-    );
-  }
-
-  // Show success message
+  // Show success message briefly
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -194,10 +181,10 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
     );
   }
 
-  // Fallback
+  // Show loading state while processing (default)
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <ConnectionLoading message="Processing connection..." />
+      <ConnectionLoading message="Connecting to QuickBooks..." />
     </div>
   );
 };

@@ -20,17 +20,17 @@ const Authenticate = () => {
   
   const { connectionStatus, isCheckingConnection, checkConnection } = useAuthFlow();
 
-  // Check connection status when component mounts - but force a fresh check
+  // Check connection status when component mounts
   useEffect(() => {
     if (user) {
-      console.log('Authenticate: Forcing fresh connection check for user:', user.id);
-      // Clear any stale cache and force a fresh check
+      console.log('Authenticate: Checking connection status for user:', user.id);
+      // Clear any stale cache and check connection
       connectionStatusService.clearCache(user.id);
       checkConnection(user.id);
     }
   }, [user, checkConnection]);
 
-  // Handle navigation based on connection status - but be more careful about when to redirect
+  // Handle navigation based on connection status
   useEffect(() => {
     // Only redirect if we're definitely connected and not in a loading state
     if (connectionStatus === 'connected' && !isCheckingConnection && !isLoading) {
