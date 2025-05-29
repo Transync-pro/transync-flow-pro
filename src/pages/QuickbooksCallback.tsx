@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/environmentClient';
@@ -126,7 +127,7 @@ const QuickbooksCallback: React.FC<QuickbooksCallbackProps> = (): JSX.Element =>
           context: { error: err.message }
         });
         
-        setError(`Session check failed: ${err.message || "Unknown error"});
+        setError(`Session check failed: ${err.message || "Unknown error"}`);
         
         toast({
           title: "Session Error",
@@ -174,7 +175,7 @@ const QuickbooksCallback: React.FC<QuickbooksCallbackProps> = (): JSX.Element =>
         });
 
         if (errorParam) {
-          throw new Error(`QuickBooks authorization error: ${errorParam}`);
+          throw new Error('QuickBooks authorization error: ' + errorParam);
         }
 
         if (!code || !realmId) {
