@@ -1,4 +1,4 @@
-import { User } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";;
 import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
