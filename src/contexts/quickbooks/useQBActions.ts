@@ -4,8 +4,7 @@ import { toast } from "@/components/ui/use-toast";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
 import { generateCodeVerifier, generateCodeChallenge } from '@/utils/pkce';
-}
-}
+
 export const useQBActions = (
   user: User | null,
   refreshConnection: () => Promise<void>,
