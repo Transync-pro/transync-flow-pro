@@ -1,12 +1,12 @@
 
-import React, { createContext, useContext, ReactNode, useCallback } from "react";
+import React, { createContext, useContext, ReactNode, useCallback, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { QuickbooksConnection, QuickbooksContextType } from "./types";
-import { useQBConnectionStatus } from "./useQBConnectionStatus";
 import { useQBTokenManagement } from "./useQBTokenManagement";
 import { useQBActions } from "./useQBActions";
 import { useQBErrors } from "./useQBErrors";
-import { useQBConnectionManager } from './useQBConnectionManager';
+import { connectionStatusService } from '@/services/auth/ConnectionStatusService';
+import { useAuthFlow } from '@/services/auth/AuthFlowManager';
 
 const QuickbooksContext = createContext<QuickbooksContextType | null>(null);
 
@@ -24,44 +24,91 @@ interface QuickbooksProviderProps {
 }
 
 export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children, user }) => {
-  // Use custom hooks for different aspects of QuickBooks functionality
-  const { 
-    isConnected, 
-    isLoading, 
-    connection, 
-    realmId, 
-    companyName, 
-    refreshConnection 
-  } = useQBConnectionStatus(user);
-  
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
+  const [realmId, setRealmId] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [lastChecked, setLastChecked] = useState<number | null>(null);
+
   const { error, handleError, clearError } = useQBErrors();
-  const { connectionState, lastChecked, checkConnectionWithRetry } = useQBConnectionManager(user);
-  
+  const { connectionStatus } = useAuthFlow();
+
+  // Subscribe to connection status changes
+  useEffect(() => {
+    if (!user) {
+      setIsConnected(false);
+      setIsLoading(false);
+      setConnection(null);
+      setRealmId(null);
+      setCompanyName(null);
+      setLastChecked(null);
+      return;
+    }
+
+    const unsubscribe = connectionStatusService.subscribe((userId, info) => {
+      if (userId === user.id) {
+        setIsConnected(info.status === 'connected');
+        setIsLoading(info.status === 'checking');
+        setLastChecked(info.lastChecked);
+        setCompanyName(info.companyName || null);
+        
+        if (info.error) {
+          handleError(info.error);
+        }
+      }
+    });
+
+    // Initial check
+    connectionStatusService.checkConnectionStatus(user.id);
+
+    return unsubscribe;
+  }, [user, handleError]);
+
   const { refreshToken, getAccessToken } = useQBTokenManagement(
     connection,
-    async (force?: boolean, silent?: boolean) => {
-      await refreshConnection(force, silent);
-    },
-    handleError
-  );
-  
-  const { connect, disconnect } = useQBActions(
-    user,
-    async (force?: boolean, silent?: boolean) => {
-      await refreshConnection(force, silent);
+    async () => {
+      if (user) {
+        await connectionStatusService.checkConnectionStatus(user.id, true);
+      }
     },
     handleError
   );
 
-  // Get realm ID for API calls
+  const { connect, disconnect } = useQBActions(
+    user,
+    async () => {
+      if (user) {
+        await connectionStatusService.checkConnectionStatus(user.id, true);
+      }
+    },
+    handleError
+  );
+
+  const refreshConnection = useCallback(async (force = true, silent = false) => {
+    if (!user) return;
+    
+    if (!silent) {
+      setIsLoading(true);
+    }
+    
+    try {
+      await connectionStatusService.checkConnectionStatus(user.id, force);
+    } finally {
+      if (!silent) {
+        setIsLoading(false);
+      }
+    }
+  }, [user]);
+
+  const checkConnection = useCallback(async (force = false, silent = false) => {
+    if (!user) return;
+    await refreshConnection(force, silent);
+  }, [user, refreshConnection]);
+
   const getRealmId = useCallback(async (): Promise<string | null> => {
     return realmId;
   }, [realmId]);
-
-  // Expose the checkConnectionStatus function from useQBConnectionStatus
-  const checkConnection = useCallback(async (force?: boolean, silent?: boolean): Promise<void> => {
-    await refreshConnection(force, silent);
-  }, [refreshConnection]);
 
   const value: QuickbooksContextType = {
     isConnected,
@@ -76,14 +123,16 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
     refreshToken: refreshToken as unknown as () => Promise<void>,
     getRealmId,
     clearError,
-    refreshConnection: async (force?: boolean, silent?: boolean) => {
-      await refreshConnection(force, silent);
-    },
+    refreshConnection,
     checkConnection,
-    // New properties
-    connectionState,
+    connectionState: connectionStatus,
     lastChecked,
-    checkConnectionWithRetry
+    checkConnectionWithRetry: async () => {
+      if (user) {
+        return connectionStatusService.checkConnectionStatus(user.id, true);
+      }
+      return false;
+    }
   };
 
   return (
