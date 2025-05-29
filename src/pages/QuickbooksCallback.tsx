@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/environmentClient';
@@ -31,8 +30,6 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
       hasProcessedCallback.current = true;
       
       try {
-        console.log('QuickbooksCallback: Processing OAuth callback');
-        
         // Get URL parameters
         const params = new URLSearchParams(location.search);
         const code = params.get('code');
@@ -40,32 +37,23 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         const state = params.get('state');
         const errorParam = params.get('error');
 
-        console.log('QuickbooksCallback: Parameters:', { 
-          code: code ? 'present' : 'missing',
-          realmId,
-          state,
-          error: errorParam
-        });
-
         if (errorParam) {
           throw new Error(`QuickBooks authorization error: ${errorParam}`);
         }
 
         if (!code || !realmId) {
-          throw new Error('Missing required parameters (code or realmId)');
+          throw new Error('Missing required parameters');
         }
 
         // Clear any stale session data and connection cache
         sessionStorage.removeItem('processed_qb_codes');
         connectionStatusService.clearCache(user.id);
         
-        console.log('QuickbooksCallback: Exchanging code for tokens');
-        
         // Get the current URL to use as a base for the redirect URI
         const baseUrl = window.location.origin;
         const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
         
-        // Call the edge function to exchange code for tokens using the "token" path
+        // Exchange code for tokens
         const { data, error: exchangeError } = await supabase.functions.invoke('quickbooks-auth', {
           body: { 
             path: 'token',
@@ -77,66 +65,67 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           }
         });
 
-        if (exchangeError) {
-          throw new Error(`Token exchange failed: ${exchangeError.message}`);
+        if (exchangeError || data?.error) {
+          throw new Error(exchangeError?.message || data?.error || 'Token exchange failed');
         }
 
-        if (data.error) {
-          throw new Error(`Token exchange failed: ${data.error}`);
-        }
-
-        console.log('QuickbooksCallback: Token exchange successful');
-        
-        // Get company name from response if available
         const retrievedCompanyName = data.companyName || 'Unknown Company';
         setCompanyName(retrievedCompanyName);
         
-        // Clear any stale cache and mark as connected IMMEDIATELY
-        connectionStatusService.clearCache(user.id);
-        connectionStatusService.markAsConnected(user.id, retrievedCompanyName);
-        
-        // Set success flags in session storage
+        // Set success state and store connection info
+        setSuccess(true);
         sessionStorage.setItem('qb_auth_success', 'true');
         sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
         sessionStorage.setItem('qb_connection_company', retrievedCompanyName);
+        sessionStorage.setItem('qb_skip_auth_redirect', 'true');
         
-        // Show success state
-        setSuccess(true);
-        setIsProcessing(false);
+        // Mark as connected immediately
+        connectionStatusService.markAsConnected(user.id, retrievedCompanyName);
         
-        // Wait a moment to show success, then handle the auth success
-        setTimeout(() => {
-          console.log('QuickbooksCallback: Handling auth success');
-          handleAuthSuccess(user.id, retrievedCompanyName);
-        }, 1500);
+        // Notify parent window of success and close popup
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'QB_AUTH_SUCCESS',
+            companyName: retrievedCompanyName
+          }, window.location.origin);
+          
+          // Brief delay to ensure message is sent
+          setTimeout(() => window.close(), 500);
+        } else {
+          // If not in popup, redirect to dashboard with success flag
+          window.location.href = `/dashboard?connected=1&company=${encodeURIComponent(retrievedCompanyName)}`;
+        }
+
+      } catch (error: any) {
+        const errorMessage = error.message || 'Connection failed';
+        console.error('QuickBooks callback error:', error);
+        setError(errorMessage);
         
-      } catch (err: any) {
-        console.error('QuickbooksCallback: Error processing callback:', err);
-        
-        logError('QuickBooks callback processing error', {
+        // Log error for debugging
+        logError('QuickBooks callback error', {
           source: 'QuickbooksCallback',
-          stack: err instanceof Error ? err.stack : undefined,
-          context: { 
-            error: err.message,
-            userId: user?.id,
-            searchParams: location.search
-          }
+          error: errorMessage,
+          userId: user.id
         });
         
-        setError(err.message || 'An error occurred during QuickBooks connection');
+        // Notify parent window of error
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'QB_AUTH_ERROR',
+            error: errorMessage
+          }, window.location.origin);
+          setTimeout(() => window.close(), 500);
+        } else {
+          // If not in popup, redirect to dashboard with error
+          window.location.href = `/dashboard?error=${encodeURIComponent(errorMessage)}`;
+        }
+      } finally {
         setIsProcessing(false);
-        handleAuthError(err.message || 'Callback processing failed');
-        
-        toast({
-          title: "Connection Failed",
-          description: err.message || "Failed to connect to QuickBooks. Please try again.",
-          variant: "destructive",
-        });
       }
     };
 
     handleCallback();
-  }, [isAuthLoading, location.search, user, handleAuthSuccess, handleAuthError]);
+  }, [user, isAuthLoading, location]);
 
   // Show loading state while processing
   if (isProcessing) {

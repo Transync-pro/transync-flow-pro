@@ -1,159 +1,92 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { useQuickbooks } from "@/contexts/QuickbooksContext";
+import { toast } from "@/components/ui/use-toast";
+import { DashboardShell } from "@/components/DashboardShell";
+import { DashboardHeader } from "@/components/DashboardHeader";
+import { ConnectionLoading } from "@/components/ConnectionLoading";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import DashboardHome from "@/components/Dashboard/DashboardHome";
-import { useToast } from "@/components/ui/use-toast";
-import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuickbooks } from "@/contexts/QuickbooksContext";
-import { checkQBConnectionExists } from "@/services/quickbooksApi/connections";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-// Staging is now handled via subdomain
 
 const Dashboard = () => {
-  const { toast } = useToast();
-  const navigate = useNavigate();
   const location = useLocation();
-  const { isConnected, isLoading, companyName, refreshConnection, checkConnection } = useQuickbooks();
+  const [searchParams] = useSearchParams();
+  const { isConnected, isLoading, refreshConnection, companyName } = useQuickbooks();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+  // Handle connection status messages
   useEffect(() => {
-    console.log("Dashboard: isLoading:", isLoading, "isConnected:", isConnected);
-  }, [isLoading, isConnected]);
-  
-  // Track if we've already checked the connection on mount
-  const hasCheckedOnMount = useRef(false);
-  
-  // Show success message when coming from QuickBooks callback
-  useEffect(() => {
-    if (location.state?.fromQbCallback) {
-      navigate(location.pathname, { replace: true, state: {} });
-      
+    const connected = searchParams.get('connected');
+    const company = searchParams.get('company');
+    const error = searchParams.get('error');
+
+    if (connected === '1' && company) {
       toast({
-        title: "Connected to QuickBooks",
-        description: "Your QuickBooks connection was successful!",
-        duration: 5000,
+        title: 'Connected to QuickBooks',
+        description: `Successfully connected to ${decodeURIComponent(company)}`,
       });
+      // Clean up URL parameters
+      window.history.replaceState({}, '', '/dashboard');
+    } else if (error) {
+      toast({
+        title: 'Connection Error',
+        description: decodeURIComponent(error),
+        variant: 'destructive',
+      });
+      // Clean up URL parameters
+      window.history.replaceState({}, '', '/dashboard');
     }
-  }, [location.state, navigate]);
+  }, [searchParams]);
 
-  // Check QuickBooks connection on mount - but only once and silently
+  // Handle QuickBooks auth success message
   useEffect(() => {
-    // Skip if we've already checked on mount
-    if (hasCheckedOnMount.current) {
-      return;
-    }
-    
-    // Check if we have a recent successful connection from session storage
-    const connectionData = sessionStorage.getItem('qb_connection_data');
-    const parsedConnection = connectionData ? JSON.parse(connectionData) : null;
-    
-    // If we have a recent successful connection, skip the check
-    if (parsedConnection?.success && (Date.now() - parsedConnection.timestamp) < 30000) {
-      console.log("Dashboard: Recent connection found, skipping initial check");
-      hasCheckedOnMount.current = true;
-      // Don't clear the connection data here - let RouteGuard handle it
-      return;
-    }
-    
-    // Check if we should skip the connection check (set by QuickbooksCallback)
-    // @ts-ignore - Reading from a temporary window property
-    if (window.__skipNextQBConnectionCheck) {
-      console.log("Dashboard: Skipping connection check due to recent QB authentication");
-      // @ts-ignore - Cleanup the temporary property
-      window.__skipNextQBConnectionCheck = false;
-      hasCheckedOnMount.current = true;
-      return;
-    }
-    
-    let isMounted = true;
-    
-    const checkConnectionOnMount = async () => {
-      console.log("Dashboard: Checking QB connection on mount");
-      
-      try {
-        // Mark that we've checked the connection on mount to prevent multiple checks
-        hasCheckedOnMount.current = true;
-        
-        // First check if we're already connected
-        if (isConnected) {
-          console.log("Dashboard: Already connected, skipping check");
-          return;
-        }
-        
-        // Use silent mode to prevent UI flickering
-        await refreshConnection(true, true);
-        
-        // If we're still not connected, do a direct DB check as a fallback
-        if (user && !isConnected && isMounted) {
-          console.log("Dashboard: Context says not connected, checking DB directly");
-          const hasConnection = await checkQBConnectionExists(user.id);
-          
-          if (hasConnection && isMounted) {
-            console.log("Dashboard: Found connection in DB but context says not connected, refreshing again");
-            // Found connection in DB but context doesn't reflect it, refresh again
-            await refreshConnection(true, true);
-          }
-        }
-      } catch (error) {
-        console.error("Dashboard: Error checking connection:", error);
-      } finally {
-        // Ensure loading state is cleared even if there's an error
-        if (isMounted) {
-          // Force a final state update to ensure loading is set to false
-          checkConnection(false, false);
-        }
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data.type === 'QB_AUTH_SUCCESS') {
+        // Refresh connection status
+        refreshConnection();
+        toast({
+          title: 'Connected to QuickBooks',
+          description: `Successfully connected to ${event.data.companyName}`,
+        });
+      } else if (event.data.type === 'QB_AUTH_ERROR') {
+        toast({
+          title: 'Connection Error',
+          description: event.data.error,
+          variant: 'destructive',
+        });
       }
     };
-    
-    checkConnectionOnMount();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshConnection, user, isConnected, checkConnection]);
-  
-  // Create ref outside the effect for tracking initial mount
-  const isInitialRouteChange = useRef(true);
-  
-  // Track if we've already checked connection on this route
-  const routeCheckedRef = useRef(false);
-  
-  // Check connection on location/route changes, but only once per route
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [refreshConnection]);
+
+  // Initial load handling
   useEffect(() => {
-    // Skip the initial check since we already do it in the mount effect
-    if (isInitialRouteChange.current) {
-      isInitialRouteChange.current = false;
-      routeCheckedRef.current = true;
-      return;
+    if (isInitialLoad && !isLoading) {
+      refreshConnection();
+      setIsInitialLoad(false);
     }
-    
-    // Skip if we've already checked on this route
-    if (routeCheckedRef.current) {
-      return;
-    }
-    
-    const checkConnectionOnRouteChange = async () => {
-      console.log("Dashboard: Checking QB connection on route change");
-      // Use silent mode to prevent UI flickering
-      await refreshConnection(true, true); // force=true, silent=true
-      // Mark that we've checked on this route
-      routeCheckedRef.current = true;
-    };
-    
-    checkConnectionOnRouteChange();
-  }, [location.pathname, refreshConnection]);
-  
+  }, [isInitialLoad, isLoading, refreshConnection]);
+
   // Handle disconnection case - redirect to authenticate page if not connected
   // Using a ref to track if we've already redirected to avoid excessive checks
-  const hasRedirected = useRef(false);
-  const redirectTimeout = useRef<NodeJS.Timeout>();
-  
+  const hasRedirected = React.useRef(false);
+  const redirectTimeout = React.useRef<NodeJS.Timeout>();
+
   useEffect(() => {
     // Clear any pending redirect timeout
     if (redirectTimeout.current) {
       clearTimeout(redirectTimeout.current);
     }
-    
+
     // Only redirect if we're definitely not connected (not during loading)
     // And we haven't already redirected
     if (isConnected === false && !hasRedirected.current) {
@@ -170,7 +103,7 @@ const Dashboard = () => {
       // Reset the flag if we're connected again
       hasRedirected.current = false;
     }
-    
+
     // Clean up timeout on unmount or dependency change
     return () => {
       if (redirectTimeout.current) {
@@ -178,7 +111,16 @@ const Dashboard = () => {
       }
     };
   }, [isConnected, navigate, isLoading]);
-  
+
+  if (isLoading || isInitialLoad) {
+    return (
+      <DashboardShell>
+        <DashboardHeader heading="Dashboard" text="Loading your dashboard..." />
+        <ConnectionLoading />
+      </DashboardShell>
+    );
+  }
+
   // Add smooth fade-in animation
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -187,45 +129,7 @@ const Dashboard = () => {
       transition: { duration: 0.3 }
     }
   };
-  
-  // Add document visibility change listener to check connection when user returns to the app
-  useEffect(() => {
-    // We need to wrap the async function since event listeners can't be async directly
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // Check if we have a recent connection in progress
-        const connectionInProgress = sessionStorage.getItem('qb_connection_in_progress');
-        
-        if (connectionInProgress) {
-          console.log("Dashboard: Connection in progress, skipping visibility check");
-          return;
-        }
-        
-        console.log("Dashboard: Checking QB connection on visibility change");
-        // Use silent mode to prevent UI flickering
-        refreshConnection(true, true); // force=true, silent=true
-      }
-    };
-    
-    // Add a small delay before adding the event listener to avoid race conditions
-    const timer = setTimeout(() => {
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-    }, 1000);
-    
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [refreshConnection]);
-  
-  // No welcome message here - it's already shown in the AuthContext when the user signs in
-  
-  // Only render the dashboard if connected
-  if (isConnected === false) {
-    // Will redirect via the effect
-    return null;
-  }
-  
+
   return (
     <motion.div 
       className="min-h-screen bg-gray-50"
@@ -233,9 +137,15 @@ const Dashboard = () => {
       initial="hidden"
       animate="visible"
     >
-      <DashboardLayout>
-        <DashboardHome />
-      </DashboardLayout>
+      <DashboardShell>
+        <DashboardHeader 
+          heading="Dashboard" 
+          text={isConnected ? `Your QuickBooks connection to ${companyName} is active` : "Connect to QuickBooks to get started"} 
+        />
+        <DashboardLayout>
+          <DashboardHome />
+        </DashboardLayout>
+      </DashboardShell>
     </motion.div>
   );
 };
