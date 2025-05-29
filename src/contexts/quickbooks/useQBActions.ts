@@ -82,9 +82,17 @@ export const useQBActions = (
       }
       
       if (data && data.authUrl) {
-        console.log("Received authorization URL, redirecting user...");
-        // Redirect user to QuickBooks authorization page
-        window.location.href = data.authUrl;
+        console.log("Received authorization URL, opening in new tab...");
+        
+        // Open in new tab instead of redirecting
+        window.open(data.authUrl, '_blank');
+        
+        // Show loading toast while waiting for callback
+        toast({
+          title: "Connecting to QuickBooks",
+          description: "Please wait while we connect to QuickBooks. This window will refresh automatically.",
+          duration: Infinity,
+        });
       } else {
         throw new Error('Failed to get authorization URL');
       }
