@@ -55,11 +55,17 @@ export const useQBConnectionManager = (user: User | null) => {
     }
   }, [user]);
 
-  // Check connection on mount and when user changes
+  // Reset connection state when user changes
   useEffect(() => {
+    // Reset state when user changes
+    setConnectionState('idle');
+    setLastChecked(null);
+    setConnection(null);
+    
     if (user) {
       checkConnectionWithRetry();
     }
+    
     return () => {
       if (checkTimeoutRef.current) {
         clearTimeout(checkTimeoutRef.current);

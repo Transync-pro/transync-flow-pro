@@ -62,35 +62,70 @@ const RouteGuard = ({
   const connectionCheckAttempts = useRef(0);
   const lastConnectionCheck = useRef(0);
   
+  // Reset connection check state when user changes
+  useEffect(() => {
+    if (user?.id !== prevUserIdRef.current) {
+      // Reset connection check state when user changes
+      setHasCheckedConnection(false);
+      prevUserIdRef.current = user?.id || null;
+    }
+  }, [user?.id]);
+
   // Check QuickBooks connection status when user is authenticated
   useEffect(() => {
     const verifyConnection = async () => {
-      if (requiresQuickbooks && user && !hasCheckedConnection) {
-        try {
+      if (!requiresQuickbooks || !user) return;
+      
+      try {
+        // Only show loading if we haven't checked yet or if we're on a route that needs it
+        if (!hasCheckedConnection) {
           setIsChecking(true);
-          const isConnected = await checkConnectionWithRetry();
-          setHasCheckedConnection(true);
-          
-          if (isConnected && isAuthenticateRoute) {
-            navigate('/dashboard', { replace: true });
-          } else if (!isConnected && !isAuthenticateRoute && !isQbCallbackRoute) {
-            navigate('/authenticate', { replace: true });
-          }
-        } catch (error) {
-          console.error('Error checking QuickBooks connection:', error);
-          logError({
-            source: 'RouteGuard:verifyConnection',
-            error: error as Error,
-            context: { userId: user?.id }
-          });
-        } finally {
-          setIsChecking(false);
         }
+        
+        const isConnected = await checkConnectionWithRetry(0); // Start with attempt 0
+        setHasCheckedConnection(true);
+        
+        // Only redirect if we're not already on the target route
+        if (isConnected) {
+          if (isAuthenticateRoute) {
+            navigate('/dashboard', { replace: true });
+          }
+        } else if (!isAuthenticateRoute && !isQbCallbackRoute) {
+          // Only redirect to authenticate if we're not already there
+          navigate('/authenticate', { replace: true });
+        }
+      } catch (error) {
+        console.error('Error checking QuickBooks connection:', error);
+        logError({
+          source: 'RouteGuard:verifyConnection',
+          error: error as Error,
+          context: { userId: user?.id }
+        });
+        
+        // On error, assume not connected but don't redirect to avoid loops
+        if (isAuthenticateRoute) {
+          // If we're on the authenticate route and there's an error, stay there
+          return;
+        }
+      } finally {
+        setIsChecking(false);
       }
     };
 
-    verifyConnection();
-  }, [user, requiresQuickbooks, location.pathname, navigate, checkConnectionWithRetry, hasCheckedConnection, isAuthenticateRoute, isQbCallbackRoute]);
+    // Only verify connection if we haven't checked yet or if the user has changed
+    if (!hasCheckedConnection || user?.id !== prevUserIdRef.current) {
+      verifyConnection();
+    }
+  }, [
+    user, 
+    requiresQuickbooks, 
+    location.pathname, 
+    navigate, 
+    checkConnectionWithRetry, 
+    hasCheckedConnection, 
+    isAuthenticateRoute, 
+    isQbCallbackRoute
+  ]);
 
   // PRIORITY 1: Handle auth success immediately - this runs first
   useEffect(() => {
