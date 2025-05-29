@@ -1,10 +1,11 @@
-import { User } from "@supabase/supabase-js";;
+import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
 import { generateCodeVerifier, generateCodeChallenge } from '@/utils/pkce';
-
+}
+}
 export const useQBActions = (
   user: User | null,
   refreshConnection: () => Promise<void>,
