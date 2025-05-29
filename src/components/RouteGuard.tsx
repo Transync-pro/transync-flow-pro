@@ -168,7 +168,7 @@ const RouteGuard = ({
         console.error('Error checking QuickBooks connection:', error);
         logError('RouteGuard:verifyConnection error', {
           source: 'RouteGuard:verifyConnection',
-          error: error as Error,
+          stack: error instanceof Error ? error.stack : undefined,
           context: { userId: user?.id }
         });
         
