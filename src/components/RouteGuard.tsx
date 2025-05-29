@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,7 +8,6 @@ import { logError } from "@/utils/errorLogger";
 import { checkQBConnectionExists, clearConnectionCache } from "@/services/quickbooksApi/connections";
 import { isUserAdmin } from "@/services/blog/users";
 import { toast } from "@/components/ui/use-toast";
-import { navigationController } from "@/services/navigation/NavigationController";
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -69,6 +69,77 @@ const RouteGuard = ({
       prevUserIdRef.current = user?.id || null;
     }
   }, [user?.id]);
+
+  // Direct database check for QuickBooks connection with improved error handling
+  const checkQbConnectionDirectly = useCallback(async () => {
+    if (!user) {
+      console.log("RouteGuard: No user available for QB connection check");
+      return false;
+    }
+    
+    // Check for recent successful QB authentication flags
+    const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
+    const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+    const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+    const isRecentAuth = authTimestamp && 
+      (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
+    
+    // If we have recent auth success flags, assume connection exists (but don't navigate here)
+    if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
+      console.log('RouteGuard: Recent QB auth success detected, setting connection to true');
+      setHasQbConnection(true);
+      return true;
+    }
+    
+    // Prevent excessive connection checks
+    const now = Date.now();
+    if (now - lastConnectionCheck.current < 2000) { // 2 second throttle
+      console.log('RouteGuard: Connection check throttled');
+      return hasQbConnection;
+    }
+    
+    // Reset circuit breaker if too many attempts
+    if (connectionCheckAttempts.current > 10) {
+      console.log('RouteGuard: Resetting connection check attempts');
+      connectionCheckAttempts.current = 0;
+    }
+    
+    // If user ID changed, clear the connection cache and reset attempts
+    if (prevUserIdRef.current && prevUserIdRef.current !== user.id) {
+      console.log(`RouteGuard: User changed from ${prevUserIdRef.current} to ${user.id}, clearing cache`);
+      clearConnectionCache();
+      connectionCheckAttempts.current = 0;
+    }
+    prevUserIdRef.current = user.id;
+    
+    try {
+      console.log(`RouteGuard: Checking QB connection for user ${user.id} (attempt ${connectionCheckAttempts.current + 1})`);
+      lastConnectionCheck.current = now;
+      connectionCheckAttempts.current++;
+      
+      const connectionExists = await checkQBConnectionExists(user.id);
+      
+      console.log('RouteGuard: Direct QB connection check result:', connectionExists);
+      
+      setHasQbConnection(connectionExists);
+      
+      if (connectionExists && !isConnected && !isQBLoading) {
+        console.log("RouteGuard: Found connection in DB but context isn't aware, refreshing context");
+        // Don't await this to prevent blocking
+        refreshConnection(true, true); // force=true, silent=true
+      }
+      
+      return connectionExists;
+    } catch (error: any) {
+      console.error('RouteGuard: Error checking QB connection:', error);
+      logError("Error checking QB connection", {
+        source: "RouteGuard",
+        stack: error instanceof Error ? error.stack : undefined,
+        context: { userId: user.id, attempts: connectionCheckAttempts.current }
+      });
+      return false;
+    }
+  }, [user, isConnected, isQBLoading, refreshConnection, hasQbConnection]);
 
   // Check QuickBooks connection status when user is authenticated
   useEffect(() => {
@@ -252,77 +323,6 @@ const RouteGuard = ({
       return;
     }
   }, [user, isAuthLoading, isAuthenticateRoute, navigate]);
-  
-  // Direct database check for QuickBooks connection with improved error handling
-  const checkQbConnectionDirectly = useCallback(async () => {
-    if (!user) {
-      console.log("RouteGuard: No user available for QB connection check");
-      return false;
-    }
-    
-    // Check for recent successful QB authentication flags
-    const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
-    const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
-    const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
-    const isRecentAuth = authTimestamp && 
-      (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
-    
-    // If we have recent auth success flags, assume connection exists (but don't navigate here)
-    if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
-      console.log('RouteGuard: Recent QB auth success detected, setting connection to true');
-      setHasQbConnection(true);
-      return true;
-    }
-    
-    // Prevent excessive connection checks
-    const now = Date.now();
-    if (now - lastConnectionCheck.current < 2000) { // 2 second throttle
-      console.log('RouteGuard: Connection check throttled');
-      return hasQbConnection;
-    }
-    
-    // Reset circuit breaker if too many attempts
-    if (connectionCheckAttempts.current > 10) {
-      console.log('RouteGuard: Resetting connection check attempts');
-      connectionCheckAttempts.current = 0;
-    }
-    
-    // If user ID changed, clear the connection cache and reset attempts
-    if (prevUserIdRef.current && prevUserIdRef.current !== user.id) {
-      console.log(`RouteGuard: User changed from ${prevUserIdRef.current} to ${user.id}, clearing cache`);
-      clearConnectionCache();
-      connectionCheckAttempts.current = 0;
-    }
-    prevUserIdRef.current = user.id;
-    
-    try {
-      console.log(`RouteGuard: Checking QB connection for user ${user.id} (attempt ${connectionCheckAttempts.current + 1})`);
-      lastConnectionCheck.current = now;
-      connectionCheckAttempts.current++;
-      
-      const connectionExists = await checkQBConnectionExists(user.id);
-      
-      console.log('RouteGuard: Direct QB connection check result:', connectionExists);
-      
-      setHasQbConnection(connectionExists);
-      
-      if (connectionExists && !isConnected && !isQBLoading) {
-        console.log("RouteGuard: Found connection in DB but context isn't aware, refreshing context");
-        // Don't await this to prevent blocking
-        refreshConnection(true, true); // force=true, silent=true
-      }
-      
-      return connectionExists;
-    } catch (error: any) {
-      console.error('RouteGuard: Error checking QB connection:', error);
-      logError("Error checking QB connection", {
-        source: "RouteGuard",
-        stack: error instanceof Error ? error.stack : undefined,
-        context: { userId: user.id, attempts: connectionCheckAttempts.current }
-      });
-      return false;
-    }
-  }, [user, isConnected, isQBLoading, refreshConnection, hasQbConnection]);
 
   // Handle navigation when connection status changes (but not for auth success - that's handled above)
   useEffect(() => {
