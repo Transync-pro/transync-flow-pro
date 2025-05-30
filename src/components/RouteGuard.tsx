@@ -42,13 +42,16 @@ export default function RouteGuard({
 
   // Handle QuickBooks connection check
   useEffect(() => {
-    // Skip QuickBooks check for admin routes
+    // Skip QuickBooks check for admin routes or when not required
     const isAdminRoute = location.pathname.startsWith('/admin/');
-    if (isAdminRoute) {
+    const shouldSkipQuickbooksCheck = isAdminRoute || !requiresQuickbooks;
+    
+    if (shouldSkipQuickbooksCheck) {
+      console.log('Skipping QuickBooks check for route:', location.pathname);
       return;
     }
 
-    if (!requiresQuickbooks || !user || isAuthLoading || hasNavigated.current) {
+    if (!user || isAuthLoading || hasNavigated.current) {
       return;
     }
 
