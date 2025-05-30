@@ -163,22 +163,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      const { error, data } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
+      console.log('User after sign in:', data?.user);
+      console.log('User metadata:', data?.user?.user_metadata);
+      console.log('App metadata:', data?.user?.app_metadata);
+
       if (error) {
         await processLoginAttempt(email, false);
-        
-        toast({
-          title: "Sign in failed",
-          description: "The email and password entered do not match.",
-          variant: "destructive"
-        });
-        
-        console.error("Error signing in:", error);
-        return;
+        throw error;
       }
 
       await processLoginAttempt(email, true);
@@ -188,7 +184,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Welcome back!"
       });
 
-      navigate('/dashboard');
+      // Check if we need to redirect to a specific page
+      const returnTo = sessionStorage.getItem('returnTo');
+      if (returnTo) {
+        sessionStorage.removeItem('returnTo');
+        navigate(returnTo);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       toast({
         title: "Sign in failed",
