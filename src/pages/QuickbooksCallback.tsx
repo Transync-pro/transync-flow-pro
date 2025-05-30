@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/environmentClient';
 import { toast } from '@/components/ui/use-toast';
 import { AlertCircle, CheckCircle } from 'lucide-react';
@@ -7,9 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { logError } from '@/utils/errorLogger';
-import { useAuthFlow } from '@/services/auth/AuthFlowManager';
 import { ConnectionLoading } from '@/components/ConnectionLoading';
-import { connectionStatusService } from '@/services/auth/ConnectionStatusService';
 
 const QuickbooksCallback: React.FC = (): JSX.Element => {
   const [isProcessing, setIsProcessing] = useState<boolean>(true);
@@ -18,8 +17,8 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
   const [companyName, setCompanyName] = useState<string>('');
   
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { handleAuthSuccess, handleAuthError } = useAuthFlow();
   
   const hasProcessedCallback = useRef<boolean>(false);
 
@@ -50,9 +49,6 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           throw new Error('Invalid state parameter');
         }
 
-        // Clear any stale session data
-        sessionStorage.removeItem('processed_qb_codes');
-        
         // Get the current URL to use as a base for the redirect URI
         const baseUrl = window.location.origin;
         const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
@@ -77,26 +73,21 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         setCompanyName(retrievedCompanyName);
         setSuccess(true);
         
-        // Store connection info with additional flag
+        // Store connection info
         sessionStorage.setItem('qb_auth_success', 'true');
         sessionStorage.setItem('qb_connection_timestamp', Date.now().toString());
         sessionStorage.setItem('qb_connection_company', retrievedCompanyName);
-        sessionStorage.setItem('qb_direct_auth', 'true'); // Add this flag
         
-        // Notify parent window of success and close popup
-        if (window.opener) {
-          window.opener.postMessage({
-            type: 'QB_AUTH_SUCCESS',
-            companyName: retrievedCompanyName,
-            directAuth: true
-          }, window.location.origin);
-          
-          // Brief delay to ensure message is sent
-          setTimeout(() => window.close(), 500);
-        } else {
-          // If not in popup, redirect to dashboard with success flag
-          window.location.href = `/dashboard?connected=1&company=${encodeURIComponent(retrievedCompanyName)}&direct=1`;
-        }
+        // Show success message
+        toast({
+          title: 'Connected to QuickBooks',
+          description: `Successfully connected to ${retrievedCompanyName}`,
+        });
+        
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 2000);
 
       } catch (error: any) {
         const errorMessage = error.message || 'Connection failed';
@@ -110,24 +101,23 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           userId: user.id
         });
         
-        // Notify parent window of error
-        if (window.opener) {
-          window.opener.postMessage({
-            type: 'QB_AUTH_ERROR',
-            error: errorMessage
-          }, window.location.origin);
-          setTimeout(() => window.close(), 500);
-        } else {
-          // If not in popup, redirect to dashboard with error
-          window.location.href = `/dashboard?error=${encodeURIComponent(errorMessage)}`;
-        }
+        toast({
+          title: 'Connection Failed',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+        
+        // Redirect to authenticate page after error
+        setTimeout(() => {
+          navigate('/authenticate', { replace: true });
+        }, 3000);
       } finally {
         setIsProcessing(false);
       }
     };
 
     handleCallback();
-  }, [user, isAuthLoading, location.search]);
+  }, [user, isAuthLoading, location.search, navigate]);
 
   // Show loading state while processing
   if (isProcessing) {
@@ -167,7 +157,7 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
           </Alert>
           <Button
             className="w-full"
-            onClick={() => window.location.href = '/authenticate'}
+            onClick={() => navigate('/authenticate', { replace: true })}
           >
             Try Again
           </Button>
