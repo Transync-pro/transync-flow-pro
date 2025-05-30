@@ -60,30 +60,10 @@ export default function RouteGuard({
         console.log("RouteGuard: Admin status:", adminStatus);
         
         setIsAdmin(adminStatus);
-        
-        if (requiresAdmin && !adminStatus) {
-          console.log("RouteGuard: User does not have admin role, redirecting to homepage");
-          toast({
-            title: "Access Denied",
-            description: "You don't have permission to access the admin area.",
-            variant: "destructive"
-          });
-          navigate('/');
-        }
         setRoleChecked(true);
       } catch (error) {
         console.error("RouteGuard: Error checking admin role:", error);
         setIsAdmin(false);
-        
-        if (requiresAdmin) {
-          toast({
-            title: "Access Error",
-            description: "Failed to verify admin permissions.",
-            variant: "destructive"
-          });
-          navigate('/');
-        }
-      } finally {
         setRoleChecked(true);
       }
     };
@@ -180,7 +160,7 @@ export default function RouteGuard({
     setTimeout(() => {
       // Handle disconnected page logic
       if (isDisconnectedRoute) {
-        if (hasQbConnection || isConnected) {
+        if (isConnected) {
           navigate('/dashboard', { replace: true });
         }
         redirectingRef.current = false;
@@ -213,7 +193,6 @@ export default function RouteGuard({
     }, 0);
   }, [
     isChecking,
-    hasQbConnection,
     isConnected,
     location.pathname,
     navigate,
