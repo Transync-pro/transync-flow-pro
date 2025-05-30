@@ -1,3 +1,4 @@
+
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,10 +27,6 @@ export default function RouteGuard({
   const isDashboardRoute = location.pathname === '/dashboard';
   const isAuthenticateRoute = location.pathname === '/authenticate';
   const isQbCallbackRoute = location.pathname.includes('/quickbooks-callback');
-  const isAdminRoute = location.pathname.startsWith('/admin');
-
-  // Log path information on every render
-  console.log(`RouteGuard: Current path: ${location.pathname}, isAdminRoute: ${isAdminRoute}, requiresQuickbooks: ${requiresQuickbooks}`);
 
   // Handle authentication check
   useEffect(() => {
@@ -45,20 +42,23 @@ export default function RouteGuard({
 
   // Handle QuickBooks connection check
   useEffect(() => {
-    // Skip if this is an admin route - NEVER check QuickBooks for admin routes
-    if (isAdminRoute) {
-      console.log(`RouteGuard: Admin route detected (${location.pathname}), skipping QuickBooks check entirely`);
-      return;
-    }
-    
-    // Skip for other conditions
     if (!requiresQuickbooks || !user || isAuthLoading || hasNavigated.current) {
-      console.log(`RouteGuard: Skipping QuickBooks check for path: ${location.pathname}, requiresQuickbooks: ${requiresQuickbooks}, user: ${!!user}, isAuthLoading: ${isAuthLoading}, hasNavigated: ${hasNavigated.current}`);
       return;
     }
 
     // Skip checks in callback route
     if (isQbCallbackRoute) {
+      return;
+    }
+
+    // Check for recent auth success flags
+    const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+    const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+    const isRecentAuth = authTimestamp && 
+      (Date.now() - parseInt(authTimestamp, 10) < 30000);
+
+    // If we have recent auth success and we're connected, allow access
+    if (authSuccess && isRecentAuth && isConnected) {
       return;
     }
 
@@ -85,7 +85,6 @@ export default function RouteGuard({
           }
         } else if (isDashboardRoute && !hasNavigated.current) {
           // No connection and we're on dashboard, redirect to authenticate
-          console.log('RouteGuard: No QuickBooks connection, redirecting to authenticate');
           hasNavigated.current = true;
           navigate('/authenticate', { replace: true });
         }
@@ -111,28 +110,15 @@ export default function RouteGuard({
     isQbCallbackRoute,
     refreshConnection,
     navigate,
-    isAuthLoading,
-    isAdminRoute,
-    location.pathname
+    isAuthLoading
   ]);
 
   // Reset navigation flag on route change
   useEffect(() => {
-    console.log(`RouteGuard: Path changed to ${location.pathname}, resetting navigation flag`);
     hasNavigated.current = false;
   }, [location.pathname]);
 
-  // Set a fake "connected" state for admin routes to prevent any QuickBooks-related redirects
-  useEffect(() => {
-    if (isAdminRoute && user) {
-      // For admin routes, we don't need to check QuickBooks connection at all
-      console.log(`RouteGuard: Admin route detected (${location.pathname}), setting isChecking to false`);
-      setIsChecking(false);
-    }
-  }, [isAdminRoute, user, location.pathname]);
-
   if (isAuthLoading || isChecking) {
-    console.log(`RouteGuard: Loading state - isAuthLoading: ${isAuthLoading}, isChecking: ${isChecking}`);
     return null;
   }
 
