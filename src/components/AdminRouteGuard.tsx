@@ -18,8 +18,21 @@ export default function AdminRouteGuard({ children }: { children: React.ReactNod
       return;
     }
 
-    const isAdmin = user.user_metadata?.role === 'admin';
+    // Check all possible locations for admin role
+    const isAdmin = (
+      user.user_metadata?.role === 'admin' ||
+      user.app_metadata?.role === 'admin' ||
+      user.app_metadata?.authorization?.roles?.includes('admin')
+    );
+    
+    console.log('Admin check:', {
+      user_metadata: user.user_metadata,
+      app_metadata: user.app_metadata,
+      isAdmin
+    });
+    
     if (!isAdmin) {
+      console.log('User is not an admin, redirecting to dashboard');
       toast({
         title: 'Access Denied',
         description: 'You do not have permission to access this page',
