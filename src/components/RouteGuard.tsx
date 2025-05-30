@@ -91,7 +91,8 @@ const RouteGuard = ({
 
   // Check QuickBooks connection if required
   useEffect(() => {
-    if (!requiresQuickbooks || !user || isAuthLoading || hasNavigated.current) {
+    // Skip QuickBooks check for admin routes
+    if (isAdminRoute || !requiresQuickbooks || !user || isAuthLoading || hasNavigated.current) {
       return;
     }
 
@@ -141,7 +142,7 @@ const RouteGuard = ({
     return () => {
       isMounted = false;
     };
-  }, [user, isQBLoading, isConnected, refreshConnection, navigate, requiresQuickbooks, isDashboardRoute, isAuthLoading, isQbCallbackRoute]);
+  }, [user, isQBLoading, isConnected, refreshConnection, navigate, requiresQuickbooks, isDashboardRoute, isAuthLoading, isQbCallbackRoute, isAdminRoute]);
 
   // Show loading state while checking
   if (isAuthLoading || (requiresAdmin && !roleChecked) || isChecking) {
