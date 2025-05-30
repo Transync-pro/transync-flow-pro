@@ -151,50 +151,25 @@ export async function createAdminUser(email: string, password: string): Promise<
  */
 export async function isUserAdmin(): Promise<boolean> {
   try {
-    console.log("🚀 Starting admin check...");
-    
+    console.log("Starting admin check...");
     // Get current session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    console.log("🔍 Session check:", { 
-      hasSession: !!session, 
-      hasUser: session?.user,
-      sessionError: sessionError?.message 
-    });
-    
-    if (!session?.user) {
-      console.log("❌ No active session or user found");
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log("isUserAdmin: session", session);
+    if (!session || !session.user) {
+      console.log("No active session found");
       return false;
     }
     
-    console.log("👤 User ID:", session.user.id);
-    
-    // Check user metadata first as a quick check
-    const isAdminViaMetadata = session.user.user_metadata?.role === 'admin' || 
-                             session.user.app_metadata?.role === 'admin';
-    
-    if (isAdminViaMetadata) {
-      console.log("✅ Admin access granted via metadata");
-      return true;
-    }
-    
-    console.log("🔍 Checking admin status via database function...");
-    
-    // Use the RPC function as the source of truth
+    // Use the RPC function directly for better reliability
     const { data: isAdmin, error } = await supabase
       .rpc('is_user_admin', { user_id: session.user.id });
     
     if (error) {
-      console.error("❌ Admin check failed:", error);
-      console.error("Error details:", {
-        code: error.code,
-        hint: error.hint,
-        details: error.details
-      });
+      console.error("Admin check failed:", error.message);
       return false;
     }
     
-    console.log(`📋 Admin check complete. Is Admin: ${isAdmin}`);
+    console.log(`Admin check complete. Is Admin: ${isAdmin}`);
     return isAdmin === true;
   } catch (error) {
     console.error("Failed to check if user is admin:", error);

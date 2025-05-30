@@ -1,16 +1,15 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QuickbooksProvider } from "@/contexts/QuickbooksContext";
 import { QuickbooksEntitiesProvider } from "@/contexts/QuickbooksEntitiesContext";
 import { IdleTimeoutProvider } from "@/contexts/IdleTimeoutContext";
 import { TabVisibilityProvider } from "@/contexts/TabVisibilityContext";
 import RouteGuard from "@/components/RouteGuard";
-import AdminRouteGuard from "@/components/AdminRouteGuard";
 import RouteRestorer from "@/components/RouteRestorer";
 import EnvironmentIndicator from "@/components/EnvironmentIndicator";
 import { isProduction, isDevelopment } from "./config/environment";
@@ -56,16 +55,8 @@ const queryClient = new QueryClient();
 const AppRoutes = () => {
   // All routes are now relative to the root
   // Staging is handled via subdomain, not path
-  const location = useLocation();
-  
-  // Log route changes
-  useEffect(() => {
-    console.log('🟢 Route changed to:', location.pathname);
-    console.log('Route state:', location.state);
-  }, [location]);
-  
   return (
-    <Routes location={location}>
+    <Routes>
       {/* Public routes */}
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
@@ -180,27 +171,23 @@ const AppRoutes = () => {
       <Route
         path="/admin/blog"
         element={
-          <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-            <AdminRouteGuard>
-              <BlogAdmin />
-            </AdminRouteGuard>
+          <RouteGuard>
+            <BlogAdmin />
           </RouteGuard>
         }
       />
       <Route
         path="/admin/blog/import"
         element={
-          <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
-            <AdminRouteGuard>
-              <BlogImportPage />
-            </AdminRouteGuard>
+          <RouteGuard>
+            <BlogImportPage />
           </RouteGuard>
         }
       />
       <Route
         path="/admin/test"
         element={
-          <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+          <RouteGuard>
             <TestAdmin />
           </RouteGuard>
         }

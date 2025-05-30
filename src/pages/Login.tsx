@@ -29,13 +29,6 @@ const Login = () => {
     
     try {
       await signIn(email, password);
-      
-      // Redirect to the intended URL or dashboard
-      const returnTo = sessionStorage.getItem('returnTo') || '/dashboard';
-      if (returnTo) {
-        sessionStorage.removeItem('returnTo');
-        window.location.href = returnTo;
-      }
     } catch (error) {
       console.error("Login error in component:", error);
     } finally {
@@ -46,13 +39,6 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       await signInWithGoogle();
-      
-      // Redirect to the intended URL or dashboard
-      const returnTo = sessionStorage.getItem('returnTo') || '/dashboard';
-      if (returnTo) {
-        sessionStorage.removeItem('returnTo');
-        window.location.href = returnTo;
-      }
     } catch (error) {
       console.error("Google login error:", error);
     }
