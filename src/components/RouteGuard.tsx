@@ -1,103 +1,64 @@
-import { ReactNode, useEffect, useState, useRef } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+
+import { useEffect, useCallback, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuickbooks } from '@/contexts/QuickbooksContext';
 import { checkQBConnectionExists } from '@/services/quickbooksApi/connections';
-import { toast } from '@/components/ui/use-toast';
-import { isUserAdmin } from '@/services/blog/users';
 
 interface RouteGuardProps {
-  children: ReactNode;
+  children: React.ReactNode;
   requiresAuth?: boolean;
   requiresQuickbooks?: boolean;
-  requiresAdmin?: boolean;
 }
 
-const RouteGuard = ({
-  children,
-  requiresAuth = true,
-  requiresQuickbooks = false,
-  requiresAdmin = false,
-}: RouteGuardProps) => {
+export default function RouteGuard({ 
+  children, 
+  requiresAuth = true, 
+  requiresQuickbooks = false 
+}: RouteGuardProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isLoading: isAuthLoading } = useAuth();
   const { isConnected, isLoading: isQBLoading, refreshConnection } = useQuickbooks();
-  const [isChecking, setIsChecking] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [roleChecked, setRoleChecked] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
   const hasNavigated = useRef(false);
 
   // Track current path type
   const isDashboardRoute = location.pathname === '/dashboard';
   const isAuthenticateRoute = location.pathname === '/authenticate';
   const isQbCallbackRoute = location.pathname.includes('/quickbooks-callback');
-  const isAdminRoute = location.pathname.startsWith('/admin');
 
   // Handle authentication check
   useEffect(() => {
-    if (!requiresAuth) {
-      setRoleChecked(true);
-      return;
-    }
+    if (!requiresAuth) return;
     
     if (isAuthLoading) return;
 
     if (!user && !isAuthLoading && !hasNavigated.current) {
       hasNavigated.current = true;
-      navigate('/login', { state: { from: location }, replace: true });
+      navigate('/login', { replace: true });
     }
-  }, [user, isAuthLoading, navigate, requiresAuth, location]);
+  }, [user, isAuthLoading, navigate, requiresAuth]);
 
-  // Handle admin role check
+  // Handle QuickBooks connection check
   useEffect(() => {
-    if ((!requiresAdmin && !isAdminRoute) || !user) {
-      setRoleChecked(true);
-      return;
-    }
-
-    const checkAdminRole = async () => {
-      try {
-        const adminStatus = await isUserAdmin();
-        console.log("RouteGuard: Is user admin:", adminStatus);
-        setIsAdmin(adminStatus);
-
-        if (requiresAdmin && !adminStatus) {
-          console.log("RouteGuard: User does not have admin role, redirecting to homepage");
-          toast({
-            title: "Access Denied",
-            description: "You don't have permission to access the admin area.",
-            variant: "destructive"
-          });
-          navigate('/', { replace: true });
-        }
-      } catch (error) {
-        console.error("RouteGuard: Error checking admin role:", error);
-        if (requiresAdmin) {
-          toast({
-            title: "Access Error",
-            description: "Failed to verify admin permissions.",
-            variant: "destructive"
-          });
-          navigate('/', { replace: true });
-        }
-      } finally {
-        setRoleChecked(true);
-      }
-    };
-
-    checkAdminRole();
-  }, [user, requiresAdmin, isAdminRoute, navigate]);
-
-  // Check QuickBooks connection if required
-  useEffect(() => {
-    // Skip QuickBooks check for admin routes
-    if (isAdminRoute || !requiresQuickbooks || !user || isAuthLoading || hasNavigated.current) {
+    if (!requiresQuickbooks || !user || isAuthLoading || hasNavigated.current) {
       return;
     }
 
     // Skip checks in callback route
     if (isQbCallbackRoute) {
+      return;
+    }
+
+    // Check for recent auth success flags
+    const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+    const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+    const isRecentAuth = authTimestamp && 
+      (Date.now() - parseInt(authTimestamp, 10) < 30000);
+
+    // If we have recent auth success and we're connected, allow access
+    if (authSuccess && isRecentAuth && isConnected) {
       return;
     }
 
@@ -139,32 +100,27 @@ const RouteGuard = ({
       checkConnection();
     }
 
-    return () => {
-      isMounted = false;
-    };
-  }, [user, isQBLoading, isConnected, refreshConnection, navigate, requiresQuickbooks, isDashboardRoute, isAuthLoading, isQbCallbackRoute, isAdminRoute]);
+    return () => { isMounted = false; };
+  }, [
+    user,
+    isQBLoading,
+    isConnected,
+    requiresQuickbooks,
+    isDashboardRoute,
+    isQbCallbackRoute,
+    refreshConnection,
+    navigate,
+    isAuthLoading
+  ]);
 
-  // Show loading state while checking
-  if (isAuthLoading || (requiresAdmin && !roleChecked) || isChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
-      </div>
-    );
-  }
+  // Reset navigation flag on route change
+  useEffect(() => {
+    hasNavigated.current = false;
+  }, [location.pathname]);
 
-  // Redirect unauthenticated users to login
-  if (requiresAuth && !user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  // Redirect non-admin users away from admin pages
-  if (requiresAdmin && roleChecked && !isAdmin) {
-    console.log("RouteGuard: Admin route access denied, redirecting to home");
-    return <Navigate to="/" replace />;
+  if (isAuthLoading || isChecking) {
+    return null;
   }
 
   return <>{children}</>;
-};
-
-export default RouteGuard;
+}

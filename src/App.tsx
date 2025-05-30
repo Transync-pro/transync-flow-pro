@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -170,7 +171,7 @@ const AppRoutes = () => {
       <Route
         path="/admin/blog"
         element={
-          <RouteGuard requiresAuth requiresAdmin>
+          <RouteGuard>
             <BlogAdmin />
           </RouteGuard>
         }
@@ -178,7 +179,7 @@ const AppRoutes = () => {
       <Route
         path="/admin/blog/import"
         element={
-          <RouteGuard requiresAuth requiresAdmin>
+          <RouteGuard>
             <BlogImportPage />
           </RouteGuard>
         }
@@ -186,7 +187,7 @@ const AppRoutes = () => {
       <Route
         path="/admin/test"
         element={
-          <RouteGuard requiresAuth requiresAdmin>
+          <RouteGuard>
             <TestAdmin />
           </RouteGuard>
         }
