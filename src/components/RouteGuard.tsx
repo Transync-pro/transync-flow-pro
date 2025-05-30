@@ -130,7 +130,6 @@ const RouteGuard = ({
           return;
         }
 
-
         // Check connection directly from database
         const hasConnection = await checkQBConnectionExists(user.id);
         
@@ -142,19 +141,20 @@ const RouteGuard = ({
             await refreshConnection();
           }
         } else if (isDashboardRoute && !hasNavigated.current) {
-          // No connection and we're on dashboard, redirect to authenticate
+          // Only redirect to authenticate if we're on the dashboard
           hasNavigated.current = true;
           navigate('/authenticate', { replace: true });
         }
       } catch (error) {
         console.error('Error in RouteGuard connection check:', error);
+        // On error, don't redirect - just log the error
       } finally {
         if (isMounted) setIsChecking(false);
       }
     };
 
     // Only check if we're not already loading and we have a user
-    if (!isQBLoading && user) {
+    if (user) {
       checkConnection();
     }
 
@@ -163,7 +163,6 @@ const RouteGuard = ({
     };
   }, [
     user, 
-    isQBLoading, 
     isConnected, 
     refreshConnection, 
     navigate, 

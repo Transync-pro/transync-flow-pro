@@ -64,26 +64,46 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       return;
     }
 
-    const unsubscribe = connectionStatusService.subscribe((userId, info) => {
-      if (userId === user.id) {
-        setIsConnected(info.status === 'connected');
-        setIsLoading(info.status === 'checking');
-        setLastChecked(info.lastChecked);
-        setCompanyName(info.companyName || null);
-        
-        if (info.error) {
-          handleError(info.error);
-        }
-      }
-    });
+    let isMounted = true;
+    let unsubscribe: () => void;
 
-    // Initial check
-    connectionStatusService.checkConnectionStatus(user.id);
+    const setupConnection = async () => {
+      try {
+        // Only check connection status if we're not already connected
+        if (!isConnected) {
+          await connectionStatusService.checkConnectionStatus(user.id);
+        }
+
+        if (!isMounted) return;
+
+        // Subscribe to connection status changes
+        unsubscribe = connectionStatusService.subscribe((userId, info) => {
+          if (userId === user.id && isMounted) {
+            setIsConnected(info.status === 'connected');
+            setIsLoading(info.status === 'checking');
+            setLastChecked(info.lastChecked);
+            setCompanyName(info.companyName || null);
+            
+            if (info.error) {
+              console.error('Connection status error:', info.error);
+              handleError(info.error);
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error setting up connection status:', error);
+      }
+    };
+
+    setupConnection();
 
     return () => {
-      unsubscribe();
+      isMounted = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
-  }, [user, handleError]);
+  }, [user, isConnected, handleError]);
 
   const { refreshToken, getAccessToken } = useQBTokenManagement(
     connection,
