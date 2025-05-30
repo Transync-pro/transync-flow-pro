@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import type { BlogPost } from "@/types/blog";
 import { processBlogPosts, processSingleBlogPost } from "./utils";
 

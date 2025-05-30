@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import type { BlogTag } from "@/types/blog";
 
 /**
@@ -15,8 +15,8 @@ export async function getBlogCategories(): Promise<string[]> {
       throw new Error(error.message);
     }
 
-    // Use a Set to get unique categories
-    const categories = [...new Set(data.map((item: any) => item.category))];
+    // Use a Set to get unique categories with proper typing
+    const categories = [...new Set((data as any[]).map((item: any) => item.category as string))];
     return categories;
   } catch (error) {
     console.error("Error in getBlogCategories:", error);

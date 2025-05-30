@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ChevronLeft, ArrowUp, ArrowDown, Trash2, Database, Calendar as CalendarIcon, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 
 interface Activity {
   id: string;
@@ -71,8 +71,8 @@ const History = () => {
         if (data) {
           setActivities(data);
           
-          // Extract unique entity types for filtering
-          const entityTypes = [...new Set(data.map(item => item.entity_type))];
+          // Extract unique entity types for filtering with proper typing
+          const entityTypes = [...new Set(data.map(item => item.entity_type))] as string[];
           setEntityTypeOptions(entityTypes);
         }
       } catch (error) {

@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { OperationType } from "@/services/quickbooksApi/types";
 import { validateOperationType } from "@/utils/operationLogger";
 
@@ -98,9 +98,9 @@ export const logError = async (
         },
         user_id: user_id || 'system'
       });
-    } catch (error) {
+    } catch (dbError) {
       // Don't throw here to avoid cascading errors
-      console.error('Failed to persist error to database:', error);
+      console.error('Failed to persist error to database:', dbError);
     }
   }
 };

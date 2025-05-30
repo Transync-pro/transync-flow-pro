@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { OperationType, LogOperationParams } from "@/services/quickbooksApi/types";
 
 /**

@@ -94,11 +94,13 @@ const QuickbooksCallback: React.FC = (): JSX.Element => {
         console.error('QuickBooks callback error:', error);
         setError(errorMessage);
         
-        // Log error for debugging
+        // Log error for debugging with correct parameters
         logError('QuickBooks callback error', {
           source: 'QuickbooksCallback',
-          error: errorMessage,
-          userId: user.id
+          context: {
+            error: errorMessage,
+            userId: user.id
+          }
         });
         
         toast({
