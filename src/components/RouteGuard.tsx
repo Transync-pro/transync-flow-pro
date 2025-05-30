@@ -42,40 +42,32 @@ export default function RouteGuard({
 
   // Handle QuickBooks connection check
   useEffect(() => {
-    // Skip QuickBooks check for admin routes or when not required
+    // Skip QuickBooks check for admin routes
     const isAdminRoute = location.pathname.startsWith('/admin/');
-    const shouldSkipQuickbooksCheck = isAdminRoute || !requiresQuickbooks;
     
-    if (shouldSkipQuickbooksCheck) {
-      console.log('Skipping QuickBooks check for route:', location.pathname);
-      return;
+    if (isAdminRoute) {
+      console.log('🟢 Admin route detected, skipping QuickBooks check');
+      return undefined; // Return undefined to prevent cleanup warning
     }
-
-    // Add a debug delay to prevent immediate redirect
-    const debugDelay = async () => {
-      console.log('🔴 DEBUG: Adding 5 second delay to prevent immediate redirect');
-      console.log('Current path:', window.location.pathname);
-      console.log('requiresQuickbooks:', requiresQuickbooks);
-      console.log('isAuthLoading:', isAuthLoading);
-      console.log('hasNavigated.current:', hasNavigated.current);
-      
-      // Add a 5-second delay for debugging
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      if (!user || isAuthLoading || hasNavigated.current) {
-        console.log('Skipping QuickBooks check - missing user, loading, or already navigated');
-        return;
-      }
-      
-      // Rest of your QuickBooks check logic here
-      console.log('Continuing with QuickBooks check...');
-    };
     
-    debugDelay();
-
+    // Skip if QuickBooks check is not required
+    if (!requiresQuickbooks) {
+      console.log('🟡 QuickBooks check not required for route:', location.pathname);
+      return undefined;
+    }
+    
+    // Skip if we're still loading or already navigated
+    if (!user || isAuthLoading || hasNavigated.current) {
+      console.log('🟡 Skipping QuickBooks check - missing user, loading, or already navigated');
+      return undefined;
+    }
+    
+    console.log('🔵 Starting QuickBooks check for route:', location.pathname);
+    
     // Skip checks in callback route
     if (isQbCallbackRoute) {
-      return;
+      console.log('🟡 Skipping QuickBooks check - in callback route');
+      return undefined;
     }
 
     // Check for recent auth success flags
@@ -86,48 +78,66 @@ export default function RouteGuard({
 
     // If we have recent auth success and we're connected, allow access
     if (authSuccess && isRecentAuth && isConnected) {
-      return;
+      console.log('🟢 Using cached QuickBooks connection');
+      return undefined;
     }
 
     let isMounted = true;
+    
     const checkConnection = async () => {
       try {
+        console.log('🔍 Checking QuickBooks connection...');
         setIsChecking(true);
 
         // If we're already connected according to context, we're good
         if (isConnected) {
+          console.log('🟢 Already connected to QuickBooks');
           if (isMounted) setIsChecking(false);
           return;
         }
 
+
         // Check connection directly from database
+        console.log('🔍 Checking QuickBooks connection in database...');
         const hasConnection = await checkQBConnectionExists(user.id);
         
         if (!isMounted) return;
 
         if (hasConnection) {
+          console.log('🟢 QuickBooks connection found in database');
           // Connection exists, refresh context
           if (!isConnected) {
+            console.log('🔄 Refreshing QuickBooks connection context...');
             await refreshConnection();
           }
         } else if (isDashboardRoute && !hasNavigated.current) {
           // No connection and we're on dashboard, redirect to authenticate
+          console.log('🔴 No QuickBooks connection, redirecting to authenticate');
           hasNavigated.current = true;
           navigate('/authenticate', { replace: true });
         }
       } catch (error) {
         console.error('Error in RouteGuard connection check:', error);
       } finally {
-        if (isMounted) setIsChecking(false);
+        if (isMounted) {
+          console.log('✅ QuickBooks check complete');
+          setIsChecking(false);
+        }
       }
     };
 
     // Only check if we're not already loading
     if (!isQBLoading) {
+      console.log('🚀 Starting QuickBooks connection check');
       checkConnection();
+    } else {
+      console.log('⏳ QuickBooks check already in progress');
     }
 
-    return () => { isMounted = false; };
+    return () => { 
+      console.log('🧹 Cleaning up QuickBooks check');
+      isMounted = false; 
+    };
   }, [
     user,
     isQBLoading,
