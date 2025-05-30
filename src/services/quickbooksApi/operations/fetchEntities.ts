@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { logOperation } from "@/utils/operationLogger";
 import { validateOperationType } from "@/utils/operationLogger";
