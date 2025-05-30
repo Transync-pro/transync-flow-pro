@@ -51,16 +51,28 @@ const RouteGuard = ({
 
   // Handle admin role check
   useEffect(() => {
+    // Skip if we don't need to check admin status or if user is not loaded yet
     if ((!requiresAdmin && !isAdminRoute) || !user) {
       setRoleChecked(true);
       return;
     }
 
+    // Skip if we've already checked the admin status
+    if (roleChecked && requiresAdmin && isAdmin) {
+      return;
+    }
+
+    let isMounted = true;
+
     const checkAdminRole = async () => {
       try {
         const adminStatus = await isUserAdmin();
         console.log("RouteGuard: Is user admin:", adminStatus);
+        
+        if (!isMounted) return;
+        
         setIsAdmin(adminStatus);
+        setRoleChecked(true);
 
         if (requiresAdmin && !adminStatus) {
           console.log("RouteGuard: User does not have admin role, redirecting to homepage");
@@ -73,6 +85,10 @@ const RouteGuard = ({
         }
       } catch (error) {
         console.error("RouteGuard: Error checking admin role:", error);
+        if (!isMounted) return;
+        
+        setRoleChecked(true);
+        
         if (requiresAdmin) {
           toast({
             title: "Access Error",
@@ -81,18 +97,20 @@ const RouteGuard = ({
           });
           navigate('/', { replace: true });
         }
-      } finally {
-        setRoleChecked(true);
       }
     };
 
     checkAdminRole();
-  }, [user, requiresAdmin, isAdminRoute, navigate]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [user, requiresAdmin, isAdminRoute, navigate, isAdmin, roleChecked]);
 
   // Check QuickBooks connection if required
   useEffect(() => {
-    // Skip QuickBooks check for admin routes
-    if (isAdminRoute || !requiresQuickbooks || !user || isAuthLoading || hasNavigated.current) {
+    // Skip QuickBooks check for admin routes or if user is admin
+    if (isAdminRoute || isAdmin || !requiresQuickbooks || !user || isAuthLoading || hasNavigated.current) {
       return;
     }
 
@@ -111,6 +129,7 @@ const RouteGuard = ({
           if (isMounted) setIsChecking(false);
           return;
         }
+
 
         // Check connection directly from database
         const hasConnection = await checkQBConnectionExists(user.id);
@@ -134,15 +153,27 @@ const RouteGuard = ({
       }
     };
 
-    // Only check if we're not already loading
-    if (!isQBLoading) {
+    // Only check if we're not already loading and we have a user
+    if (!isQBLoading && user) {
       checkConnection();
     }
 
     return () => {
       isMounted = false;
     };
-  }, [user, isQBLoading, isConnected, refreshConnection, navigate, requiresQuickbooks, isDashboardRoute, isAuthLoading, isQbCallbackRoute, isAdminRoute]);
+  }, [
+    user, 
+    isQBLoading, 
+    isConnected, 
+    refreshConnection, 
+    navigate, 
+    requiresQuickbooks, 
+    isDashboardRoute, 
+    isAuthLoading, 
+    isQbCallbackRoute, 
+    isAdminRoute, 
+    isAdmin
+  ]);
 
   // Show loading state while checking
   if (isAuthLoading || (requiresAdmin && !roleChecked) || isChecking) {

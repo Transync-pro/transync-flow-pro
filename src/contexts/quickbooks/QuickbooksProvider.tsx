@@ -64,65 +64,25 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       return;
     }
 
-    const checkAdminAndSubscribe = async () => {
-      try {
-        // Check if user is admin
-        const isAdmin = await isUserAdmin();
-        console.log('QuickbooksProvider: User is admin:', isAdmin);
+    const unsubscribe = connectionStatusService.subscribe((userId, info) => {
+      if (userId === user.id) {
+        setIsConnected(info.status === 'connected');
+        setIsLoading(info.status === 'checking');
+        setLastChecked(info.lastChecked);
+        setCompanyName(info.companyName || null);
         
-        if (isAdmin) {
-          // Skip connection checks for admin users
-          setIsConnected(true);
-          setIsLoading(false);
-          setLastChecked(Date.now());
-          return;
+        if (info.error) {
+          handleError(info.error);
         }
-
-        // For non-admin users, proceed with normal connection status checks
-        const unsubscribe = connectionStatusService.subscribe((userId, info) => {
-          if (userId === user.id) {
-            setIsConnected(info.status === 'connected');
-            setIsLoading(info.status === 'checking');
-            setLastChecked(info.lastChecked);
-            setCompanyName(info.companyName || null);
-            
-            if (info.error) {
-              handleError(info.error);
-            }
-          }
-        });
-
-        // Initial check only for non-admin users
-        connectionStatusService.checkConnectionStatus(user.id);
-        
-        return () => {
-          if (unsubscribe) unsubscribe();
-        };
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-        // Fallback to normal behavior if there's an error checking admin status
-        const unsubscribe = connectionStatusService.subscribe((userId, info) => {
-          if (userId === user.id) {
-            setIsConnected(info.status === 'connected');
-            setIsLoading(info.status === 'checking');
-            setLastChecked(info.lastChecked);
-            setCompanyName(info.companyName || null);
-            
-            if (info.error) {
-              handleError(info.error);
-            }
-          }
-        });
-
-        connectionStatusService.checkConnectionStatus(user.id);
-        
-        return () => {
-          if (unsubscribe) unsubscribe();
-        };
       }
-    };
+    });
 
-    checkAdminAndSubscribe();
+    // Initial check
+    connectionStatusService.checkConnectionStatus(user.id);
+
+    return () => {
+      unsubscribe();
+    };
   }, [user, handleError]);
 
   const { refreshToken, getAccessToken } = useQBTokenManagement(
@@ -163,22 +123,7 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
 
   const checkConnection = useCallback(async (force = false, silent = false) => {
     if (!user) return;
-    
-    try {
-      // Check if user is admin
-      const isAdmin = await isUserAdmin();
-      if (isAdmin) {
-        console.log('QuickbooksProvider: Skipping connection check for admin user');
-        return;
-      }
-      
-      // For non-admin users, proceed with normal connection check
-      await refreshConnection(force, silent);
-    } catch (error) {
-      console.error('Error in checkConnection:', error);
-      // Fallback to normal behavior if there's an error checking admin status
-      await refreshConnection(force, silent);
-    }
+    await refreshConnection(force, silent);
   }, [user, refreshConnection]);
 
   const getRealmId = useCallback(async (): Promise<string | null> => {
