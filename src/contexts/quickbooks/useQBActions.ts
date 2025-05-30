@@ -1,6 +1,6 @@
 
 import { User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
 import { clearConnectionCache, forceConnectionState } from "@/services/quickbooksApi/connections";
 import { navigationController } from "@/services/navigation/NavigationController";
@@ -56,7 +56,7 @@ export const useQBActions = (
       // Use window.location.origin to ensure we get the correct protocol and domain
       const baseUrl = window.location.origin;
       
-      // Construct the redirect URL using the base URL
+      // Construct the redirect URL - always use /dashboard/quickbooks-callback for both environments
       const redirectUrl = `${baseUrl}/dashboard/quickbooks-callback`;
       
       console.log("Starting QuickBooks OAuth flow, redirecting to", redirectUrl);

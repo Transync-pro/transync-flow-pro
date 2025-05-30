@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,7 +12,7 @@ import { TabVisibilityProvider } from "@/contexts/TabVisibilityContext";
 import RouteGuard from "@/components/RouteGuard";
 import RouteRestorer from "@/components/RouteRestorer";
 import EnvironmentIndicator from "@/components/EnvironmentIndicator";
-import { isProduction, isStaging, isDevelopment, addStagingPrefix } from "./config/environment";
+import { isProduction, isDevelopment } from "./config/environment";
 
 // Import statements for pages
 import Index from "./pages/Index";
@@ -52,15 +53,8 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const basePath = isStaging() ? '/staging' : '';
-  
-  // Handle redirect from /staging to /staging/
-  React.useEffect(() => {
-    if (isStaging() && window.location.pathname === '/staging') {
-      window.history.replaceState(null, '', '/staging/');
-    }
-  }, []);
-  
+  // All routes are now relative to the root
+  // Staging is handled via subdomain, not path
   return (
     <Routes>
       {/* Public routes */}
@@ -105,7 +99,7 @@ const AppRoutes = () => {
       <Route
         path="/dashboard/quickbooks-callback"
         element={
-          <RouteGuard requiresAuth={true} requiresQuickbooks={false}>
+          <RouteGuard requiresAuth={true} requiresQuickbooks={true}>
             <QuickbooksCallback />
           </RouteGuard>
         }
@@ -208,25 +202,24 @@ const AppRoutes = () => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={isStaging() ? '/staging' : ''}>
-        <AuthProvider>
-          <QuickbooksProvider>
-            <QuickbooksEntitiesProvider>
-              <IdleTimeoutProvider>
-                <TabVisibilityProvider>
-                  <TooltipProvider>
-                    <RouteRestorer />
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter basename="/">
+          <AuthProvider>
+            <QuickbooksProvider>
+              <QuickbooksEntitiesProvider>
+                <IdleTimeoutProvider>
+                  <TabVisibilityProvider>
+                    <EnvironmentIndicator />
                     <AppRoutes />
-                    <Toaster />
-                    <Sonner />
-                    {!isProduction() && <EnvironmentIndicator />}
-                  </TooltipProvider>
-                </TabVisibilityProvider>
-              </IdleTimeoutProvider>
-            </QuickbooksEntitiesProvider>
-          </QuickbooksProvider>
-        </AuthProvider>
-      </BrowserRouter>
+                  </TabVisibilityProvider>
+                </IdleTimeoutProvider>
+              </QuickbooksEntitiesProvider>
+            </QuickbooksProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 };

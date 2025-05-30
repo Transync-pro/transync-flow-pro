@@ -1,5 +1,9 @@
-
-import { User } from "@supabase/supabase-js";
+export type ConnectionState = 
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'error';
 
 export interface QuickbooksConnection {
   id: string;
@@ -7,61 +11,43 @@ export interface QuickbooksConnection {
   realm_id: string;
   access_token: string;
   refresh_token: string;
-  token_type: string;
   expires_at: string;
+  token_type: string;
+  x_refresh_token_expires_in: number;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
   company_name?: string;
+  last_sync?: string;
 }
 
 export interface QuickbooksContextType {
   isConnected: boolean;
   isLoading: boolean;
+  connection: QuickbooksConnection | null;
   realmId: string | null;
   companyName: string | null;
-  connection: QuickbooksConnection | null;
   error: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
+  refreshToken: () => Promise<void>;
   getRealmId: () => Promise<string | null>;
   clearError: () => void;
   refreshConnection: (force?: boolean, silent?: boolean) => Promise<void>;
   checkConnection: (force?: boolean, silent?: boolean) => Promise<void>;
+  // New state properties
+  connectionState: ConnectionState;
+  lastChecked: number | null;
+  checkConnectionWithRetry: (attempt?: number) => Promise<boolean>;
 }
 
-// New type for QB user identity
-export interface QuickbooksUserIdentity {
-  id?: string;
-  user_id: string;
-  realm_id: string;
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-  phone?: string;
-  created_at?: string;
-  updated_at?: string;
+// Date range interface for filtering
+export interface DateRange {
+  from: Date | null;
+  to: Date | null;
 }
 
-// Extended QuickBooks context type with user identity
-export interface QuickbooksUserContextType {
-  userIdentity: QuickbooksUserIdentity | null;
-  isLoading: boolean;
-  error: string | null;
-  refreshUserIdentity: () => Promise<void>;
-}
-
-// Entity types
-export interface EntityState {
-  isLoading: boolean;
-  error: string | null;
-  records: any[];
-  filteredRecords: any[];
-  totalCount: number;
-  lastUpdated: Date | null;
-}
-
-// Add DeleteProgress interface to track bulk deletion operations
+// Delete progress tracking
 export interface DeleteProgress {
   total: number;
   current: number;
@@ -74,43 +60,51 @@ export interface DeleteProgress {
   }>;
 }
 
-// Fix DateRange interface to match react-day-picker's DateRange
-export interface DateRange {
-  from: Date | null;
-  to: Date | null;
+// Entity state for managing fetched data
+export interface EntityState {
+  records: any[];
+  filteredRecords: any[];
+  isLoading: boolean;
+  error: string | null;
+  totalCount: number;
+  lastUpdated: Date | null;
 }
 
+// Entity option for dropdowns
 export interface EntityOption {
   value: string;
   label: string;
-  description?: string;
-  icon?: React.ReactNode;
-  group?: string; // Add group property that was missing
 }
 
-// Add EntityColumnConfig interface
+// Entity column configuration for tables
 export interface EntityColumnConfig {
   field: string;
   header: string;
-  accessor?: (record: any) => any;
+  accessor?: (obj: any) => any;
 }
 
-// Add EntityRecord interface
+// Generic entity record type
 export interface EntityRecord {
-  Id?: string;
+  Id: string;
   [key: string]: any;
 }
 
-export interface LogOperationParams {
-  operationType: 'import' | 'export' | 'delete';
-  entityType: string;
-  recordId: string | null;
-  status: 'success' | 'error' | 'pending' | 'partial';
-  details?: any;
+// QuickBooks user identity
+export interface QuickbooksUserIdentity {
+  id: string;
+  user_id: string;
+  realm_id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  created_at: string;
+  updated_at: string;
 }
 
+// QuickBooks entities context type
 export interface QuickbooksEntitiesContextType {
-  selectedEntity: string;
+  selectedEntity: string | null;
   setSelectedEntity: (entity: string) => void;
   selectedDateRange: DateRange;
   setSelectedDateRange: (range: DateRange) => void;
@@ -123,8 +117,9 @@ export interface QuickbooksEntitiesContextType {
   setSelectedEntityIds: (ids: string[]) => void;
   toggleEntitySelection: (id: string) => void;
   selectAllEntities: (select: boolean, entities?: any[]) => void;
-  deleteProgress: DeleteProgress;  // Updated to use DeleteProgress interface instead of number
+  deleteProgress: DeleteProgress;
   isDeleting: boolean;
   entityOptions: EntityOption[];
   getNestedValue: (obj: any, path: string) => any;
 }
+

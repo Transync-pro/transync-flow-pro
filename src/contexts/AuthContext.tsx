@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { processLoginAttempt } from "@/services/loginSecurity";
 import { clearConnectionCache } from "@/services/quickbooksApi/connections";
-import { addStagingPrefix } from "@/config/environment";
+// Staging is now handled via subdomain
 
 interface AuthContextType {
   session: Session | null;
@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           
           setTimeout(() => {
-            navigate(addStagingPrefix('/dashboard'));
+            navigate('/dashboard');
           }, 100);
         } else if (event === 'SIGNED_OUT') {
           // Thoroughly clear all connection cache and session storage on logout
@@ -94,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           sessionStorage.removeItem('qb_connection_timestamp');
           sessionStorage.removeItem('qb_auth_timestamp');
           
-          navigate(addStagingPrefix('/login'));
+          navigate('/login');
         } else if (event === 'USER_UPDATED') {
           const emailVerified = currentSession?.user?.email_confirmed_at;
           if (emailVerified) {
@@ -127,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}${addStagingPrefix('/dashboard')}`,
+          redirectTo: `${window.location.origin}/dashboard`,
         }
       });
       
@@ -188,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Welcome back!"
       });
 
-      navigate(addStagingPrefix('/dashboard'));
+      navigate('/dashboard');
     } catch (error) {
       toast({
         title: "Sign in failed",
@@ -203,7 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUp = async (email: string, password: string, metadata?: object) => {
     try {
-      const redirectTo = `${window.location.origin}${addStagingPrefix('/verify')}`;
+      const redirectTo = `${window.location.origin}/verify`;
 
       const { error, data } = await supabase.auth.signUp({
         email,
@@ -232,7 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Please check your email to verify your account."
       });
 
-      navigate(addStagingPrefix('/verify'));
+      navigate('/verify');
     } catch (error) {
       toast({
         title: "Sign up failed",

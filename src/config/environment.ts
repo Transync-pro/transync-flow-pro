@@ -1,26 +1,20 @@
-// Environment configuration for staging and production only
+
+// Environment configuration for staging and production
 export type Environment = 'staging' | 'production';
 
 export const getEnvironment = (): Environment => {
-  // Check for staging path prefix
-  if (typeof window !== 'undefined') {
-    const pathname = window.location.pathname;
-    
-    // Check if URL is exactly /staging or starts with /staging/
-    if (pathname === '/staging' || pathname.startsWith('/staging/')) {
-      // If it's exactly /staging, redirect to /staging/
-      if (pathname === '/staging') {
-        window.history.replaceState(null, '', '/staging/');
-      }
-      return 'staging';
-    }
-    
-    // Check for preview domain
-    if (window.location.hostname.includes('preview--transync-flow-pro')) {
-      return 'staging';
-    }
+  if (typeof window === 'undefined') {
+    return 'production'; // Default to production for server-side rendering
   }
   
+  const hostname = window.location.hostname;
+  
+  // Check if hostname contains 'staging'
+  if (hostname.includes('staging')) {
+    return 'staging';
+  }
+  
+  // Default to production
   return 'production';
 };
 
@@ -47,40 +41,15 @@ export const config = {
 
 export const getCurrentConfig = () => {
   const env = getEnvironment();
+  console.log(`Environment detected: ${env}`);
   return config[env];
 };
 
+// Environment detection helpers
 export const isProduction = () => getEnvironment() === 'production';
 export const isStaging = () => getEnvironment() === 'staging';
-export const isDevelopment = () => false; // No longer supported
+// Development environment is no longer supported
+export const isDevelopment = () => false;
 
-// Helper function to add staging prefix to paths
-export const addStagingPrefix = (path: string) => {
-  // If not in staging, return the path as is
-  if (!isStaging()) return path;
-  
-  // Handle empty path or root
-  if (!path || path === '/') return '/staging';
-  
-  // If the path is already correctly prefixed, return as is
-  if (path === '/staging' || path.startsWith('/staging/')) {
-    return path;
-  }
-  
-  // Otherwise, add the /staging prefix
-  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
-  return `/staging/${cleanPath}`.replace(/\/+/g, '/');
-};
-
-// Helper function to remove staging prefix from paths
-export const removeStagingPrefix = (path: string) => {
-  if (path.startsWith('/staging')) {
-    return path.substring(8) || '/';
-  }
-  return path;
-};
-
-// Helper function to get the base path for routing
-export const getBasePath = () => {
-  return isStaging() ? '/staging' : '';
-};
+// Base path is always root since we're using subdomains
+export const getBasePath = () => '';

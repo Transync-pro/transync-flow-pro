@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { QuickbooksConnection } from "./types";
 import { User } from "@supabase/supabase-js";
 import { logError } from "@/utils/errorLogger";
@@ -14,7 +14,6 @@ export const useQBConnectionStatus = (user: User | null) => {
   const [connection, setConnection] = useState<QuickbooksConnection | null>(null);
   const checkInProgress = useRef<boolean>(false);
   const lastCheckTime = useRef<number>(0);
-  const maxConsecutiveChecks = useRef<number>(0);
   const connectionCheckAttempts = useRef<number>(0);
 
   // Reset connection state
@@ -34,20 +33,31 @@ export const useQBConnectionStatus = (user: User | null) => {
       return;
     }
     
+    // Check for recent QB auth success flags first
+    const skipAuthRedirect = sessionStorage.getItem('qb_skip_auth_redirect') === 'true';
+    const authSuccess = sessionStorage.getItem('qb_auth_success') === 'true';
+    const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+    const isRecentAuth = authTimestamp && 
+      (Date.now() - parseInt(authTimestamp, 10) < 30000); // 30 second window
+    
+    if ((skipAuthRedirect || authSuccess) && isRecentAuth) {
+      console.log('useQBConnectionStatus: Recent auth success detected, forcing DB check');
+      force = true; // Force a check to ensure we get the latest data
+    }
+    
     // Prevent concurrent checks
     if (checkInProgress.current) return;
     
-    // Circuit breaker to prevent excessive checks, but allow more attempts for forced checks
-    maxConsecutiveChecks.current += 1;
-    if (!force && maxConsecutiveChecks.current > 5) {
-      console.log('Circuit breaker triggered: too many consecutive connection checks');
-      setIsLoading(false);
-      return;
+    // Reset circuit breaker if too many attempts
+    if (connectionCheckAttempts.current > 15) {
+      console.log('useQBConnectionStatus: Resetting circuit breaker');
+      connectionCheckAttempts.current = 0;
+      lastCheckTime.current = 0;
     }
     
     // Don't check too frequently unless forced
     const now = Date.now();
-    const throttleTime = force ? 0 : 5000; // 5 seconds throttle unless forced
+    const throttleTime = force ? 0 : 3000; // 3 seconds throttle unless forced
     if (!force && now - lastCheckTime.current < throttleTime) {
       return;
     }
@@ -58,11 +68,11 @@ export const useQBConnectionStatus = (user: User | null) => {
       setIsLoading(true);
     }
     lastCheckTime.current = now;
+    connectionCheckAttempts.current++;
     
     // If we're doing a forced check, clear session storage
     if (force) {
       clearConnectionCache(user.id);
-      connectionCheckAttempts.current += 1;
       console.log(`Forced connection check #${connectionCheckAttempts.current} for user ${user.id}`);
     }
     
@@ -102,7 +112,7 @@ export const useQBConnectionStatus = (user: User | null) => {
         setCompanyName(qbConnection.company_name || null);
         
         // Reset the circuit breaker since we've found a connection
-        maxConsecutiveChecks.current = 0;
+        connectionCheckAttempts.current = 0;
         
         // Log connection details on forced checks
         if (force) {
@@ -111,18 +121,27 @@ export const useQBConnectionStatus = (user: User | null) => {
             companyName: qbConnection.company_name
           });
         }
-      } else {
-          // No connection found
-          if (force) {
-            console.log('No QuickBooks connection found for user:', user.id);
-          }
-          resetConnectionState();
+        
+        // Clear auth success flags after successful connection verification
+        if (isRecentAuth) {
+          console.log('Clearing auth success flags after connection verification');
+          setTimeout(() => {
+            sessionStorage.removeItem('qb_skip_auth_redirect');
+            sessionStorage.removeItem('qb_auth_success');
+          }, 1000); // Small delay to ensure other components see the flags
         }
+      } else {
+        // No connection found
+        if (force) {
+          console.log('No QuickBooks connection found for user:', user.id);
+        }
+        resetConnectionState();
+      }
     } catch (error: any) {
       console.error("Error checking QuickBooks connection:", error);
       logError("Error checking QuickBooks connection", {
         source: "useQBConnectionStatus",
-        context: { error }
+        context: { error, attempts: connectionCheckAttempts.current }
       });
       
       // Always reset connection state on error - no caching fallback
@@ -140,19 +159,21 @@ export const useQBConnectionStatus = (user: User | null) => {
   useEffect(() => {
     // Check connection immediately on mount
     if (user) {
-      checkConnectionStatus(false, true); // silent mode on initial load
+      // Check for recent auth success to determine if this should be a forced check
+      const authTimestamp = sessionStorage.getItem('qb_connection_timestamp');
+      const isRecentAuth = authTimestamp && 
+        (Date.now() - parseInt(authTimestamp, 10) < 30000);
+      
+      checkConnectionStatus(isRecentAuth, !isRecentAuth); // force if recent auth, silent if not
     }
-    
-    // No interval-based checking - we only check on explicit actions
   }, [user, checkConnectionStatus]);
 
   // Public refresh method - force a check
   const refreshConnection = useCallback(async (force = true, silent = false) => {
     // Reset throttling and circuit breaker to ensure immediate check
     lastCheckTime.current = 0;
-    maxConsecutiveChecks.current = 0;
-    connectionCheckAttempts.current += 1;
-    console.log(`Manual refresh connection requested #${connectionCheckAttempts.current}`, { force, silent });
+    connectionCheckAttempts.current = Math.max(0, connectionCheckAttempts.current - 5); // Reduce attempts rather than reset
+    console.log(`Manual refresh connection requested`, { force, silent });
     
     // Clear session storage
     if (force && user?.id) {
