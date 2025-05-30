@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/environmentClient";
@@ -10,11 +9,13 @@ import type { BlogPost } from "@/types/blog";
 import BlogAdminHeader from "@/components/Admin/BlogAdminHeader";
 import BlogPostsTable from "@/components/Admin/BlogPostsTable";
 import BlogPostForm from "@/components/Admin/BlogPostForm";
+import { isUserAdmin } from "@/services/blog/users";
 
 const BlogAdmin = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  // Admin check is handled by RouteGuard
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminChecking, setIsAdminChecking] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<null | BlogPost>(null);
   const navigate = useNavigate();
@@ -41,9 +42,42 @@ const BlogAdmin = () => {
   const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
-    fetchPosts(page);
+    const checkAdmin = async () => {
+      setIsAdminChecking(true);
+      try {
+        const adminStatus = await isUserAdmin();
+        console.log("BlogAdmin: Is user admin:", adminStatus);
+        
+        if (!adminStatus) {
+          console.log("BlogAdmin: User is not admin, redirecting to homepage");
+          toast({
+            title: "Access Denied",
+            description: "You don't have permission to access the admin area.",
+            variant: "destructive"
+          });
+          navigate('/');
+          return;
+        }
+        
+        setIsAdmin(true);
+        fetchPosts(page);
+      } catch (error) {
+        console.error("BlogAdmin: Error checking admin status:", error);
+        toast({
+          title: "Error",
+          description: "Failed to verify admin permissions",
+          variant: "destructive"
+        });
+        navigate('/');
+        return;
+      } finally {
+        setIsAdminChecking(false);
+      }
+    };
+
+    checkAdmin();
     // eslint-disable-next-line
-  }, [page]);
+  }, [navigate]);
 
   const fetchPosts = async (pageNum = 0) => {
     setLoading(true);
@@ -254,6 +288,17 @@ const BlogAdmin = () => {
 
   // Calculate total pages for pagination
   const totalPages = Math.ceil(totalPosts / pageSize);
+
+  if (isAdminChecking) {
+    return (
+      <PageLayout>
+        <div className="py-16 max-w-7xl mx-auto px-4 flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mb-4"></div>
+          <p className="text-center text-gray-600">Verifying admin access...</p>
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
