@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +9,7 @@ import { QuickbooksEntitiesProvider } from "@/contexts/QuickbooksEntitiesContext
 import { IdleTimeoutProvider } from "@/contexts/IdleTimeoutContext";
 import { TabVisibilityProvider } from "@/contexts/TabVisibilityContext";
 import RouteGuard from "@/components/RouteGuard";
+import AdminRouteGuard from "@/components/AdminRouteGuard";
 import RouteRestorer from "@/components/RouteRestorer";
 import EnvironmentIndicator from "@/components/EnvironmentIndicator";
 import { isProduction, isDevelopment } from "./config/environment";
@@ -171,25 +171,25 @@ const AppRoutes = () => {
       <Route
         path="/admin/blog"
         element={
-          <RouteGuard>
+          <AdminRouteGuard>
             <BlogAdmin />
-          </RouteGuard>
+          </AdminRouteGuard>
         }
       />
       <Route
         path="/admin/blog/import"
         element={
-          <RouteGuard>
+          <AdminRouteGuard>
             <BlogImportPage />
-          </RouteGuard>
+          </AdminRouteGuard>
         }
       />
       <Route
         path="/admin/test"
         element={
-          <RouteGuard>
+          <AdminRouteGuard>
             <TestAdmin />
-          </RouteGuard>
+          </AdminRouteGuard>
         }
       />
 

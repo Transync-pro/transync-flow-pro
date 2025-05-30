@@ -28,6 +28,9 @@ export default function RouteGuard({
   const isQbCallbackRoute = location.pathname.includes('/quickbooks-callback');
   const isAdminRoute = location.pathname.startsWith('/admin');
 
+  // Log path information on every render
+  console.log(`RouteGuard: Current path: ${location.pathname}, isAdminRoute: ${isAdminRoute}, requiresQuickbooks: ${requiresQuickbooks}`);
+
   // Handle authentication check
   useEffect(() => {
     if (!requiresAuth) return;
@@ -50,6 +53,7 @@ export default function RouteGuard({
     
     // Skip for other conditions
     if (!requiresQuickbooks || !user || isAuthLoading || hasNavigated.current) {
+      console.log(`RouteGuard: Skipping QuickBooks check for path: ${location.pathname}, requiresQuickbooks: ${requiresQuickbooks}, user: ${!!user}, isAuthLoading: ${isAuthLoading}, hasNavigated: ${hasNavigated.current}`);
       return;
     }
 
@@ -114,6 +118,7 @@ export default function RouteGuard({
 
   // Reset navigation flag on route change
   useEffect(() => {
+    console.log(`RouteGuard: Path changed to ${location.pathname}, resetting navigation flag`);
     hasNavigated.current = false;
   }, [location.pathname]);
 
@@ -121,11 +126,13 @@ export default function RouteGuard({
   useEffect(() => {
     if (isAdminRoute && user) {
       // For admin routes, we don't need to check QuickBooks connection at all
+      console.log(`RouteGuard: Admin route detected (${location.pathname}), setting isChecking to false`);
       setIsChecking(false);
     }
-  }, [isAdminRoute, user]);
+  }, [isAdminRoute, user, location.pathname]);
 
   if (isAuthLoading || isChecking) {
+    console.log(`RouteGuard: Loading state - isAuthLoading: ${isAuthLoading}, isChecking: ${isChecking}`);
     return null;
   }
 
