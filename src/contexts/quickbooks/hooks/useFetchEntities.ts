@@ -1,6 +1,7 @@
 
-import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback } from 'react';
+import { logError } from '@/utils/errorLogger';
+import { supabase } from '@/integrations/supabase/environmentClient';
 import { toast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { EntityState, DateRange } from "../types";

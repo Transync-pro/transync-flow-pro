@@ -15,7 +15,7 @@ import { useQuickbooks } from "@/contexts/QuickbooksContext";
 import { useNavigate } from "react-router-dom";
 import QuickbooksUserIdentity from '@/components/QuickbooksUserIdentity';
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 
 // Stats card type definition
 interface StatsCard {

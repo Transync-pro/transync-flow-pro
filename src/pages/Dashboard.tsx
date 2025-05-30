@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuickbooks } from '@/contexts/QuickbooksContext';
@@ -17,14 +18,13 @@ export default function Dashboard() {
   // Track if we've already processed URL parameters
   const hasProcessedParams = useRef(false);
 
-  // Handle connection status from URL parameters
+  // Handle connection status from URL parameters (legacy support)
   useEffect(() => {
     if (hasProcessedParams.current) return;
     
     const params = new URLSearchParams(location.search);
     const connected = params.get('connected');
     const company = params.get('company');
-    const direct = params.get('direct');
     const error = params.get('error');
 
     if (connected === '1' && company) {
@@ -33,10 +33,8 @@ export default function Dashboard() {
         description: `Successfully connected to ${decodeURIComponent(company)}`,
       });
       
-      // If this was a direct auth, refresh connection immediately
-      if (direct === '1') {
-        refreshConnection();
-      }
+      // Refresh connection to update context
+      refreshConnection();
       
       // Clean up URL parameters
       navigate('/dashboard', { replace: true });
@@ -53,38 +51,15 @@ export default function Dashboard() {
     hasProcessedParams.current = true;
   }, [location.search, navigate, refreshConnection]);
 
-  // Handle QuickBooks auth success message
+  // Handle disconnection case - but with a delay to allow connection check
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-
-      if (event.data.type === 'QB_AUTH_SUCCESS') {
-        // If this was a direct auth, refresh connection immediately
-        if (event.data.directAuth) {
-          refreshConnection();
-        }
-        
-        toast({
-          title: 'Connected to QuickBooks',
-          description: `Successfully connected to ${event.data.companyName}`,
-        });
-      } else if (event.data.type === 'QB_AUTH_ERROR') {
-        toast({
-          title: 'Connection Error',
-          description: event.data.error,
-          variant: 'destructive',
-        });
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [refreshConnection]);
-
-  // Handle disconnection case
-  useEffect(() => {
-    if (isConnected === false && !isLoading) {
-      navigate('/authenticate', { replace: true });
+    if (!isLoading && isConnected === false) {
+      // Add a small delay to prevent immediate redirect during loading
+      const timer = setTimeout(() => {
+        navigate('/authenticate', { replace: true });
+      }, 1000);
+      
+      return () => clearTimeout(timer);
     }
   }, [isConnected, isLoading, navigate]);
 

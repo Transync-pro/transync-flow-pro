@@ -1,8 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/environmentClient";
 import { toast } from "@/components/ui/use-toast";
-import { logOperation } from "@/utils/operationLogger";
-import { validateOperationType } from "@/utils/operationLogger";
 import { QBEntityResponse } from "../types";
 
 // Fetch QuickBooks entities
@@ -28,17 +26,7 @@ export const fetchQuickbooksEntities = async <T = any>(
     if (error) throw new Error(error.message);
     if (data.error) throw new Error(data.error);
     
-    // Log the successful fetch operation with validated operation type
-    await logOperation({
-      operationType: validateOperationType('fetch'),
-      entityType,
-      recordId: null,
-      status: 'success',
-      details: { 
-        query: customQuery,
-        count: data?.data?.QueryResponse?.[entityType]?.length || 0
-      }
-    });
+    console.log(`Successfully fetched ${entityType} entities:`, data?.data);
 
     return {
       success: true,
@@ -46,14 +34,6 @@ export const fetchQuickbooksEntities = async <T = any>(
     };
   } catch (error: any) {
     console.error(`Error fetching ${entityType}:`, error);
-    
-    // Log the failed fetch operation with validated operation type
-    await logOperation({
-      operationType: validateOperationType('fetch'),
-      entityType,
-      status: 'error',
-      details: { error: error.message || "An unknown error occurred" }
-    });
     
     toast({
       title: `Failed to fetch ${entityType}`,
