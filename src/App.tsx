@@ -169,7 +169,7 @@ const AppRoutes = () => {
       <Route
         path="/admin/blog"
         element={
-          <RouteGuard>
+          <RouteGuard requiresAdmin={true}>
             <BlogAdmin />
           </RouteGuard>
         }
@@ -177,7 +177,7 @@ const AppRoutes = () => {
       <Route
         path="/admin/blog/import"
         element={
-          <RouteGuard>
+          <RouteGuard requiresAdmin={true}>
             <BlogImportPage />
           </RouteGuard>
         }
@@ -185,7 +185,7 @@ const AppRoutes = () => {
       <Route
         path="/admin/test"
         element={
-          <RouteGuard>
+          <RouteGuard requiresAdmin={true}>
             <TestAdmin />
           </RouteGuard>
         }
