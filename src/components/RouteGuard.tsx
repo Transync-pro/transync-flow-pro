@@ -52,10 +52,13 @@ export default function RouteGuard({
   // Check admin role when needed
   useEffect(() => {
     const checkAdminRole = async () => {
-      if (!user) return;
+      if (!user) {
+        setRoleChecked(true);
+        return;
+      }
       
       try {
-        console.log("RouteGuard: Checking admin role for user");
+        console.log("RouteGuard: Checking admin role for user", user.id);
         const adminStatus = await isUserAdmin();
         console.log("RouteGuard: Admin status:", adminStatus);
         
@@ -176,8 +179,8 @@ export default function RouteGuard({
         return;
       }
 
-      // Handle admin routes
-      if (requiresAdmin && !isAdmin && roleChecked) {
+      // Handle admin routes - only redirect if role check is complete and user is not admin
+      if (requiresAdmin && roleChecked && !isAdmin) {
         console.log('RouteGuard: User is not an admin, redirecting to home');
         toast({
           title: "Access Denied",
@@ -220,9 +223,15 @@ export default function RouteGuard({
     return null;
   }
 
+  // For admin routes, wait for role check to complete before allowing access
+  if (requiresAdmin && !roleChecked) {
+    console.log("RouteGuard: Waiting for admin role check to complete");
+    return null;
+  }
+
   // For admin routes, only check if we've completed the role check
   if (requiresAdmin && roleChecked && !isAdmin) {
-    console.log("RouteGuard: Admin route access denied, redirecting to home");
+    console.log("RouteGuard: Admin route access denied, user is not admin");
     return null;
   }
 
