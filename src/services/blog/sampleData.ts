@@ -1,5 +1,4 @@
-
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 
 export interface SampleBlogPost {
   title: string;
@@ -140,7 +139,7 @@ Financial reporting is essential for business decision-making, but it can be tim
 
 ## The Value of Automated Financial Reports
 
-Automated financial reporting provides numerous benefits:
+Automated financial reports provide numerous benefits:
 - Consistent timing of report delivery
 - Reduced human error
 - Standardized format for easier comparison

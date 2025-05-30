@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { LogOperationParams } from "./types";
 
 // QuickBooks API base URL for sandbox environment

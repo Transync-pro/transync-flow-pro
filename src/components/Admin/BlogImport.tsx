@@ -8,7 +8,7 @@ import { toast } from "@/components/ui/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Upload, UploadCloud, CheckCircle, XCircle, FileUp, Clock, RefreshCw, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import { importWordPressXml, getAllImportJobs, getImportJobById } from "@/services/blog/import";
 
 interface ImportJobDisplay {

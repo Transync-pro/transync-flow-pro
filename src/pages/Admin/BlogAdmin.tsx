@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 import PageLayout from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";

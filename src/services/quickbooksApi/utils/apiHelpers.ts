@@ -1,5 +1,4 @@
-
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/environmentClient";
 
 // QuickBooks API base URL (for sandbox or production)
 export const API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com";
