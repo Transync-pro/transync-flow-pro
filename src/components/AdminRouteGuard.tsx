@@ -7,10 +7,18 @@ import { Loader2 } from 'lucide-react';
 import { isUserAdmin } from '@/services/blog/users';
 
 export default function AdminRouteGuard({ children }: { children: React.ReactNode }) {
+  console.log('🔵 AdminRouteGuard: Rendering...');
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
+  
+  console.log('🔵 AdminRouteGuard: Auth state', { 
+    hasUser: !!user, 
+    userId: user?.id, 
+    isLoading, 
+    isCheckingAdmin 
+  });
 
   useEffect(() => {
     const checkAdminStatus = async () => {

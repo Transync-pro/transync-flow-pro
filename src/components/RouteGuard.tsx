@@ -51,9 +51,27 @@ export default function RouteGuard({
       return;
     }
 
-    if (!user || isAuthLoading || hasNavigated.current) {
-      return;
-    }
+    // Add a debug delay to prevent immediate redirect
+    const debugDelay = async () => {
+      console.log('🔴 DEBUG: Adding 5 second delay to prevent immediate redirect');
+      console.log('Current path:', window.location.pathname);
+      console.log('requiresQuickbooks:', requiresQuickbooks);
+      console.log('isAuthLoading:', isAuthLoading);
+      console.log('hasNavigated.current:', hasNavigated.current);
+      
+      // Add a 5-second delay for debugging
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      if (!user || isAuthLoading || hasNavigated.current) {
+        console.log('Skipping QuickBooks check - missing user, loading, or already navigated');
+        return;
+      }
+      
+      // Rest of your QuickBooks check logic here
+      console.log('Continuing with QuickBooks check...');
+    };
+    
+    debugDelay();
 
     // Skip checks in callback route
     if (isQbCallbackRoute) {

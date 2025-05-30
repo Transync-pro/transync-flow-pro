@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { useEffect } from 'react';
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QuickbooksProvider } from "@/contexts/QuickbooksContext";
 import { QuickbooksEntitiesProvider } from "@/contexts/QuickbooksEntitiesContext";
@@ -55,8 +56,16 @@ const queryClient = new QueryClient();
 const AppRoutes = () => {
   // All routes are now relative to the root
   // Staging is handled via subdomain, not path
+  const location = useLocation();
+  
+  // Log route changes
+  useEffect(() => {
+    console.log('🟢 Route changed to:', location.pathname);
+    console.log('Route state:', location.state);
+  }, [location]);
+  
   return (
-    <Routes>
+    <Routes location={location}>
       {/* Public routes */}
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
