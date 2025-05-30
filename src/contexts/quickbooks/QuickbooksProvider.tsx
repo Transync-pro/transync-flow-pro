@@ -7,7 +7,6 @@ import { useQBActions } from "./useQBActions";
 import { useQBErrors } from "./useQBErrors";
 import { connectionStatusService } from '@/services/auth/ConnectionStatusService';
 import { useAuthFlow } from '@/services/auth/AuthFlowManager';
-import { isUserAdmin } from '@/services/blog/users';
 
 const QuickbooksContext = createContext<QuickbooksContextType | null>(null);
 
@@ -64,46 +63,26 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
       return;
     }
 
-    let isMounted = true;
-    let unsubscribe: () => void;
-
-    const setupConnection = async () => {
-      try {
-        // Only check connection status if we're not already connected
-        if (!isConnected) {
-          await connectionStatusService.checkConnectionStatus(user.id);
+    const unsubscribe = connectionStatusService.subscribe((userId, info) => {
+      if (userId === user.id) {
+        setIsConnected(info.status === 'connected');
+        setIsLoading(info.status === 'checking');
+        setLastChecked(info.lastChecked);
+        setCompanyName(info.companyName || null);
+        
+        if (info.error) {
+          handleError(info.error);
         }
-
-        if (!isMounted) return;
-
-        // Subscribe to connection status changes
-        unsubscribe = connectionStatusService.subscribe((userId, info) => {
-          if (userId === user.id && isMounted) {
-            setIsConnected(info.status === 'connected');
-            setIsLoading(info.status === 'checking');
-            setLastChecked(info.lastChecked);
-            setCompanyName(info.companyName || null);
-            
-            if (info.error) {
-              console.error('Connection status error:', info.error);
-              handleError(info.error);
-            }
-          }
-        });
-      } catch (error) {
-        console.error('Error setting up connection status:', error);
       }
-    };
+    });
 
-    setupConnection();
+    // Initial check
+    connectionStatusService.checkConnectionStatus(user.id);
 
     return () => {
-      isMounted = false;
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      unsubscribe();
     };
-  }, [user, isConnected, handleError]);
+  }, [user, handleError]);
 
   const { refreshToken, getAccessToken } = useQBTokenManagement(
     connection,
