@@ -1,6 +1,11 @@
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useCallback } from 'react';
 import { logError } from '@/utils/errorLogger';
 import { supabase } from '@/integrations/supabase/environmentClient';
+import { toast } from "@/components/ui/use-toast";
+import { format } from "date-fns";
+import { EntityState, DateRange } from "../types";
+import { logOperation } from "@/utils/operationLogger";
 
 export const useFetchEntities = (
   userId: string | undefined,
