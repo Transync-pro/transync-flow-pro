@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, ReactNode, useCallback, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { QuickbooksConnection, QuickbooksContextType } from "./types";
@@ -51,7 +50,6 @@ export const QuickbooksProvider: React.FC<QuickbooksProviderProps> = ({ children
   const { error, handleError, clearError } = useQBErrors();
   const { connectionStatus } = useAuthFlow();
 
-  // Subscribe to connection status changes
   useEffect(() => {
     if (!user) {
       setIsConnected(false);

@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QuickbooksProvider } from "@/contexts/QuickbooksContext";
-import { QuickbooksEntitiesProvider } from "@/contexts/QuickbooksEntitiesContext";
 import { IdleTimeoutProvider } from "@/contexts/IdleTimeoutContext";
 import { TabVisibilityProvider } from "@/contexts/TabVisibilityContext";
 import RouteGuard from "@/components/RouteGuard";
@@ -208,14 +206,12 @@ const App = () => {
         <BrowserRouter basename="/">
           <AuthProvider>
             <QuickbooksProvider>
-              <QuickbooksEntitiesProvider>
-                <IdleTimeoutProvider>
-                  <TabVisibilityProvider>
-                    <EnvironmentIndicator />
-                    <AppRoutes />
-                  </TabVisibilityProvider>
-                </IdleTimeoutProvider>
-              </QuickbooksEntitiesProvider>
+              <IdleTimeoutProvider>
+                <TabVisibilityProvider>
+                  <EnvironmentIndicator />
+                  <AppRoutes />
+                </TabVisibilityProvider>
+              </IdleTimeoutProvider>
             </QuickbooksProvider>
           </AuthProvider>
         </BrowserRouter>

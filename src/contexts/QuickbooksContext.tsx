@@ -1,6 +1,7 @@
 
 import React from "react";
 import { QuickbooksProvider as Provider, useQuickbooks } from "./quickbooks/QuickbooksProvider";
+import { QuickbooksEntitiesProvider } from "./QuickbooksEntitiesContext";
 import { useAuth } from "./AuthContext";
 
 const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -8,7 +9,9 @@ const QuickbooksProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   
   return (
     <Provider user={user}>
-      {children}
+      <QuickbooksEntitiesProvider>
+        {children}
+      </QuickbooksEntitiesProvider>
     </Provider>
   );
 };
